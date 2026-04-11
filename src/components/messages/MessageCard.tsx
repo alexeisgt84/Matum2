@@ -1,0 +1,86 @@
+import React from 'react';
+import type { WhatsAppMessage } from '../../types/message';
+import { Edit3, Trash2, MessageSquare, Image, MousePointer2, Package, Clock } from 'lucide-react';
+
+interface MessageCardProps {
+  message: WhatsAppMessage;
+  productCount?: number;
+  onEdit: (message: WhatsAppMessage) => void;
+  onDelete: (id: string) => void;
+}
+
+export const MessageCard: React.FC<MessageCardProps> = ({ message, productCount, onEdit, onDelete }) => {
+  const icons = {
+    text: MessageSquare,
+    image: Image,
+    button: MousePointer2,
+    product: Package,
+    catalog_products: Package,
+  };
+
+  const Icon = icons[message.type as keyof typeof icons] || MessageSquare;
+  const isCatalog = message.type === 'catalog_products';
+
+  return (
+    <div className={`card group hover:border-[#25D366]/30 transition-all flex items-start gap-4 ${isCatalog ? 'border-[#25D366]/20 bg-[#25D366]/5' : ''}`}>
+      <div className={`p-3 rounded-xl ${
+        isCatalog ? 'bg-[#25D366] text-black' :
+        message.type === 'text' ? 'bg-blue-500/10 text-blue-500' :
+        message.type === 'image' ? 'bg-purple-500/10 text-purple-500' :
+        message.type === 'button' ? 'bg-amber-500/10 text-amber-500' :
+        'bg-[#25D366]/10 text-[#25D366]'
+      }`}>
+        <Icon size={24} />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-start">
+          <div className="flex flex-col">
+            <h3 className="text-white font-bold truncate group-hover:text-[#25D366] transition-colors uppercase text-[11px] tracking-widest">
+              {isCatalog ? 'Catálogo de Productos' : message.name}
+            </h3>
+            {!isCatalog && message.scheduled_time && (
+              <div className="flex items-center gap-1.5 text-[10px] text-gray-500 mt-0.5">
+                <Clock size={10} />
+                <span className="text-[#25D366] font-bold">Programado: {message.scheduled_time}</span>
+              </div>
+            )}
+            {isCatalog && (
+              <div className="flex items-center gap-1.5 text-[10px] text-[#25D366] mt-0.5 font-bold">
+                <Package size={10} />
+                <span>{productCount || 0} Productos configurados</span>
+              </div>
+            )}
+          </div>
+          <div className="flex gap-1">
+            {!isCatalog && (
+              <>
+                <button 
+                  onClick={() => onEdit(message)}
+                  className="p-1 px-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-xs flex items-center gap-1"
+                >
+                  <Edit3 size={14} />
+                  <span>Editar</span>
+                </button>
+                <button 
+                  onClick={() => onDelete(message.id)}
+                  className="p-1 px-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors text-xs flex items-center gap-1"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3 p-3 bg-white/5 rounded-xl border border-white/5">
+          <p className="text-gray-400 text-sm whitespace-pre-wrap line-clamp-3 leading-relaxed">
+            {isCatalog 
+              ? 'En este punto de la secuencia se enviará la lista completa de productos activos del catálogo siguiendo la plantilla configurada.' 
+              : message.content}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
