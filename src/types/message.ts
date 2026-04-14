@@ -4,7 +4,7 @@ export interface WhatsAppMessage {
   id: string;
   catalog_id: string;
   name: string;
-  content: string;
+  content: string | null;
   type: MessageType;
   is_individual: boolean;
   is_sequence: boolean;
@@ -17,7 +17,7 @@ export interface WhatsAppMessage {
 
 export interface MessageForm {
   name: string;
-  content: string;
+  content: string | null;
   type: MessageType;
   is_individual: boolean;
   is_sequence: boolean;

@@ -16,7 +16,8 @@ import {
   Smartphone,
   ChevronLeft,
   Send,
-  Check
+  RotateCcw,
+  AlertCircle
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -43,6 +44,7 @@ import { useEvolution } from '../../hooks/useEvolution';
 import type { Product } from '../../types/product';
 import type { WhatsAppMessage } from '../../types/message';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { CatalogStatusBar } from '../../components/catalogs/CatalogStatusBar';
 
 type View = 'individual' | 'sequences' | 'products' | 'groups';
 
@@ -62,7 +64,7 @@ export const CatalogDetailPage = () => {
   const { instance } = useEvolution(catalogId);
 
   // Hooks de Producto
-  const { products, loading: prodLoading, getProducts, saveProduct, deleteProduct } = useProducts(catalogId);
+  const { products, loading: prodLoading, getProducts, saveProduct, deleteProduct, updateProductsOrder } = useProducts(catalogId);
   
   // Hooks de Mensaje
   const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, updateMessagesOrder } = useMessages(catalogId);
@@ -71,7 +73,7 @@ export const CatalogDetailPage = () => {
   const { linkedGroups, loading: groupsLoading, getLinkedGroups, fetchAvailableGroups, linkGroup, unlinkGroup } = useWhatsAppGroups(catalogId);
 
   // Motor de Envío
-  const { sendCatalogToGroups, sending } = useSendingEngine(catalogId);
+  const { sendCatalogToGroups, sendSingleMessage, sendSingleProduct, sending } = useSendingEngine(catalogId);
 
   const { counts, limits, canAddProduct, refresh: refreshLimits } = usePlanLimits();
 
@@ -88,8 +90,11 @@ export const CatalogDetailPage = () => {
   const [groupUnlinkId, setGroupUnlinkId] = useState<string | null>(null);
 
   const [showUpgrade, setShowUpgrade] = useState(false);
+  const [isRestoreOpen, setIsRestoreOpen] = useState(false);
   
   const [tempTime, setTempTime] = useState<string>('');
+  const [queueStats, setQueueStats] = useState({ pending: 0, sent: 0, error: 0 });
+  const [statsLoading, setStatsLoading] = useState(false);
 
   useEffect(() => {
     if (catalog?.sequence_start_time) {
@@ -135,6 +140,16 @@ export const CatalogDetailPage = () => {
 
   // Configurar el Header
   useEffect(() => {
+    let interval: any;
+    if (queueStats.pending > 0 || queueStats.error > 0) {
+      interval = setInterval(fetchQueueStats, 30000); // Cada 30 seg si hay cola
+    } else {
+      interval = setInterval(fetchQueueStats, 120000); // Cada 2 min si no hay
+    }
+    return () => clearInterval(interval);
+  }, [catalogId, queueStats.pending, queueStats.error]);
+
+  useEffect(() => {
     if (catalog) {
       setTitle(catalog.name);
       setSubtitle('Gestión de Contenido');
@@ -150,6 +165,11 @@ export const CatalogDetailPage = () => {
           icon: Smartphone, 
           onClick: () => setIsEvolutionOpen(true) 
         },
+        { 
+          label: 'Restaurar mensajes', 
+          icon: RotateCcw, 
+          onClick: () => setIsRestoreOpen(true) 
+        },
       ];
 
       // Solo mostrar "Grupos" si hay una instancia conectada
@@ -161,16 +181,39 @@ export const CatalogDetailPage = () => {
         });
       }
 
+      const StatBadge = ({ icon: Icon, value, color }: { icon: any, value: number, color: string }) => (
+        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/5">
+          <Icon size={12} className={color} />
+          <span className="text-[10px] font-bold text-gray-300 tabular-nums">{value}</span>
+        </div>
+      );
+
       setRightAction(
-        <DropdownMenu 
-          items={optionsItems} 
-          trigger={
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/5 text-gray-400 hover:text-white">
-              <Settings size={18} />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Opciones</span>
-            </button>
-          }
-        />
+        <div className="flex items-center gap-2">
+          {/* Mini Stats discreet */}
+          <div className="hidden sm:flex items-center gap-1.5 mr-2">
+            <StatBadge icon={MessageSquare} value={messages.length} color="text-blue-400" />
+            <StatBadge icon={Zap} value={messages.filter(m => m.is_sequence).length} color="text-yellow-400" />
+            <StatBadge icon={Package} value={products.length} color="text-purple-400" />
+            <StatBadge icon={Users} value={linkedGroups.filter(g => g.is_active).length} color="text-[#25D366]" />
+            {queueStats.pending > 0 && (
+              <StatBadge icon={Clock} value={queueStats.pending} color="text-orange-400 animate-pulse" />
+            )}
+            {queueStats.error > 0 && (
+              <StatBadge icon={AlertCircle} value={queueStats.error} color="text-red-400" />
+            )}
+          </div>
+
+          <DropdownMenu 
+            items={optionsItems} 
+            trigger={
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/5 text-gray-400 hover:text-white">
+                <Settings size={18} />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Opciones</span>
+              </button>
+            }
+          />
+        </div>
       );
     }
 
@@ -179,7 +222,7 @@ export const CatalogDetailPage = () => {
       setSubtitle(null);
       setRightAction(null);
     };
-  }, [catalog, catalogId, navigate, setTitle, setSubtitle, setRightAction, instance?.status]);
+  }, [catalog, catalogId, navigate, setTitle, setSubtitle, setRightAction, instance?.status, messages.length, products.length, linkedGroups, queueStats]);
 
   const loadCatalog = async () => {
     setCatLoading(true);
@@ -191,6 +234,41 @@ export const CatalogDetailPage = () => {
     
     if (data) setCatalog(data);
     setCatLoading(false);
+    fetchQueueStats();
+  };
+
+  const fetchQueueStats = async () => {
+    if (!catalogId) return;
+    setStatsLoading(true);
+    try {
+      const { data: pending } = await supabase
+        .from('wa_message_queue')
+        .select('count', { count: 'exact', head: true })
+        .eq('catalog_id', catalogId)
+        .eq('status', 'pending');
+
+      const { data: errors } = await supabase
+        .from('wa_message_queue')
+        .select('count', { count: 'exact', head: true })
+        .eq('catalog_id', catalogId)
+        .eq('status', 'error');
+      
+      const { data: sent } = await supabase
+        .from('wa_message_queue')
+        .select('count', { count: 'exact', head: true })
+        .eq('catalog_id', catalogId)
+        .eq('status', 'sent');
+
+      setQueueStats({
+        pending: (pending as any)?.count || 0,
+        sent: (sent as any)?.count || 0,
+        error: (errors as any)?.count || 0
+      });
+    } catch (err) {
+      console.error('Error fetching queue stats:', err);
+    } finally {
+      setStatsLoading(false);
+    }
   };
 
   const updateSequenceStartTime = async (time: string) => {
@@ -228,10 +306,18 @@ export const CatalogDetailPage = () => {
   const onDragEnd = (result: any) => {
     if (!result.destination) return;
 
-    const sequenceMessages = messages.filter(m => m.is_sequence);
-    const nonSequenceMessages = messages.filter(m => !m.is_sequence);
+    if (result.source.droppableId === 'products-list') {
+      const items = Array.from(products);
+      const [reorderedItem] = items.splice(result.source.index, 1);
+      items.splice(result.destination.index, 0, reorderedItem);
+      updateProductsOrder(items);
+      return;
+    }
+
+    const isSequence = result.source.droppableId === 'sequence-messages';
+    const targetMessages = isSequence ? messages.filter(m => m.is_sequence) : messages;
     
-    const items = Array.from(sequenceMessages);
+    const items = Array.from(targetMessages);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
 
@@ -288,6 +374,110 @@ export const CatalogDetailPage = () => {
       getMessages();
     } catch (err: any) {
       toast.error('Error al generar horarios: ' + err.message);
+    }
+  };
+
+  const restoreDefaultMessages = async () => {
+    if (!catalogId || !catalog) return;
+    
+    setCatLoading(true);
+    try {
+      // 1. Eliminar todos los mensajes del catálogo
+      const { error: delError } = await supabase
+        .from('whatsapp_messages')
+        .delete()
+        .eq('catalog_id', catalogId);
+      
+      if (delError) throw delError;
+
+      // 2. Mensajes predeterminados
+      const defaultMessages = [
+        {
+          name: 'Bienvenido',
+          content: '¡Bienvenido al grupo de *{{nombre_catalogo}}*! 🚀 Estamos felices de tenerte aquí. Pronto recibirás nuestro catálogo de productos en esta misma secuencia.',
+          is_sequence: true,
+          is_individual: false,
+          type: 'text' as const,
+          sequence_order: 0
+        },
+        {
+          name: 'Reglas del grupo',
+          content: '📋 *Reglas de {{nombre_catalogo}}*:\n1. Mantén un trato respetuoso.\n2. No compartas contenido ajeno o spam.\n3. Pedidos por mensaje privado para mayor privacidad.',
+          is_sequence: true,
+          is_individual: false,
+          type: 'text' as const,
+          sequence_order: 1
+        },
+        {
+          name: 'Invitación a preguntar',
+          content: '🛍️ ¿Ya viste algo que te encante en *{{nombre_catalogo}}*? Si tienes dudas sobre tallas, colores o envíos, ¡aquí estamos para ayudarte!',
+          is_sequence: false,
+          is_individual: true,
+          type: 'text' as const,
+          scheduled_time: '10:00',
+          sequence_order: 0
+        },
+        {
+          name: 'Garantía',
+          content: '✨ En *{{nombre_catalogo}}* nos esforzamos por ofrecerte solo lo mejor. Cada producto es seleccionado con amor y detalle. ¡Tu satisfacción es nuestra prioridad!',
+          is_sequence: false,
+          is_individual: true,
+          type: 'text' as const,
+          sequence_order: 0
+        },
+        {
+          name: 'Catálogo',
+          content: 'Productos del catálogo',
+          type: 'catalog_products' as const,
+          is_sequence: true,
+          is_individual: false,
+          sequence_order: 2
+        },
+        {
+          name: 'Como comprar',
+          content: '🛒 *¿Cómo comprar en {{nombre_catalogo}}?*\n1. Mira el catálogo.\n2. Envíanos captura del producto.\n3. Acordamos el pago y envío. ¡Así de fácil!',
+          is_sequence: true,
+          is_individual: false,
+          type: 'text' as const,
+          sequence_order: 3
+        },
+        {
+          name: 'Nuestras redes',
+          content: '📱 ¡No te pierdas nada! Síguenos también en nuestras redes sociales para ver más de *{{nombre_catalogo}}*. ¡Te esperamos!',
+          is_sequence: false,
+          is_individual: true,
+          type: 'text' as const,
+          sequence_order: 0
+        },
+        {
+          name: 'Cerrado por hoy',
+          content: '🌙 ¡Gracias por acompañarnos hoy en *{{nombre_catalogo}}*! Nuestro horario de atención ha finalizado. Seguiremos respondiendo mañana. ¡Descansen!',
+          is_sequence: false,
+          is_individual: true,
+          type: 'text' as const,
+          scheduled_time: '17:00',
+          sequence_order: 0
+        }
+      ];
+
+      const messagesToInsert = defaultMessages.map(m => ({
+        ...m,
+        catalog_id: catalogId
+      }));
+
+      const { error: insError } = await supabase
+        .from('whatsapp_messages')
+        .insert(messagesToInsert);
+      
+      if (insError) throw insError;
+
+      toast.success('Mensajes restaurados con éxito');
+      await getMessages();
+    } catch (err: any) {
+      toast.error('Error al restaurar: ' + err.message);
+    } finally {
+      setCatLoading(false);
+      setIsRestoreOpen(false);
     }
   };
 
@@ -401,19 +591,48 @@ export const CatalogDetailPage = () => {
                 onAction={handleAddAction}
               />
             ) : (
-              <div className="grid gap-4">
-                {products.map(product => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onEdit={(p) => {
-                      setEditingProduct(p);
-                      setIsProdFormOpen(true);
-                    }}
-                    onDelete={setProductToDelete}
-                  />
-                ))}
-              </div>
+              <DragDropContext onDragEnd={onDragEnd}>
+                <Droppable droppableId="products-list">
+                  {(provided) => (
+                    <div 
+                      {...provided.droppableProps} 
+                      ref={provided.innerRef}
+                      className="grid gap-4"
+                    >
+                      {products.map((product, index) => (
+                        <Draggable key={product.id} draggableId={product.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`${snapshot.isDragging ? 'z-50' : ''}`}
+                            >
+                              <div className="relative group">
+                                <div 
+                                  {...provided.dragHandleProps}
+                                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white cursor-grab active:cursor-grabbing p-2"
+                                >
+                                  <GripVertical size={20} />
+                                </div>
+                                <ProductCard
+                                  product={product}
+                                  onEdit={(p) => {
+                                    setEditingProduct(p);
+                                    setIsProdFormOpen(true);
+                                  }}
+                                  onDelete={setProductToDelete}
+                                  onSendNow={sendSingleProduct}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             )}
           </div>
         )}
@@ -435,7 +654,7 @@ export const CatalogDetailPage = () => {
                   </div>
                 ))}
               </div>
-            ) : messages.filter(m => !m.is_sequence).length === 0 ? (
+            ) : messages.length === 0 ? (
               <EmptyState
                 icon={MessageSquare}
                 title="Sin mensajes"
@@ -444,19 +663,48 @@ export const CatalogDetailPage = () => {
                 onAction={handleAddAction}
               />
             ) : (
-              <div className="grid gap-4">
-                {messages.filter(m => !m.is_sequence).map(message => (
-                  <MessageCard
-                    key={message.id}
-                    message={message}
-                    onEdit={(m) => {
-                      setEditingMessage(m);
-                      setIsMsgFormOpen(true);
-                    }}
-                    onDelete={setMessageToDelete}
-                  />
-                ))}
-              </div>
+              <DragDropContext onDragEnd={onDragEnd}>
+                <Droppable droppableId="individual-messages">
+                  {(provided) => (
+                    <div 
+                      {...provided.droppableProps} 
+                      ref={provided.innerRef}
+                      className="grid gap-4"
+                    >
+                      {messages.map((message, index) => (
+                        <Draggable key={message.id} draggableId={message.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`${snapshot.isDragging ? 'z-50' : ''}`}
+                            >
+                              <div className="relative group">
+                                <div 
+                                  {...provided.dragHandleProps}
+                                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white cursor-grab active:cursor-grabbing p-2"
+                                >
+                                  <GripVertical size={20} />
+                                </div>
+                                <MessageCard
+                                  message={message}
+                                  onEdit={(m) => {
+                                    setEditingMessage(m);
+                                    setIsMsgFormOpen(true);
+                                  }}
+                                  onDelete={setMessageToDelete}
+                                  onSendNow={sendSingleMessage}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
             )}
           </div>
         )}
@@ -572,6 +820,7 @@ export const CatalogDetailPage = () => {
                                     setIsMsgFormOpen(true);
                                   }}
                                   onDelete={setMessageToDelete}
+                                  onSendNow={sendSingleMessage}
                                 />
                               </div>
                             </div>
@@ -641,14 +890,14 @@ export const CatalogDetailPage = () => {
       </div>
 
       {/* FAB para agregar contenido */}
-      <div className="fixed bottom-24 left-4 right-4 z-10 max-w-lg mx-auto">
+      <div className="fixed bottom-24 right-6 z-20">
         <Button 
-          className="w-full shadow-[0_8px_30px_rgb(37,211,102,0.3)] h-14 rounded-2xl text-lg" 
+          size="lg"
+          className="w-14 h-14 rounded-full shadow-[0_8px_30px_rgb(37,211,102,0.4)] flex items-center justify-center p-0" 
           icon={Plus}
           onClick={handleAddAction}
-        >
-          {view === 'products' ? 'Nuevo Producto' : view === 'groups' ? 'Vincular Grupos' : 'Nuevo Mensaje'}
-        </Button>
+          title={view === 'products' ? 'Nuevo Producto' : view === 'groups' ? 'Vincular Grupos' : 'Nuevo Mensaje'}
+        />
       </div>
 
       {/* Evolution Config Modal */}
@@ -662,7 +911,10 @@ export const CatalogDetailPage = () => {
             catalogId={catalogId} 
             onConnected={() => {
               setIsEvolutionOpen(false);
-              setIsLinkGroupOpen(true);
+              // Solo abrir modal de grupos en la primera conexión (sin grupos vinculados)
+              if (linkedGroups.length === 0) {
+                setIsLinkGroupOpen(true);
+              }
             }}
           />
         </div>
@@ -740,6 +992,16 @@ export const CatalogDetailPage = () => {
         }}
         title="Desvincular Grupo"
         message="¿Estás seguro de que deseas desvincular este grupo?"
+      />
+
+      <ConfirmDialog
+        isOpen={isRestoreOpen}
+        onClose={() => setIsRestoreOpen(false)}
+        onConfirm={restoreDefaultMessages}
+        title="Restaurar Mensajes"
+        message="¿Estás seguro de que deseas borrar todos los mensajes actuales y restaurar los mensajes predeterminados? Esta acción no se puede deshacer."
+        confirmLabel="Restaurar"
+        variant="danger"
       />
 
       <UpgradeModal

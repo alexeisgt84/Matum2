@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useEvolution } from '../../hooks/useEvolution';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -16,9 +16,17 @@ export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps
   const [phoneNumber, setPhoneNumber] = useState('');
   const [method, setMethod] = useState<'qr' | 'code'>('qr');
 
-  // Notificar al padre cuando se conecte
+  // Rastrear si la conexión ocurrió durante esta sesión (transición real)
+  const prevStatusRef = useRef<string | undefined>(instance?.status);
+
+  // Notificar al padre solo cuando hay una transición real a 'connected'
+  // (no cuando el componente se monta con una instancia ya conectada)
   useEffect(() => {
-    if (instance?.status === 'connected') {
+    const prevStatus = prevStatusRef.current;
+    prevStatusRef.current = instance?.status;
+
+    // Solo disparar si hubo un cambio real: de algo != 'connected' → 'connected'
+    if (instance?.status === 'connected' && prevStatus && prevStatus !== 'connected') {
       const timer = setTimeout(() => {
         onConnected?.();
       }, 1500); // Pequeño delay para que el usuario vea el estado de éxito

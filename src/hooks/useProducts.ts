@@ -93,6 +93,33 @@ export const useProducts = (catalogId?: string) => {
     }
   };
 
+  const updateProductsOrder = async (newProducts: Product[]) => {
+    // Actualizar estado local inmediatamente para UX suave
+    const oldProducts = [...products];
+    setProducts(newProducts);
+
+    try {
+      const updates = newProducts.map((p, index) => ({
+        id: p.id,
+        catalog_id: catalogId!,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        currency: p.currency,
+        imagen_url: p.imagen_url,
+        position: index,
+        is_active: p.is_active
+      }));
+
+      const { error } = await supabase.from('products').upsert(updates);
+      if (error) throw error;
+      
+    } catch (err: any) {
+      setProducts(oldProducts);
+      toast.error('Error al guardar el orden');
+    }
+  };
+
   const deleteProduct = async (id: string) => {
     try {
       const { error } = await supabase.from('products').delete().eq('id', id);
@@ -104,5 +131,5 @@ export const useProducts = (catalogId?: string) => {
     }
   };
 
-  return { products, loading, getProducts, saveProduct, deleteProduct };
+  return { products, loading, getProducts, saveProduct, deleteProduct, updateProductsOrder };
 };

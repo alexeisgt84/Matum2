@@ -147,11 +147,12 @@ serve(async (req) => {
                     cumulativeDelayMs += Math.floor(Math.random() * (35000 - 15000 + 1)) + 15000;
                     
                     const productCaption = (catalog.template || '')
-                      .replace(/{product_name}/g, product.name)
-                      .replace(/{product_description}/g, product.description || '')
-                      .replace(/{product_price}/g, product.price ? `${product.price}` : 'Consultar')
-                      .replace(/{product_currency}/g, product.currency || '$')
-                      .replace(/{catalog_name}/g, catalog.name);
+                      .replace(/{product_name}/g, (product.name || '').trim())
+                      .replace(/{product_description}/g, (product.description || '').trim())
+                      .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
+                      .replace(/{product_currency}/g, (product.currency || '$').trim())
+                      .replace(/{catalog_name}/g, (catalog.name || '').trim())
+                      .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
 
                     const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
 
@@ -179,6 +180,10 @@ serve(async (req) => {
                 cumulativeDelayMs += Math.floor(Math.random() * (35000 - 15000 + 1)) + 15000;
                 const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
 
+                const processedContent = (item.content || '')
+                  .replace(/{catalog_name}/g, (catalog.name || '').trim())
+                  .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+
                 queueItems.push({
                   catalog_id: catalog.id,
                   group_id: group.group_id,
@@ -188,11 +193,11 @@ serve(async (req) => {
                     number: group.group_id,
                     media: item.image_url,
                     mediatype: 'image',
-                    caption: item.content || '',
+                    caption: processedContent,
                     delay: 1000
                   } : {
                     number: group.group_id,
-                    text: item.content
+                    text: processedContent
                   },
                   scheduled_at: scheduleDate.toISOString()
                 });

@@ -3,9 +3,29 @@ import { supabase } from '../lib/supabase';
 import { useEvolution } from './useEvolution';
 import { toast } from 'react-hot-toast';
 
+const EVOLUTION_URL = import.meta.env.VITE_EVOLUTION_DEFAULT_URL;
+const EVOLUTION_KEY = import.meta.env.VITE_EVOLUTION_API_KEY;
+
 export const useSendingEngine = (catalogId?: string) => {
   const { instance } = useEvolution(catalogId);
   const [sending, setSending] = useState(false);
+
+  const dispatchToEvolution = async (endpoint: string, payload: any, instanceName: string) => {
+    try {
+      const response = await fetch(`${EVOLUTION_URL}${endpoint}/${instanceName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_KEY
+        },
+        body: JSON.stringify(payload)
+      });
+      return await response.json();
+    } catch (err) {
+      console.error('Error dispatching to Evolution:', err);
+      throw err;
+    }
+  };
 
   const sendCatalogToGroups = async (catalogId: string) => {
     if (!instance || instance.status !== 'connected') {
@@ -14,7 +34,7 @@ export const useSendingEngine = (catalogId?: string) => {
     }
 
     setSending(true);
-    const toastId = toast.loading('Calculando y encolando envío...');
+    const toastId = toast.loading('Iniciando envío directo...');
 
     try {
       // 1. Obtener Datos del Catálogo
@@ -57,88 +77,244 @@ export const useSendingEngine = (catalogId?: string) => {
         throw new Error('No hay grupos vinculados o activos');
       }
 
-      // 5. Preparar Cola Masiva
-      const queueItems = [];
-      const now = new Date();
-      let cumulativeDelayMs = 0;
+      let sentCount = 0;
+      const totalMessages = groups.length * (messages.length + (messages.some(m => m.type === 'catalog_products') ? (products?.length || 0) - 1 : 0));
 
       for (const group of groups) {
         for (const item of messages) {
           if (item.type === 'catalog_products') {
             if (products && products.length > 0) {
               for (const product of products) {
-                cumulativeDelayMs += Math.floor(Math.random() * (35000 - 15000 + 1)) + 15000;
-                
                 const productCaption = catalog.template
-                  .replace(/{product_name}/g, product.name)
-                  .replace(/{product_description}/g, product.description || '')
-                  .replace(/{product_price}/g, product.price ? `${product.price}` : 'Consultar')
-                  .replace(/{product_currency}/g, product.currency || '$')
-                  .replace(/{catalog_name}/g, catalog.name);
+                  .replace(/{product_name}/g, (product.name || '').trim())
+                  .replace(/{product_description}/g, (product.description || '').trim())
+                  .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
+                  .replace(/{product_currency}/g, (product.currency || '$').trim())
+                  .replace(/{catalog_name}/g, (catalog.name || '').trim())
+                  .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
 
-                const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
+                const endpoint = product.imagen_url ? '/message/sendMedia' : '/message/sendText';
+                const payload = product.imagen_url ? {
+                  number: group.group_id,
+                  media: product.imagen_url,
+                  mediatype: 'image',
+                  caption: productCaption,
+                  delay: 1000
+                } : {
+                  number: group.group_id,
+                  text: productCaption
+                };
 
-                queueItems.push({
-                  catalog_id: catalogId,
-                  group_id: group.group_id,
-                  instance_name: instance.name,
-                  endpoint: product.imagen_url ? '/message/sendMedia' : '/message/sendText',
-                  payload: product.imagen_url ? {
-                    number: group.group_id,
-                    media: product.imagen_url,
-                    mediatype: 'image',
-                    caption: productCaption,
-                    delay: 1000
-                  } : {
-                    number: group.group_id,
-                    text: productCaption
-                  },
-                  scheduled_at: scheduleDate.toISOString()
-                });
+                await dispatchToEvolution(endpoint, payload, instance.name);
+                sentCount++;
+                toast.loading(`Enviando: ${sentCount} mensajes...`, { id: toastId });
+                
+                // Pequeño retardo de seguridad pero mucho más rápido que antes
+                await new Promise(r => setTimeout(r, 2000));
               }
             }
           } else {
-            // Mensaje normal
-            cumulativeDelayMs += Math.floor(Math.random() * (35000 - 15000 + 1)) + 15000;
-            const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
+            const processedContent = (item.content || '')
+              .replace(/{catalog_name}/g, (catalog.name || '').trim())
+              .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
 
-            queueItems.push({
-              catalog_id: catalogId,
-              group_id: group.group_id,
-              instance_name: instance.name,
-              endpoint: item.image_url ? '/message/sendMedia' : '/message/sendText',
-              payload: item.image_url ? {
-                number: group.group_id,
-                media: item.image_url,
-                mediatype: 'image',
-                caption: item.content || '',
-                delay: 1000
-              } : {
-                number: group.group_id,
-                text: item.content
-              },
-              scheduled_at: scheduleDate.toISOString()
-            });
+            const endpoint = item.image_url ? '/message/sendMedia' : '/message/sendText';
+            const payload = item.image_url ? {
+              number: group.group_id,
+              media: item.image_url,
+              mediatype: 'image',
+              caption: processedContent,
+              delay: 1000
+            } : {
+              number: group.group_id,
+              text: processedContent
+            };
+
+            await dispatchToEvolution(endpoint, payload, instance.name);
+            sentCount++;
+            toast.loading(`Enviando: ${sentCount} mensajes...`, { id: toastId });
+            
+            await new Promise(r => setTimeout(r, 2000));
           }
         }
       }
 
-      // 6. Insertar en cola de base de datos
-      if (queueItems.length > 0) {
-        const { error: insertError } = await supabase.from('wa_message_queue').insert(queueItems);
-        if (insertError) throw insertError;
-        
-        toast.success(`¡Encolado con éxito! Se enviarán ${queueItems.length} mensajes en segundo plano.`, { id: toastId });
-      } else {
-        toast.error('No se generaron mensajes para envío.', { id: toastId });
-      }
+      toast.success(`¡Envío completado! Se enviaron ${sentCount} mensajes directamente.`, { id: toastId });
 
     } catch (err: any) {
-      toast.error(err.message, { id: toastId });
+      toast.error('Error durante el envío: ' + err.message, { id: toastId });
     } finally {
       setSending(false);
     }
   };
 
-  return { sendCatalogToGroups, sending };
+  const sendSingleMessage = async (message: any) => {
+    if (!instance || instance.status !== 'connected') {
+      toast.error('WhatsApp no está conectado');
+      return;
+    }
+
+    setSending(true);
+    const toastId = toast.loading('Enviando mensaje directamente...');
+
+    try {
+      const { data: catalog } = await supabase
+        .from('catalogs')
+        .select('*')
+        .eq('id', catalogId)
+        .single();
+      
+      if (!catalog) throw new Error('Catálogo no encontrado');
+
+      const { data: groups } = await supabase
+        .from('whatsapp_groups')
+        .select('*')
+        .eq('catalog_id', catalogId)
+        .eq('is_active', true);
+
+      if (!groups || groups.length === 0) {
+        throw new Error('No hay grupos vinculados o activos');
+      }
+
+      let sentCount = 0;
+
+      for (const group of groups) {
+        if (message.type === 'catalog_products') {
+          const { data: products } = await supabase
+            .from('products')
+            .select('*')
+            .eq('catalog_id', catalogId)
+            .eq('is_active', true)
+            .order('position', { ascending: true });
+
+          if (products && products.length > 0) {
+            for (const product of products) {
+              const productCaption = catalog.template
+                .replace(/{product_name}/g, (product.name || '').trim())
+                .replace(/{product_description}/g, (product.description || '').trim())
+                .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
+                .replace(/{product_currency}/g, (product.currency || '$').trim())
+                .replace(/{catalog_name}/g, (catalog.name || '').trim())
+                .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+
+              const endpoint = product.imagen_url ? '/message/sendMedia' : '/message/sendText';
+              const payload = product.imagen_url ? {
+                number: group.group_id,
+                media: product.imagen_url,
+                mediatype: 'image',
+                caption: productCaption,
+                delay: 1000
+              } : {
+                number: group.group_id,
+                text: productCaption
+              };
+
+              await dispatchToEvolution(endpoint, payload, instance.name);
+              sentCount++;
+              toast.loading(`Enviando: ${sentCount} mensajes...`, { id: toastId });
+              await new Promise(r => setTimeout(r, 2000));
+            }
+          }
+        } else {
+          const processedContent = (message.content || '')
+            .replace(/{catalog_name}/g, (catalog.name || '').trim())
+            .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+
+          const endpoint = message.image_url ? '/message/sendMedia' : '/message/sendText';
+          const payload = message.image_url ? {
+            number: group.group_id,
+            media: message.image_url,
+            mediatype: 'image',
+            caption: processedContent,
+            delay: 1000
+          } : {
+            number: group.group_id,
+            text: processedContent
+          };
+
+          await dispatchToEvolution(endpoint, payload, instance.name);
+          sentCount++;
+          toast.loading(`Enviando: ${sentCount} mensajes...`, { id: toastId });
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      }
+
+      toast.success(`Mensaje enviado a ${groups.length} grupos directamente.`, { id: toastId });
+
+    } catch (err: any) {
+      toast.error('Error al enviar: ' + err.message, { id: toastId });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const sendSingleProduct = async (product: any) => {
+    if (!instance || instance.status !== 'connected') {
+      toast.error('WhatsApp no está conectado');
+      return;
+    }
+
+    setSending(true);
+    const toastId = toast.loading('Enviando producto directamente...');
+
+    try {
+      const { data: catalog } = await supabase
+        .from('catalogs')
+        .select('*')
+        .eq('id', catalogId)
+        .single();
+      
+      if (!catalog) throw new Error('Catálogo no encontrado');
+
+      const { data: groups } = await supabase
+        .from('whatsapp_groups')
+        .select('*')
+        .eq('catalog_id', catalogId)
+        .eq('is_active', true);
+
+      if (!groups || groups.length === 0) {
+        throw new Error('No hay grupos vinculados o activos');
+      }
+
+      let sentCount = 0;
+
+      for (const group of groups) {
+        const productCaption = catalog.template
+          .replace(/{product_name}/g, (product.name || '').trim())
+          .replace(/{product_description}/g, (product.description || '').trim())
+          .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
+          .replace(/{product_currency}/g, (product.currency || '$').trim())
+          .replace(/{catalog_name}/g, (catalog.name || '').trim())
+          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+
+        const endpoint = product.imagen_url ? '/message/sendMedia' : '/message/sendText';
+        const payload = product.imagen_url ? {
+          number: group.group_id,
+          media: product.imagen_url,
+          mediatype: 'image',
+          caption: productCaption,
+          delay: 1000
+        } : {
+          number: group.group_id,
+          text: productCaption
+        };
+
+        await dispatchToEvolution(endpoint, payload, instance.name);
+        sentCount++;
+        toast.loading(`Enviando a grupos: ${sentCount}/${groups.length}`, { id: toastId });
+        await new Promise(r => setTimeout(r, 2000));
+      }
+
+      toast.success(`Producto enviado a ${groups.length} grupos directamente.`, { id: toastId });
+
+    } catch (err: any) {
+      toast.error('Error al enviar: ' + err.message, { id: toastId });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return { sendCatalogToGroups, sendSingleMessage, sendSingleProduct, sending };
 };
+
+
