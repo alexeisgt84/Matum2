@@ -5,6 +5,8 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement | HTMLTe
   error?: string;
   helperText?: string;
   multiline?: boolean;
+  rows?: number;
+  icon?: any;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -12,24 +14,26 @@ export const Input: React.FC<InputProps> = ({
   error,
   helperText,
   multiline = false,
+  rows,
+  icon,
   className = '',
   ...props
 }) => {
   const inputClasses = `
-    w-full bg-[#1a1a1a] border rounded-xl p-4 text-white placeholder:text-gray-600
+    w-full bg-surface border rounded-xl p-4 text-primary placeholder:text-secondary/50
     outline-none transition-all duration-200
-    ${error ? 'border-red-500/50 focus:border-red-500' : 'border-white/5 focus:border-[#25D366] focus:bg-[#242424]'}
+    ${error ? 'border-danger/50 focus:border-danger' : 'border-border focus:border-accent focus:bg-surface-hover'}
     ${className}
   `;
 
   return (
-    <div className="w-full space-y-2">
-      {label && <label className="text-sm font-medium text-gray-400 ml-1">{label}</label>}
+    <div className="w-full space-y-2 text-primary">
+      {label && <label className="text-sm font-medium text-secondary ml-1">{label}</label>}
       
       {multiline ? (
         <textarea 
           className={inputClasses} 
-          rows={4} 
+          rows={rows || 4} 
           {...props as any} 
         />
       ) : (
@@ -40,9 +44,9 @@ export const Input: React.FC<InputProps> = ({
       )}
 
       {error ? (
-        <p className="text-xs text-red-500 ml-1 font-medium">{error}</p>
+        <p className="text-xs text-danger ml-1 font-medium">{error}</p>
       ) : helperText ? (
-        <p className="text-xs text-gray-400 ml-1">{helperText}</p>
+        <p className="text-xs text-secondary ml-1">{helperText}</p>
       ) : null}
     </div>
   );

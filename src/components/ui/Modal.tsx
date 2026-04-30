@@ -30,12 +30,12 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
       />
       
       {/* Content */}
-      <div className="relative bg-[#1a1a1a] border border-white/5 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between p-6 border-b border-white/5">
-          <h2 className="text-xl font-bold text-white">{title}</h2>
+      <div className="relative bg-surface border border-border w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="flex items-center justify-between p-6 border-b border-border">
+          <h2 className="text-xl font-bold text-primary">{title}</h2>
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-white/5 rounded-full transition-colors text-gray-400 hover:text-white"
+            className="p-2 hover:bg-surface-hover rounded-full transition-colors text-secondary hover:text-primary"
           >
             <X size={20} />
           </button>
@@ -46,7 +46,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
         </div>
 
         {footer && (
-          <div className="p-6 border-t border-white/5 flex justify-end gap-3 bg-[#161616]">
+          <div className="p-6 border-t border-border flex justify-end gap-3 bg-surface">
             {footer}
           </div>
         )}

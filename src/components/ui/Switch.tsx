@@ -19,8 +19,8 @@ export const Switch: React.FC<SwitchProps> = ({
     <div className="flex items-center justify-between gap-4">
       {(label || subtitle) && (
         <div className="flex-1">
-          {label && <p className="text-sm text-gray-200 font-medium">{label}</p>}
-          {subtitle && <p className="text-[10px] text-gray-500 leading-tight">{subtitle}</p>}
+          {label && <p className="text-sm text-primary font-medium">{label}</p>}
+          {subtitle && <p className="text-[10px] text-secondary leading-tight">{subtitle}</p>}
         </div>
       )}
       <label className={`relative inline-flex items-center ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
@@ -31,7 +31,7 @@ export const Switch: React.FC<SwitchProps> = ({
           onChange={(e) => !disabled && onChange(e.target.checked)}
           disabled={disabled}
         />
-        <div className="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-transparent after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#25D366] peer-checked:after:bg-white shadow-inner"></div>
+        <div className="w-9 h-5 bg-surface-hover peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-secondary after:border-transparent after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent peer-checked:after:bg-white shadow-inner"></div>
       </label>
     </div>
   );

@@ -4,6 +4,7 @@ export type AuthUser = {
   nombre: string | null;
   avatar_url: string | null;
   plan: string;
+  role: 'user' | 'admin';
 };
 
 export type LoginForm = {

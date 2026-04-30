@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import { usePlanLimits } from '../../hooks/usePlanLimits';
@@ -7,7 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { LimitBadge } from '../../components/ui/LimitBadge';
 import { UpgradeModal } from '../../components/ui/UpgradeModal';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { LayoutGrid, Plus, MoreVertical, ExternalLink, Trash2, Edit3 } from 'lucide-react';
+import { LayoutGrid, Plus, ExternalLink, Trash2, Edit3 } from 'lucide-react';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Skeleton } from '../../components/ui/Skeleton';
 
@@ -38,7 +38,7 @@ export const CatalogsPage = () => {
           title="Tus Catálogos" 
           subtitle="Cargando..."
           rightAction={
-            <div className="w-24 h-9 bg-white/5 animate-pulse rounded-lg" />
+            <div className="w-24 h-9 bg-surface-hover animate-pulse rounded-lg" />
           }
         />
         <div className="mb-8">
@@ -57,7 +57,7 @@ export const CatalogsPage = () => {
                   <Skeleton className="h-8 w-8 rounded-lg" />
                 </div>
               </div>
-              <div className="pt-4 border-t border-white/5 flex justify-between">
+              <div className="pt-4 border-t border-border flex justify-between">
                 <Skeleton className="h-3 w-20" />
                 <Skeleton className="h-3 w-24" />
               </div>
@@ -78,7 +78,7 @@ export const CatalogsPage = () => {
             size="sm" 
             icon={Plus} 
             onClick={handleCreateClick}
-            className="shadow-lg shadow-[#25D366]/20"
+            className="shadow-lg shadow-accent/20"
           >
             Nuevo
           </Button>
@@ -106,18 +106,18 @@ export const CatalogsPage = () => {
           {catalogs.map((catalog: any) => (
             <div 
               key={catalog.id} 
-              className="card group hover:border-[#25D366]/30 transition-all cursor-pointer relative overflow-hidden"
+              className="card group hover:border-accent/30 transition-all cursor-pointer relative overflow-hidden"
               onClick={() => navigate(`/catalogs/${catalog.id}`)}
             >
               {/* Decorative gradient */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[#25D366]/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-[#25D366]/10 transition-colors" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-accent/10 transition-colors" />
               
               <div className="relative flex justify-between items-start">
                 <div className="space-y-1 flex-1">
-                  <h3 className="text-lg font-bold text-white group-hover:text-[#25D366] transition-colors">
+                  <h3 className="text-lg font-bold text-primary group-hover:text-accent transition-colors">
                     {catalog.name}
                   </h3>
-                  <p className="text-gray-400 text-sm line-clamp-2 pr-8 leading-relaxed">
+                  <p className="text-secondary text-sm line-clamp-2 pr-8 leading-relaxed">
                     {catalog.description || 'Sin descripción'}
                   </p>
                 </div>
@@ -128,7 +128,7 @@ export const CatalogsPage = () => {
                       e.stopPropagation();
                       navigate(`/catalogs/${catalog.id}/edit`);
                     }}
-                    className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                    className="p-2 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-colors"
                   >
                     <Edit3 size={18} />
                   </button>
@@ -144,12 +144,12 @@ export const CatalogsPage = () => {
                 </div>
               </div>
 
-              <div className="pt-6 mt-4 border-t border-white/5 flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-gray-500">
+              <div className="pt-6 mt-4 border-t border-border flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-secondary">
                 <div className="flex items-center gap-1.5">
                   <LayoutGrid size={12} />
-                  <span>X Productos</span>
+                  <span>{catalog.productCount || 0} Productos</span>
                 </div>
-                <div className="flex items-center gap-1 group-hover:text-[#25D366] transition-colors">
+                <div className="flex items-center gap-1 group-hover:text-accent transition-colors">
                   Abrir Catálogo
                   <ExternalLink size={12} />
                 </div>

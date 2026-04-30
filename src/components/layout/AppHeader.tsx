@@ -16,28 +16,30 @@ export const AppHeader = () => {
     return 'WA Catalog';
   };
 
-  const isHome = ['/', '/history', '/profile'].includes(location.pathname);
+  const isHome = ['/', '/profile'].includes(location.pathname);
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0a0a0a]/80 backdrop-blur-lg border-b border-white/5 h-20 px-4 flex items-center gap-3">
-      {!isHome && (
-        <BackButton variant="minimal" className="-ml-2" />
-      )}
-      
-      <div className="flex-1 min-w-0">
-        <h1 className="font-bold text-lg text-white truncate leading-tight">
-          {contextTitle || getTitle(location.pathname)}
-        </h1>
-        {subtitle && (
-          <p className="text-gray-500 text-[10px] uppercase tracking-[0.2em] font-bold opacity-70 mt-0.5 flex items-center gap-1.5 truncate">
-            <span className="w-1 h-1 rounded-full bg-[#25D366]/40 animate-pulse flex-shrink-0" />
-            {subtitle}
-          </p>
+    <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border h-20 px-4 transition-colors duration-300">
+      <div className="max-w-lg mx-auto h-full flex items-center gap-3">
+        {!isHome && (
+          <BackButton variant="minimal" className="-ml-2" />
         )}
-      </div>
+        
+        <div className="flex-1 min-w-0">
+          <h1 className="font-bold text-lg text-primary truncate leading-tight transition-colors">
+            {contextTitle || getTitle(location.pathname)}
+          </h1>
+          {subtitle && (
+            <p className="text-secondary text-[10px] uppercase tracking-[0.2em] font-bold opacity-70 mt-0.5 flex items-center gap-1.5 truncate transition-colors">
+              <span className="w-1 h-1 rounded-full bg-accent/40 animate-pulse flex-shrink-0" />
+              {subtitle}
+            </p>
+          )}
+        </div>
 
-      <div className="flex-shrink-0 flex items-center gap-2">
-        {rightAction}
+        <div className="flex-shrink-0 flex items-center gap-2">
+          {rightAction}
+        </div>
       </div>
     </header>
   );

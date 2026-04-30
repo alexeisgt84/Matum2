@@ -24,20 +24,20 @@ interface CatalogStatusBarProps {
 
 export const CatalogStatusBar: React.FC<CatalogStatusBarProps> = ({ stats, loading }) => {
   const StatItem = ({ icon: Icon, label, value, color }: { icon: any, label: string, value: number, color: string }) => (
-    <div className="flex flex-col items-center justify-center px-4 py-2 first:pl-0 last:pr-0 border-r border-white/5 last:border-0">
+    <div className="flex flex-col items-center justify-center px-4 py-2 first:pl-0 last:pr-0 border-r border-border last:border-0">
       <div className="flex items-center gap-1.5 mb-0.5">
         <Icon size={12} className={color} />
-        <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">{label}</span>
+        <span className="text-[9px] font-bold uppercase tracking-wider text-secondary">{label}</span>
       </div>
-      <span className="text-sm font-bold text-white tabular-nums">
+      <span className="text-sm font-bold text-primary tabular-nums">
         {loading ? '...' : value}
       </span>
     </div>
   );
 
   return (
-    <div className="mx-4 mb-4 p-1 bg-white/[0.03] backdrop-blur-md rounded-2xl border border-white/5 overflow-hidden">
-      <div className="flex items-center justify-around divide-x divide-white/5">
+    <div className="mx-4 mb-4 p-1 bg-surface-hover/20 backdrop-blur-md rounded-2xl border border-border overflow-hidden">
+      <div className="flex items-center justify-around divide-x divide-border">
         <StatItem 
           icon={MessageSquare} 
           label="Mensajes" 
@@ -60,7 +60,7 @@ export const CatalogStatusBar: React.FC<CatalogStatusBarProps> = ({ stats, loadi
           icon={Users} 
           label="Grupos" 
           value={stats.activeGroups} 
-          color="text-[#25D366]" 
+          color="text-accent" 
         />
         
         {(stats.queuePending !== undefined && stats.queuePending > 0) && (

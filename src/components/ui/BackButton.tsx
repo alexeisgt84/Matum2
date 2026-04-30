@@ -29,8 +29,8 @@ export const BackButton: React.FC<BackButtonProps> = ({
 
   const baseStyles = "p-2.5 transition-all hover:scale-105 active:scale-95 group";
   const variants = {
-    minimal: "text-gray-400 hover:text-[#25D366] hover:bg-white/5 rounded-full",
-    filled: "bg-white/5 border border-white/5 shadow-lg rounded-2xl text-gray-400 hover:text-[#25D366] hover:bg-white/10"
+    minimal: "text-gray-400 hover:text-[var(--accent)] hover:bg-white/5 rounded-full",
+    filled: "bg-white/5 border border-white/5 shadow-lg rounded-2xl text-gray-400 hover:text-[var(--accent)] hover:bg-white/10"
   };
 
   return (

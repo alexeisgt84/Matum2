@@ -20,10 +20,10 @@ export const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
-      <div className="card w-full max-w-md">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="card w-full max-w-lg">
         <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#25D366]/10 text-[#25D366] mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[var(--accent)]/10 text-[var(--accent)] mb-4">
             <LogIn size={32} />
           </div>
           <h1 className="text-3xl font-bold text-white">Bienvenido</h1>
@@ -78,7 +78,7 @@ export const LoginPage = () => {
           <div className="pt-6 border-t border-white/5">
             <p className="text-gray-400 text-sm">
               ¿No tienes cuenta?{' '}
-              <Link to="/register" className="text-[#25D366] font-bold hover:underline">
+              <Link to="/register" className="text-[var(--accent)] font-bold hover:underline">
                 Regístrate ahora
               </Link>
             </p>

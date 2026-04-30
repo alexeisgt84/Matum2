@@ -1,37 +1,29 @@
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-dotenv.config();
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
-const supabaseKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || ''; // Need service role to bypass RLS if any
+import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+
+const envContent = fs.readFileSync('.env', 'utf-8');
+const env: Record<string, string> = {};
+envContent.split('\n').forEach(line => {
+  const [key, ...val] = line.split('=');
+  if (key && val) {
+    env[key.trim()] = val.join('=').trim();
+  }
+});
+
+const supabaseUrl = env.VITE_SUPABASE_URL;
+const supabaseKey = env.VITE_SUPABASE_ANON_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function checkQueue() {
-    console.log('--- Checking wa_message_queue ---');
-    const { data: queue, error: qError } = await supabase
-        .from('wa_message_queue')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
+async function check() {
+  console.log('Checking queue errors...');
+  const { data: errors } = await supabase.from('wa_message_queue').select('*').eq('status', 'error').limit(5);
+  console.log('Errors:', JSON.stringify(errors, null, 2));
 
-    if (qError) {
-        console.error('Error fetching queue:', qError);
-    } else {
-        console.log('Last 5 items in queue:', JSON.stringify(queue, null, 2));
-    }
-
-    console.log('--- Checking Catalogs ---');
-    const { data: catalogs, error: cError } = await supabase
-        .from('catalogs')
-        .select('id, name, is_sequence_scheduled, sequence_start_time, last_sequence_sent_at')
-        .eq('is_active', true);
-
-    if (cError) {
-        console.error('Error fetching catalogs:', cError);
-    } else {
-        console.log('Active catalogs:', JSON.stringify(catalogs, null, 2));
-    }
+  console.log('Checking recent sent items in queue...');
+  const { data: sent } = await supabase.from('wa_message_queue').select('*').eq('status', 'sent').order('updated_at', { ascending: false }).limit(5);
+  console.log('Sent:', JSON.stringify(sent, null, 2));
 }
 
-checkQueue();
+check();

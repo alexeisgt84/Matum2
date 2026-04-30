@@ -11,7 +11,7 @@ export const BottomNav = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[#0f0f0f] border-t border-white/5 pb-safe pt-2 px-6">
+    <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border pb-safe pt-2 px-6 transition-colors duration-300">
       <div className="flex justify-between items-center max-w-lg mx-auto h-16">
         {tabs.map((tab) => (
           <NavLink
@@ -20,7 +20,7 @@ export const BottomNav = () => {
             end={tab.path === '/'}
             className={({ isActive }) => `
               flex flex-col items-center gap-1 transition-all
-              ${isActive ? 'text-[#25D366]' : 'text-gray-500 hover:text-white'}
+              ${isActive ? 'text-accent' : 'text-secondary hover:text-primary'}
             `}
           >
             {({ isActive }) => (
@@ -30,7 +30,7 @@ export const BottomNav = () => {
                   {tab.name}
                 </span>
                 <div className={`
-                  w-1 h-1 rounded-full bg-[#25D366] transition-all
+                  w-1 h-1 rounded-full bg-accent transition-all
                   ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}
                 `} />
               </>

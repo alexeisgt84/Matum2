@@ -5,17 +5,23 @@ import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { LogOut, Save, Camera, CreditCard, CheckCircle } from 'lucide-react';
+import { LogOut, Save, Camera, CreditCard, Sun, Moon, ShieldCheck, Key } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { useStore } from '../../store/useStore';
+import { ChangePasswordModal } from '../../components/profile/ChangePasswordModal';
+import { useNavigate } from 'react-router-dom';
 
 export const ProfilePage = () => {
   const { user, logout } = useAuthStore();
-  const { profile, loading, error, updateProfile } = useProfile();
+  const { profile, loading, updateProfile } = useProfile();
+  const { theme, toggleTheme } = useStore();
+  const navigate = useNavigate();
   
   const [nombre, setNombre] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | undefined>();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,8 +57,8 @@ export const ProfilePage = () => {
     switch (plan) {
       case 'premium': return 'bg-purple-500/10 text-purple-400 border-purple-500/30';
       case 'pro': return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
-      case 'basic': return 'bg-[#25D366]/10 text-[#25D366] border-[#25D366]/30';
-      default: return 'bg-gray-500/10 text-gray-400 border-gray-500/30';
+      case 'basic': return 'bg-accent/10 text-accent border-accent/30';
+      default: return 'bg-secondary/10 text-secondary border-secondary/30';
     }
   };
 
@@ -94,7 +100,7 @@ export const ProfilePage = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-0 right-0 p-3 bg-[#25D366] text-black rounded-2xl shadow-lg hover:scale-110 transition-transform"
+                  className="absolute bottom-0 right-0 p-3 bg-accent text-black rounded-2xl shadow-lg hover:scale-110 transition-transform"
                 >
                   <Camera size={20} />
                 </button>
@@ -102,7 +108,7 @@ export const ProfilePage = () => {
                   type="file" 
                   ref={fileInputRef} 
                   className="hidden" 
-                  accept="image/*"
+                  accept="image/jpeg,image/jpg,image/png,image/*"
                   onChange={handleFileChange}
                 />
               </div>
@@ -124,7 +130,6 @@ export const ProfilePage = () => {
                 label="Teléfono (No editable)"
                 value={profile?.phone || user?.phone || ''}
                 disabled
-                icon={CheckCircle}
               />
             </div>
 
@@ -141,9 +146,38 @@ export const ProfilePage = () => {
         )}
       </div>
 
-      <div className="card space-y-4 border-red-500/10">
-        <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">Más acciones</h3>
+      <div className="card space-y-4 border-danger/10">
+        <h3 className="text-sm font-bold text-secondary uppercase tracking-widest mb-2">Más acciones</h3>
         
+        <Button 
+          variant="secondary" 
+          className="w-full justify-between" 
+          icon={theme === 'dark' ? Sun : Moon}
+          onClick={toggleTheme}
+        >
+          Modo {theme === 'dark' ? 'Claro' : 'Oscuro'}
+        </Button>
+
+        <Button 
+          variant="secondary" 
+          className="w-full justify-between" 
+          icon={Key}
+          onClick={() => setIsPasswordModalOpen(true)}
+        >
+          Cambiar Contraseña
+        </Button>
+
+        {user?.role === 'admin' && (
+          <Button 
+            variant="secondary" 
+            className="w-full justify-between text-accent border-accent/10" 
+            icon={ShieldCheck}
+            onClick={() => navigate('/admin')}
+          >
+            Panel de Administrador
+          </Button>
+        )}
+
         <Button 
           variant="secondary" 
           className="w-full justify-between" 
@@ -155,7 +189,7 @@ export const ProfilePage = () => {
 
         <Button 
           variant="danger" 
-          className="w-full border-red-500/10" 
+          className="w-full border-danger/10" 
           icon={LogOut} 
           onClick={logout}
         >
@@ -164,9 +198,14 @@ export const ProfilePage = () => {
       </div>
 
 
-      <p className="text-center text-gray-600 text-[10px] mt-12 uppercase tracking-widest">
+      <p className="text-center text-secondary text-[10px] mt-12 uppercase tracking-widest">
         WA Catalog v1.0.0
       </p>
+
+      <ChangePasswordModal 
+        isOpen={isPasswordModalOpen} 
+        onClose={() => setIsPasswordModalOpen(false)} 
+      />
     </div>
   );
 };

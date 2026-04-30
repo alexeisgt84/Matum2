@@ -60,21 +60,21 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
           </p>
         </div>
 
-        <div className="bg-[#242424] rounded-2xl p-6 text-left border border-white/5">
-          <p className="text-[#25D366] text-xs font-bold uppercase tracking-widest mb-4">
+        <div className="bg-surface-hover rounded-2xl p-6 text-left border border-border">
+          <p className="text-[var(--accent)] text-xs font-bold uppercase tracking-widest mb-4">
             Recomendado: Plan {nextPlanKey.toUpperCase()}
           </p>
           <ul className="space-y-3">
             <li className="flex items-center gap-3 text-sm text-white">
-              <Check size={18} className="text-[#25D366]" />
+              <Check size={18} className="text-[var(--accent)]" />
               Hasta {nextLimits.catalogs} catálogos
             </li>
             <li className="flex items-center gap-3 text-sm text-white">
-              <Check size={18} className="text-[#25D366]" />
+              <Check size={18} className="text-[var(--accent)]" />
               Hasta {nextLimits.products} productos
             </li>
             <li className="flex items-center gap-3 text-sm text-white">
-              <Check size={18} className="text-[#25D366]" />
+              <Check size={18} className="text-[var(--accent)]" />
               Hasta {nextLimits.groups} grupos por catálogo
             </li>
           </ul>

@@ -5,6 +5,8 @@ import { Input } from '../ui/Input';
 import { RichTextarea } from '../ui/RichTextarea';
 import type { WhatsAppMessage, MessageForm, MessageType } from '../../types/message';
 import { Save, Clock, X, ImagePlus } from 'lucide-react';
+import heic2any from 'heic2any';
+import { toast } from 'react-hot-toast';
 
 interface MessageFormModalProps {
   isOpen: boolean;
@@ -34,6 +36,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
 
   useEffect(() => {
     if (message) {
@@ -66,11 +69,39 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
     }
   }, [message, isOpen]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setImageFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+      let fileToProcess = file;
+      const fileName = file.name || 'image.jpg';
+      const extension = fileName.split('.').pop()?.toLowerCase();
+
+      // Soporte HEIC
+      if (file.type === 'image/heic' || file.type === 'image/heif' || extension === 'heic' || extension === 'heif') {
+        setIsConverting(true);
+        const toastId = toast.loading('Convirtiendo formato de iPhone...');
+        try {
+          const converted = await heic2any({
+            blob: file,
+            toType: 'image/jpeg',
+            quality: 0.8
+          });
+          fileToProcess = (Array.isArray(converted) ? converted[0] : converted) as File;
+          // Si el resultado es un Blob, lo convertimos a File para mantener el nombre
+          if (!(fileToProcess instanceof File)) {
+            fileToProcess = new File([fileToProcess], fileName.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
+          }
+          toast.success('Imagen convertida', { id: toastId });
+        } catch (err) {
+          console.error('Error al convertir HEIC:', err);
+          toast.error('No se pudo convertir el formato HEIC', { id: toastId });
+        } finally {
+          setIsConverting(false);
+        }
+      }
+
+      setImageFile(fileToProcess as File);
+      setPreviewUrl(URL.createObjectURL(fileToProcess));
       setForm({ ...form, type: 'image' });
     }
   };
@@ -154,10 +185,16 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                   </button>
                 </div>
               ) : (
-                <label className="w-20 h-20 rounded-2xl border-2 border-dashed border-white/10 hover:border-[#25D366]/30 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all hover:bg-white/5 flex-shrink-0">
-                  <ImagePlus size={18} className="text-gray-500" />
-                  <span className="text-[10px] font-bold text-gray-500 uppercase">Subir</span>
-                  <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
+                <label className="w-20 h-20 rounded-2xl border-2 border-dashed border-white/10 hover:border-[var(--accent)]/30 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all hover:bg-white/5 flex-shrink-0 relative overflow-hidden">
+                  {isConverting ? (
+                    <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <ImagePlus size={18} className="text-gray-500" />
+                      <span className="text-[10px] font-bold text-gray-500 uppercase">Subir</span>
+                    </>
+                  )}
+                  <input type="file" className="hidden" accept="image/jpeg,image/jpg,image/png,image/heic,image/heif,image/*" onChange={handleImageChange} disabled={isConverting} />
                 </label>
               )}
               <p className="text-[11px] text-gray-500 leading-relaxed italic flex-1">
@@ -177,7 +214,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                   is_individual: form.is_sequence // Si estaba en secuencia, ahora es individual (true)
                 })}
                 className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${
-                  form.is_sequence ? 'bg-[#25D366] border-[#25D366]' : 'bg-white/5 border-white/10'
+                  form.is_sequence ? 'bg-[var(--accent)] border-[var(--accent)]' : 'bg-white/5 border-white/10'
                 }`}
               >
                 {form.is_sequence && <div className="w-2 h-2 bg-black rounded-full" />}
@@ -200,7 +237,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                   }
                 }}
                 className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
-                  showSchedule ? 'bg-[#25D366]' : 'bg-white/10'
+                  showSchedule ? 'bg-[var(--accent)]' : 'bg-white/10'
                 }`}
               >
                 <div

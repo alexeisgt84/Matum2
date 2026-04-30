@@ -1,5 +1,5 @@
 {
-  "name": "whatsapp-catalog-app",
+  "name": "matum",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,25 +7,35 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync": "npx cap sync",
+    "android": "npm run build && npx cap copy android && npx cap run android"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.0",
+    "@capacitor/camera": "^8.1.0",
     "@capacitor/cli": "^8.3.0",
     "@capacitor/core": "^8.3.0",
+    "@capacitor/device": "^8.0.2",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/share": "^8.0.1",
     "@hello-pangea/dnd": "^18.0.1",
+    "@ionic/pwa-elements": "^3.4.0",
     "@supabase/supabase-js": "^2.103.0",
     "axios": "^1.15.0",
     "date-fns": "^4.1.0",
     "emoji-picker-react": "^4.18.0",
+    "heic2any": "^0.0.4",
     "lucide-react": "^1.8.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-easy-crop": "^5.5.7",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^6.30.3",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@eslint/js": "^9.39.4",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",

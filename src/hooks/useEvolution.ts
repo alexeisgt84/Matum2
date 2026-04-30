@@ -1,114 +1,96 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import type { EvolutionInstance } from '../types/evolution';
 import { toast } from 'react-hot-toast';
 
-const EVOLUTION_URL = import.meta.env.VITE_EVOLUTION_DEFAULT_URL;
-const EVOLUTION_KEY = import.meta.env.VITE_EVOLUTION_API_KEY;
+import { callEvolutionProxy } from '../lib/api';
 
 export const useEvolution = (catalogId?: string) => {
   const { user } = useAuthStore();
-  const [instance, setInstance] = useState<EvolutionInstance | null>(null);
+  const [instance, setInstance] = useState<EvolutionInstance & { server_id?: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [availableServers, setAvailableServers] = useState<any[]>([]);
+  
+  // Ref para evitar ciclos de renderizado con checkStatus
+  const isCheckingStatus = useRef(false);
+
+  const fetchServers = useCallback(async () => {
+    try {
+      const { data } = await supabase.from('available_evolution_servers').select('*');
+      if (data) setAvailableServers(data);
+    } catch (err) {
+      console.error('Error fetching servers:', err);
+    }
+  }, []);
 
   const fetchLocalInstance = useCallback(async () => {
-    if (!user) return;
+    if (!user?.id) return;
     
-    let query = supabase
-      .from('evolution_instances')
-      .select('*')
-      .eq('user_id', user.id);
-    
-    if (catalogId) {
-      query = query.eq('catalog_id', catalogId);
-    } else {
-      query = query.is('catalog_id', null);
+    try {
+      let query = supabase
+        .from('evolution_instances')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      if (catalogId) {
+        query = query.eq('catalog_id', catalogId);
+      } else {
+        query = query.is('catalog_id', null);
+      }
+
+      const { data, error } = await query.maybeSingle();
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      setInstance(data || null);
+    } catch (err) {
+      console.error('Error fetching local instance:', err);
     }
+  }, [user?.id, catalogId]);
 
-    const { data } = await query.maybeSingle();
-    
-    if (data) setInstance(data);
-    else setInstance(null);
-  }, [user, catalogId]);
+  const callProxy = useCallback(async (serverId: string, endpoint: string, method: string = 'GET', body: any = null, instanceName: string | null = null) => {
+    return callEvolutionProxy(serverId, endpoint, method, body, instanceName);
+  }, []);
 
-  const createInstance = async (name: string) => {
-    if (!user) return;
+  const createInstance = async (name: string, serverId: string) => {
+    if (!user || !serverId) return;
     setLoading(true);
     try {
       const cleanName = name.trim().replace(/\s+/g, '_');
-      
-      // Crear un token único para esta instancia específica
-      // Usamos el ID del catálogo para asegurar que sea único por catálogo
       const instanceToken = catalogId ? `${user.id.slice(0, 8)}_${catalogId.slice(0, 8)}` : user.id;
 
-      // 1. Intentar crear en Evolution API
-      let response = await fetch(`${EVOLUTION_URL}/instance/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': EVOLUTION_KEY
-        },
-        body: JSON.stringify({
+      let data;
+      try {
+        data = await callProxy(serverId, '/instance/create', 'POST', {
           instanceName: cleanName,
           token: instanceToken,
           qrcode: true,
           integration: 'WHATSAPP-BAILEYS'
-        })
-      });
-
-      let data = await response.json();
-
-      // SI YA EXISTE (Efecto NEMU): Borrar y recrear
-      if (response.status === 403 || (data.message && data.message.includes('already in use'))) {
-        toast.loading('La instancia ya existe. Reiniciando...', { duration: 2000 });
-        await fetch(`${EVOLUTION_URL}/instance/delete/${cleanName}`, {
-          method: 'DELETE',
-          headers: { 'apikey': EVOLUTION_KEY }
         });
-        
-        // Reintentar creación
-        response = await fetch(`${EVOLUTION_URL}/instance/create`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': EVOLUTION_KEY
-          },
-          body: JSON.stringify({
-            instanceName: cleanName,
-            token: instanceToken,
-            qrcode: true,
-            integration: 'WHATSAPP-BAILEYS'
-          })
+      } catch (err: any) {
+        console.warn('Intento de recreación por error:', err);
+        await callProxy(serverId, `/instance/delete`, 'DELETE', null, cleanName).catch(() => {});
+        data = await callProxy(serverId, '/instance/create', 'POST', {
+          instanceName: cleanName,
+          token: instanceToken,
+          qrcode: true,
+          integration: 'WHATSAPP-BAILEYS'
         });
-        data = await response.json();
       }
 
-      if (!response.ok) throw new Error(data.message || 'Error al crear instancia');
+      const apiKey = data?.hash || data?.instance?.token || data?.apikey;
+      if (!apiKey) throw new Error('No se recibió la API Key del servidor');
 
-      // Detectar la llave en diferentes versiones de la API
-      const apiKey = (typeof data.hash === 'string' ? data.hash : data.hash?.apikey) 
-                     || data.instance?.token 
-                     || data.apikey 
-                     || data.instance?.apikey;
-
-      if (!apiKey) {
-        throw new Error('La API no devolvió una llave (apikey) reconocida para la instancia');
-      }
-
-      // 2. Guardar en Supabase
       const upsertData: any = {
         user_id: user.id,
         catalog_id: catalogId || null,
         name: cleanName,
-        instance_key: apiKey,
-        status: 'pending'
+        instance_key: typeof apiKey === 'string' ? apiKey : apiKey.apikey,
+        status: 'pending',
+        server_id: serverId
       };
 
-      // Si ya tenemos una instancia local cargada, usamos su ID para forzar el update del mismo registro
-      if (instance?.id) {
-        upsertData.id = instance.id;
-      }
+      if (instance?.id) upsertData.id = instance.id;
 
       const { data: dbData, error: dbError } = await supabase
         .from('evolution_instances')
@@ -118,55 +100,39 @@ export const useEvolution = (catalogId?: string) => {
 
       if (dbError) throw dbError;
       setInstance(dbData);
-      toast.success('Instancia lista. Selecciona un método.');
+      toast.success('Instancia lista');
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error(`Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   const getQR = async () => {
-    if (!instance) return;
+    if (!instance?.server_id || !instance?.name) return;
     try {
-      const response = await fetch(`${EVOLUTION_URL}/instance/connect/${instance.name}`, {
-        headers: { 'apikey': EVOLUTION_KEY }
-      });
-      const data = await response.json();
+      const data = await callProxy(instance.server_id, '/instance/connect', 'GET', null, instance.name);
       if (data.base64) {
-        setInstance({ ...instance, qrcode: data.base64 });
+        setInstance(prev => prev ? { ...prev, qrcode: data.base64 } : null);
       }
     } catch (err) {
-      console.error('Error fetching QR:', err);
+      console.error('QR Error:', err);
     }
   };
 
   const getPairingCode = async (phoneNumber: string) => {
-    if (!instance) return;
+    if (!instance?.server_id || !instance?.name) return;
     setLoading(true);
     try {
       const cleanPhone = phoneNumber.replace(/\D/g, '');
-      
-      // Efecto NEMU: Logout previo para limpiar el estado del QR y forzar el código
-      await fetch(`${EVOLUTION_URL}/instance/logout/${instance.name}`, {
-        method: 'DELETE',
-        headers: { 'apikey': EVOLUTION_KEY }
-      }).catch(() => {});
-      
-      // Delay recreando el estado
+      await callProxy(instance.server_id, `/instance/logout`, 'DELETE', null, instance.name).catch(() => {});
       await new Promise(r => setTimeout(r, 1000));
 
-      const response = await fetch(`${EVOLUTION_URL}/instance/connect/${instance.name}?number=${cleanPhone}`, {
-        headers: { 'apikey': EVOLUTION_KEY }
-      });
-      const data = await response.json();
-      
+      const data = await callProxy(instance.server_id, `/instance/connect`, 'GET', null, `${instance.name}?number=${cleanPhone}`);
       const code = data.pairingCode || data.code;
       if (code) {
-        setInstance({ ...instance, pairing_code: code, qrcode: null });
-        toast.success('Código generado con éxito');
-      } else {
-        throw new Error('No se pudo generar el código. Intenta de nuevo.');
+        setInstance(prev => prev ? { ...prev, pairing_code: code, qrcode: null } : null);
+        toast.success('Código generado');
       }
     } catch (err: any) {
       toast.error(err.message);
@@ -176,29 +142,14 @@ export const useEvolution = (catalogId?: string) => {
   };
 
   const disconnectInstance = async () => {
-    if (!instance) return;
+    if (!instance?.server_id || !instance?.id) return;
     setLoading(true);
     try {
-      // 1. Evolution API Logout & Delete
-      await fetch(`${EVOLUTION_URL}/instance/logout/${instance.name}`, {
-        method: 'DELETE',
-        headers: { 'apikey': EVOLUTION_KEY }
-      }).catch(() => {});
-      
-      await fetch(`${EVOLUTION_URL}/instance/delete/${instance.name}`, {
-        method: 'DELETE',
-        headers: { 'apikey': EVOLUTION_KEY }
-      }).catch(() => {});
-
-      // 2. Supabase Delete
-      const { error } = await supabase
-        .from('evolution_instances')
-        .delete()
-        .eq('id', instance.id);
-
-      if (error) throw error;
+      await callProxy(instance.server_id, `/instance/logout`, 'DELETE', null, instance.name).catch(() => {});
+      await callProxy(instance.server_id, `/instance/delete`, 'DELETE', null, instance.name).catch(() => {});
+      await supabase.from('evolution_instances').delete().eq('id', instance.id);
       setInstance(null);
-      toast.success('Instancia desconectada y eliminada');
+      toast.success('Desconectado');
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -206,36 +157,28 @@ export const useEvolution = (catalogId?: string) => {
     }
   };
 
-  const checkStatus = async () => {
-    if (!instance) return;
+  const checkStatus = useCallback(async () => {
+    if (!instance?.server_id || !instance?.name || isCheckingStatus.current) return;
+    isCheckingStatus.current = true;
     try {
-      const response = await fetch(`${EVOLUTION_URL}/instance/connectionState/${instance.name}`, {
-        headers: { 'apikey': EVOLUTION_KEY }
-      });
-      const data = await response.json();
+      const data = await callProxy(instance.server_id, '/instance/connectionState', 'GET', null, instance.name);
       const newStatus = data.instance?.state === 'open' ? 'connected' : 'pending';
       
       if (newStatus !== instance.status) {
-        await supabase
-          .from('evolution_instances')
-          .update({ status: newStatus })
-          .eq('id', instance.id);
-        
-        setInstance({ 
-          ...instance, 
-          status: newStatus as any, 
-          qrcode: newStatus === 'connected' ? null : instance.qrcode,
-          pairing_code: newStatus === 'connected' ? null : instance.pairing_code
-        });
+        await supabase.from('evolution_instances').update({ status: newStatus }).eq('id', instance.id);
+        setInstance(prev => prev ? { ...prev, status: newStatus as any } : null);
       }
     } catch (err) {
-      console.error('Error checking status:', err);
+      console.error('Status Error:', err);
+    } finally {
+      isCheckingStatus.current = false;
     }
-  };
+  }, [instance?.id, instance?.status, instance?.server_id, instance?.name, callProxy]);
 
   useEffect(() => {
     fetchLocalInstance();
-  }, [fetchLocalInstance]);
+    fetchServers();
+  }, [fetchLocalInstance, fetchServers]);
 
-  return { instance, loading, createInstance, getQR, getPairingCode, disconnectInstance, checkStatus, refresh: fetchLocalInstance };
+  return { instance, loading, availableServers, createInstance, getQR, getPairingCode, disconnectInstance, checkStatus, refresh: fetchLocalInstance };
 };

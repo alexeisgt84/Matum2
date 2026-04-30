@@ -1,4 +1,4 @@
-export type MessageType = 'text' | 'image' | 'button' | 'product';
+export type MessageType = 'text' | 'image' | 'button' | 'product' | 'catalog_products';
 
 export interface WhatsAppMessage {
   id: string;
@@ -12,6 +12,7 @@ export interface WhatsAppMessage {
   scheduled_time?: string | null;
   image_url?: string | null;
   sequence_order: number;
+  last_sent_at?: string | null;
   created_at: string;
 }
 

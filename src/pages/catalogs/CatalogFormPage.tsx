@@ -7,16 +7,16 @@ import { Save, Info, Zap } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Switch } from '../../components/ui/Switch';
+import { toast } from 'react-hot-toast';
 
 export const CatalogFormPage = () => {
   const { catalogId } = useParams();
   const navigate = useNavigate();
-  const { createCatalog, updateCatalog, loading } = useCatalogs();
+  const { loading, createCatalog, updateCatalog } = useCatalogs();
   
   const [form, setForm] = useState({
     nombre: '',
     descripcion: '',
-    plantilla: '¡Hola! Te comparto nuestro catálogo de *{catalog_name}*.\n\n*Productos destacados:*\n{products_list}\n\nPara más info, escríbenos.',
     is_active: true,
     is_sequence_scheduled: false,
     is_individual_scheduled: false,
@@ -30,7 +30,7 @@ export const CatalogFormPage = () => {
   }, [catalogId]);
 
   const loadCatalog = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('catalogs')
       .select('*')
       .eq('id', catalogId)
@@ -40,7 +40,6 @@ export const CatalogFormPage = () => {
       setForm({
         nombre: data.name,
         descripcion: data.description || '',
-        plantilla: data.template || form.plantilla,
         is_active: data.is_active ?? true,
         is_sequence_scheduled: data.is_sequence_scheduled ?? false,
         is_individual_scheduled: data.is_individual_scheduled ?? false,
@@ -51,22 +50,13 @@ export const CatalogFormPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = {
-      name: form.nombre,
-      description: form.descripcion,
-      template: form.plantilla,
-      is_active: form.is_active,
-      is_sequence_scheduled: form.is_sequence_scheduled,
-      is_individual_scheduled: form.is_individual_scheduled,
-      sequence_start_time: form.sequence_start_time
-    };
 
     if (catalogId) {
-      const { error } = await supabase.from('catalogs').update(payload).eq('id', catalogId);
-      if (!error) navigate('/catalogs');
+      const success = await updateCatalog(catalogId, form);
+      if (success) navigate(`/catalogs/${catalogId}`);
     } else {
-      const { error } = await supabase.from('catalogs').insert([payload]);
-      if (!error) navigate('/catalogs');
+      const data = await createCatalog(form);
+      if (data) navigate('/catalogs');
     }
   };
 
@@ -101,12 +91,12 @@ export const CatalogFormPage = () => {
         <div className="card space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider">Automatización</h3>
-              <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Configuración de envíos automáticos</p>
+              <h3 className="text-sm font-bold text-primary uppercase tracking-wider">Automatización</h3>
+              <p className="text-[10px] text-secondary uppercase tracking-widest mt-1">Configuración de envíos automáticos</p>
             </div>
           </div>
 
-          <div className="space-y-4 border-t border-white/5 pt-4">
+          <div className="space-y-4 border-t border-border pt-4">
             <Switch
               label="Envío de Secuencia Diaria"
               subtitle="Dispara todos los mensajes de secuencia a la hora fijada"
@@ -132,45 +122,6 @@ export const CatalogFormPage = () => {
                 />
               </div>
             )}
-          </div>
-        </div>
-
-        <div className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-bold text-gray-400 uppercase tracking-widest">Plantilla de Mensaje</label>
-            <div className="group relative">
-              <Info size={16} className="text-gray-500 cursor-help" />
-              <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-black border border-white/10 rounded-xl text-[11px] text-gray-400 hidden group-hover:block z-50 shadow-2xl">
-                Esta plantilla se usará para cada producto. Usa <code className="text-[#25D366]">{'{product_name}'}</code>, <code className="text-[#25D366]">{'{product_description}'}</code> y <code className="text-[#25D366]">{'{product_price}'}</code> para personalizar el mensaje.
-              </div>
-            </div>
-          </div>
-          
-          <Input
-            multiline
-            rows={6}
-            placeholder="Escribe el mensaje que acompañará al catálogo..."
-            value={form.plantilla}
-            onChange={(e) => setForm({ ...form, plantilla: e.target.value })}
-            helperText="Este mensaje se usará al compartir el catálogo por WhatsApp."
-          />
-
-          <div className="flex flex-wrap gap-2 mt-2">
-            {[
-              '{product_name}',
-              '{product_description}',
-              '{product_price}',
-              '{product_currency}'
-            ].map(tag => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => setForm({ ...form, plantilla: form.plantilla + ' ' + tag })}
-                className="px-2 py-1 bg-white/5 hover:bg-[#25D366]/10 border border-white/10 hover:border-[#25D366]/30 rounded text-[10px] font-mono text-gray-400 hover:text-[#25D366] transition-all"
-              >
-                {tag}
-              </button>
-            ))}
           </div>
         </div>
 

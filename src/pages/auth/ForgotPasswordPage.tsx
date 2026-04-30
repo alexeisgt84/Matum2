@@ -74,10 +74,10 @@ export const ForgotPasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
-      <div className="card w-full max-w-md">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="card w-full max-w-lg">
         <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#25D366]/10 text-[#25D366] mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[var(--accent)]/10 text-[var(--accent)] mb-4">
             {step === 1 ? <KeyRound size={32} /> : <ShieldCheck size={32} />}
           </div>
           <h1 className="text-3xl font-bold text-white">
@@ -119,7 +119,7 @@ export const ForgotPasswordPage = () => {
               <input
                 type="text"
                 maxLength={6}
-                className="w-full bg-[#1a1a1a] border-2 border-white/5 rounded-2xl p-4 text-3xl font-bold tracking-[1em] text-center text-[#25D366] focus:border-[#25D366] outline-none transition-all"
+                className="w-full bg-[#1a1a1a] border-2 border-white/5 rounded-2xl p-4 text-3xl font-bold tracking-[1em] text-center text-[var(--accent)] focus:border-[var(--accent)] outline-none transition-all"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                 required

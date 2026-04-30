@@ -12,11 +12,12 @@ interface AuthState {
   verifyAndRegister: (code: string, userData: RegisterForm) => Promise<void>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
+  updatePassword: (newPassword: string) => Promise<void>;
   setError: (error: string | null) => void;
   isInitialized: boolean;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   loading: false,
   isInitialized: false,
@@ -47,7 +48,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           phone, 
           nombre: profile?.full_name || '', 
           avatar_url: profile?.avatar_url || null, 
-          plan: profile?.plan || 'free' 
+          plan: profile?.plan || 'free',
+          role: profile?.role || 'user'
         }, 
         loading: false 
       });
@@ -110,12 +112,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (signUpError) throw signUpError;
       if (!authData.user) throw new Error('Error al crear usuario');
 
-      // 3. Crear perfil en tabla users
-      const { error: profileError } = await supabase.from('users').insert([
+      const cleanPhone = userData.phone.replace(/\D/g, '');
+      const { error: profileError } = await supabase.from('users').upsert([
         {
           id: authData.user.id,
           email,
-          phone: userData.phone,
+          phone: cleanPhone,
           full_name: userData.nombre,
           plan: 'free',
         },
@@ -129,7 +131,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           phone: userData.phone, 
           nombre: userData.nombre, 
           avatar_url: null, 
-          plan: 'free' 
+          plan: 'free',
+          role: 'user'
         }, 
         loading: false 
       });
@@ -161,6 +164,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             nombre: profile?.full_name || '',
             avatar_url: profile?.avatar_url || null,
             plan: profile?.plan || 'free',
+            role: profile?.role || 'user',
           },
         });
       }
@@ -168,6 +172,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.error('Error loading user:', err);
     } finally {
       set({ loading: false, isInitialized: true });
+    }
+  },
+
+  updatePassword: async (newPassword: string) => {
+    set({ loading: true, error: null });
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) throw error;
+      set({ loading: false });
+    } catch (err: any) {
+      set({ error: err.message, loading: false });
+      throw err;
     }
   },
 }));

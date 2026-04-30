@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
@@ -17,8 +17,16 @@ import {
   ChevronLeft,
   Send,
   RotateCcw,
-  AlertCircle
+  AlertCircle,
+  CheckCircle,
+  PackageX,
+  PackageCheck,
+  Tag,
+  Share2,
+  ShoppingBag,
+  Layout
 } from 'lucide-react';
+import { shareContent } from '../../lib/share';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useProducts } from '../../hooks/useProducts';
@@ -28,6 +36,7 @@ import { useSendingEngine } from '../../hooks/useSendingEngine';
 import { usePlanLimits } from '../../hooks/usePlanLimits';
 import { ProductCard } from '../../components/products/ProductCard';
 import { ProductFormModal } from '../../components/products/ProductFormModal';
+import { NemuImportModal } from '../../components/catalogs/NemuImportModal';
 import { MessageCard } from '../../components/messages/MessageCard';
 import { MessageFormModal } from '../../components/messages/MessageFormModal';
 import { GroupCard } from '../../components/groups/GroupCard';
@@ -38,7 +47,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Switch } from '../../components/ui/Switch';
 import { EvolutionConfig } from '../../components/profile/EvolutionConfig';
 import { useHeader } from '../../lib/HeaderContext';
-import { DropdownMenu } from '../../components/ui/DropdownMenu';
+import { DropdownMenu, type DropdownItem } from '../../components/ui/DropdownMenu';
 import { toast } from 'react-hot-toast';
 import { useEvolution } from '../../hooks/useEvolution';
 import type { Product } from '../../types/product';
@@ -64,16 +73,16 @@ export const CatalogDetailPage = () => {
   const { instance } = useEvolution(catalogId);
 
   // Hooks de Producto
-  const { products, loading: prodLoading, getProducts, saveProduct, deleteProduct, updateProductsOrder } = useProducts(catalogId);
+  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, updateProductsOrder } = useProducts(catalogId);
   
   // Hooks de Mensaje
-  const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, updateMessagesOrder } = useMessages(catalogId);
+  const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, updateMessagesOrder, toggleMessageSequence } = useMessages(catalogId);
   
   // Hooks de Grupos (Seguimos usándolos para el modal de grupos)
   const { linkedGroups, loading: groupsLoading, getLinkedGroups, fetchAvailableGroups, linkGroup, unlinkGroup } = useWhatsAppGroups(catalogId);
 
   // Motor de Envío
-  const { sendCatalogToGroups, sendSingleMessage, sendSingleProduct, sending } = useSendingEngine(catalogId);
+  const { sendCatalogToGroups, sendSingleMessage, sendSingleProduct, sendProductOutOfStock, sendProductAvailable, sending } = useSendingEngine(catalogId);
 
   const { counts, limits, canAddProduct, refresh: refreshLimits } = usePlanLimits();
 
@@ -81,20 +90,51 @@ export const CatalogDetailPage = () => {
   const [isProdFormOpen, setIsProdFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [productToAgotado, setProductToAgotado] = useState<Product | null>(null);
+  const [productToAvailable, setProductToAvailable] = useState<Product | null>(null);
+  const [isAgotadoLoading, setIsAgotadoLoading] = useState(false);
 
   const [isMsgFormOpen, setIsMsgFormOpen] = useState(false);
   const [editingMessage, setEditingMessage] = useState<WhatsAppMessage | null>(null);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+
+  const [isClearQueueConfirmOpen, setIsClearQueueConfirmOpen] = useState(false);
+  const [isClearingQueue, setIsClearingQueue] = useState(false);
 
   const [isLinkGroupOpen, setIsLinkGroupOpen] = useState(false);
   const [groupUnlinkId, setGroupUnlinkId] = useState<string | null>(null);
 
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [isRestoreOpen, setIsRestoreOpen] = useState(false);
+  const [isNemuImportOpen, setIsNemuImportOpen] = useState(false);
   
-  const [tempTime, setTempTime] = useState<string>('');
-  const [queueStats, setQueueStats] = useState({ pending: 0, sent: 0, error: 0 });
   const [statsLoading, setStatsLoading] = useState(false);
+  const [queueStats, setQueueStats] = useState({ pending: 0, sent: 0, error: 0 });
+  const [tempTime, setTempTime] = useState('');
+
+  
+  // Estados de Selección
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
+  
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!hasMore || prodLoading || view !== 'products') return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        loadMore();
+      }
+    }, { threshold: 0.1 });
+
+    if (sentinelRef.current) {
+      observer.observe(sentinelRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, prodLoading, loadMore, view]);
 
   useEffect(() => {
     if (catalog?.sequence_start_time) {
@@ -104,10 +144,11 @@ export const CatalogDetailPage = () => {
 
   useEffect(() => {
     loadCatalog();
-    getProducts();
+    getProducts(true);
     getMessages();
     getLinkedGroups();
-  }, [catalogId, getProducts, getMessages, getLinkedGroups]);
+  }, [catalogId, getMessages, getLinkedGroups]); // Removido getProducts de las dependencias para evitar loops si cambia por paginación interno
+
 
   const [isEnsuringCatalog, setIsEnsuringCatalog] = useState(false);
 
@@ -154,11 +195,22 @@ export const CatalogDetailPage = () => {
       setTitle(catalog.name);
       setSubtitle('Gestión de Contenido');
       
-      const optionsItems = [
+      const optionsItems: DropdownItem[] = [
         { 
           label: 'Configurar catálogo', 
           icon: Settings, 
           onClick: () => navigate(`/catalogs/${catalogId}/edit`) 
+        },
+        { 
+          label: 'Configurar plantillas', 
+          icon: Layout, 
+          onClick: () => navigate(`/catalogs/${catalogId}/templates`) 
+        },
+        { 
+          label: 'Limpiar cola de envío', 
+          icon: Trash2, 
+          onClick: () => setIsClearQueueConfirmOpen(true),
+          variant: 'danger'
         },
         { 
           label: 'Conectar WhatsApp', 
@@ -169,6 +221,11 @@ export const CatalogDetailPage = () => {
           label: 'Restaurar mensajes', 
           icon: RotateCcw, 
           onClick: () => setIsRestoreOpen(true) 
+        },
+        { 
+          label: 'Vincular con Nemu', 
+          icon: ShoppingBag, 
+          onClick: () => setIsNemuImportOpen(true) 
         },
       ];
 
@@ -195,7 +252,7 @@ export const CatalogDetailPage = () => {
             <StatBadge icon={MessageSquare} value={messages.length} color="text-blue-400" />
             <StatBadge icon={Zap} value={messages.filter(m => m.is_sequence).length} color="text-yellow-400" />
             <StatBadge icon={Package} value={products.length} color="text-purple-400" />
-            <StatBadge icon={Users} value={linkedGroups.filter(g => g.is_active).length} color="text-[#25D366]" />
+            <StatBadge icon={Users} value={linkedGroups.filter(g => g.is_active).length} color="text-[var(--accent)]" />
             {queueStats.pending > 0 && (
               <StatBadge icon={Clock} value={queueStats.pending} color="text-orange-400 animate-pulse" />
             )}
@@ -298,8 +355,34 @@ export const CatalogDetailPage = () => {
       if (error) throw error;
       setCatalog({ ...catalog, is_sequence_scheduled: scheduled });
       toast.success(scheduled ? 'Programación activada' : 'Programación desactivada');
+      
+      if (!scheduled && queueStats.pending > 0) {
+        setIsClearQueueConfirmOpen(true);
+      }
     } catch (err: any) {
       toast.error('Error al actualizar programación');
+    }
+  };
+
+  const handleClearQueue = async () => {
+    if (!catalogId) return;
+    setIsClearingQueue(true);
+    const toastId = toast.loading('Limpiando cola de envío...');
+    try {
+      const { error } = await supabase
+        .from('wa_message_queue')
+        .delete()
+        .eq('catalog_id', catalogId)
+        .eq('status', 'pending');
+      
+      if (error) throw error;
+      toast.success('Cola de envío limpiada', { id: toastId });
+      fetchQueueStats();
+      setIsClearQueueConfirmOpen(false);
+    } catch (err: any) {
+      toast.error('Error al limpiar cola: ' + err.message, { id: toastId });
+    } finally {
+      setIsClearingQueue(false);
     }
   };
 
@@ -481,6 +564,141 @@ export const CatalogDetailPage = () => {
     }
   };
 
+  // Handlers de Selección
+  const toggleSelectProduct = (id: string) => {
+    setSelectedProductIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectMessage = (id: string) => {
+    setSelectedMessageIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const clearSelection = () => {
+    setSelectedProductIds([]);
+    setSelectedMessageIds([]);
+  };
+
+  const selectAllVisible = () => {
+    if (view === 'products') {
+      setSelectedProductIds(products.map(p => p.id));
+    } else if (view === 'individual' || view === 'sequences') {
+      const targetMessages = view === 'sequences' ? messages.filter(m => m.is_sequence) : messages;
+      setSelectedMessageIds(targetMessages.map(m => m.id));
+    }
+  };
+
+  // Acciones Masivas
+  const handleBulkDeleteInitiate = () => {
+    const total = selectedProductIds.length + selectedMessageIds.length;
+    if (total > 0) {
+      setIsBulkDeleteConfirmOpen(true);
+    }
+  };
+
+  const executeBulkDelete = async () => {
+    const total = selectedProductIds.length + selectedMessageIds.length;
+    const toastId = toast.loading('Eliminando ítems...');
+    try {
+      if (selectedProductIds.length > 0) {
+        const { error } = await supabase.from('products').delete().in('id', selectedProductIds);
+        if (error) throw error;
+      }
+      if (selectedMessageIds.length > 0) {
+        const { error } = await supabase.from('whatsapp_messages').delete().in('id', selectedMessageIds);
+        if (error) throw error;
+      }
+      toast.success('Ítems eliminados', { id: toastId });
+      getProducts(true);
+      getMessages();
+      clearSelection();
+      setIsBulkDeleteConfirmOpen(false);
+    } catch (err: any) {
+      toast.error('Error al eliminar: ' + err.message, { id: toastId });
+    }
+  };
+
+  const handleBulkSend = async () => {
+    const total = selectedProductIds.length + selectedMessageIds.length;
+    if (total === 0) return;
+
+    const toastId = toast.loading(`Iniciando envío de ${total} ítems...`);
+    try {
+      // Enviar productos
+      for (const id of selectedProductIds) {
+        const product = products.find(p => p.id === id);
+        if (product) {
+          await sendSingleProduct(product);
+        }
+      }
+      // Enviar mensajes
+      for (const id of selectedMessageIds) {
+        const message = messages.find(m => m.id === id);
+        if (message) {
+          await sendSingleMessage(message);
+        }
+      }
+      toast.success('Envíos completados', { id: toastId });
+      clearSelection();
+    } catch (err: any) {
+      toast.error('Error durante el envío masivo', { id: toastId });
+    }
+  };
+
+  const handleBulkShare = async () => {
+    let text = '';
+    let firstImageUrl: string | undefined;
+    
+    selectedProductIds.forEach(id => {
+      const p = products.find(prod => prod.id === id);
+      if (p) {
+        if (!firstImageUrl && p.imagen_url) firstImageUrl = p.imagen_url;
+        text += `🛍️ *${p.name}*\n${p.price} ${p.currency}\n${p.description || ''}\n\n`;
+      }
+    });
+
+    selectedMessageIds.forEach(id => {
+      const m = messages.find(msg => msg.id === id);
+      if (m) {
+        if (!firstImageUrl && m.image_url) firstImageUrl = m.image_url;
+        text += `💬 *${m.name}*\n${m.content || ''}\n\n`;
+      }
+    });
+
+    if (!text) return;
+
+    await shareContent({
+      title: 'Selección de Catálogo',
+      text: text.trim(),
+      imageUrl: firstImageUrl
+    });
+  };
+
+  const handleBulkSequence = async () => {
+    if (selectedMessageIds.length === 0) {
+      toast.error('Selecciona mensajes para agregar a la secuencia');
+      return;
+    }
+
+    const toastId = toast.loading('Actualizando secuencia...');
+    try {
+      const { error } = await supabase
+        .from('whatsapp_messages')
+        .update({ is_sequence: true })
+        .in('id', selectedMessageIds);
+
+      if (error) throw error;
+      toast.success(`${selectedMessageIds.length} mensajes agregados a la secuencia`, { id: toastId });
+      getMessages();
+      clearSelection();
+    } catch (err: any) {
+      toast.error('Error al actualizar: ' + err.message, { id: toastId });
+    }
+  };
+
   const handleAddAction = () => {
     if (view === 'products') {
       if (canAddProduct) {
@@ -519,16 +737,16 @@ export const CatalogDetailPage = () => {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-9rem)]">
+    <div className="flex flex-col h-[calc(100vh-9rem)] max-w-lg mx-auto w-full">
       {/* Selector de Vistas */}
-      <div className="px-4 py-6 bg-gradient-to-b from-[#1a1a1a] to-[#0a0a0a] border-b border-white/5">
+      <div className="px-4 py-6 bg-gradient-to-b from-surface to-background border-b border-border w-full">
 
         {/* Triple Switch Moderno */}
-        <div className="relative flex p-1.5 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-sm">
+        <div className="relative flex p-1.5 bg-surface-hover rounded-2xl border border-border backdrop-blur-sm">
           <button
             onClick={() => setView('individual')}
             className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
-              view === 'individual' ? 'text-[#25D366]' : 'text-gray-500 hover:text-gray-300'
+              view === 'individual' ? 'text-accent' : 'text-secondary hover:text-primary'
             }`}
           >
             <MessageSquare size={18} className={view === 'individual' ? 'animate-pulse' : ''} />
@@ -538,7 +756,7 @@ export const CatalogDetailPage = () => {
           <button
             onClick={() => setView('products')}
             className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
-              view === 'products' ? 'text-[#25D366]' : 'text-gray-500 hover:text-gray-300'
+              view === 'products' ? 'text-accent' : 'text-secondary hover:text-primary'
             }`}
           >
             <Package size={18} className={view === 'products' ? 'animate-pulse' : ''} />
@@ -548,7 +766,7 @@ export const CatalogDetailPage = () => {
           <button
             onClick={() => setView('sequences')}
             className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
-              view === 'sequences' ? 'text-[#25D366]' : 'text-gray-500 hover:text-gray-300'
+              view === 'sequences' ? 'text-accent' : 'text-secondary hover:text-primary'
             }`}
           >
             <Zap size={18} className={view === 'sequences' ? 'animate-pulse' : ''} />
@@ -557,7 +775,7 @@ export const CatalogDetailPage = () => {
 
           {/* Indicador Deslizante */}
           <div 
-            className="absolute top-1.5 bottom-1.5 left-1.5 transition-all duration-500 ease-out bg-white/10 rounded-xl border border-white/10 shadow-[0_0_20px_rgba(37,211,102,0.1)]"
+            className="absolute top-1.5 bottom-1.5 left-1.5 transition-all duration-500 ease-out bg-primary/10 rounded-xl border border-primary/10 shadow-lg shadow-accent/10"
             style={{ 
               width: 'calc((100% - 12px) / 3)',
               transform: `translateX(${view === 'individual' ? '0%' : view === 'products' ? '100%' : view === 'sequences' ? '200%' : '0%'})`
@@ -566,7 +784,7 @@ export const CatalogDetailPage = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 pb-32">
+      <div className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 pb-32">
         {view === 'products' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             {prodLoading ? (
@@ -597,7 +815,7 @@ export const CatalogDetailPage = () => {
                     <div 
                       {...provided.droppableProps} 
                       ref={provided.innerRef}
-                      className="grid gap-4"
+                      className="grid grid-cols-1 gap-3"
                     >
                       {products.map((product, index) => (
                         <Draggable key={product.id} draggableId={product.id} index={index}>
@@ -607,32 +825,47 @@ export const CatalogDetailPage = () => {
                               {...provided.draggableProps}
                               className={`${snapshot.isDragging ? 'z-50' : ''}`}
                             >
-                              <div className="relative group">
-                                <div 
-                                  {...provided.dragHandleProps}
-                                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white cursor-grab active:cursor-grabbing p-2"
-                                >
-                                  <GripVertical size={20} />
-                                </div>
-                                <ProductCard
-                                  product={product}
-                                  onEdit={(p) => {
-                                    setEditingProduct(p);
-                                    setIsProdFormOpen(true);
-                                  }}
-                                  onDelete={setProductToDelete}
-                                  onSendNow={sendSingleProduct}
-                                />
-                              </div>
+                                  <ProductCard
+                                    product={product}
+                                    isSelected={selectedProductIds.includes(product.id)}
+                                    onSelect={toggleSelectProduct}
+                                    dragHandleProps={provided.dragHandleProps}
+                                    shareTemplate={catalog?.share_template}
+                                    catalogName={catalog?.name}
+                                    onEdit={(p) => {
+                                      setEditingProduct(p);
+                                      setIsProdFormOpen(true);
+                                    }}
+                                    onDelete={setProductToDelete}
+                                    onSendNow={sendSingleProduct}
+                                    onOutOfStock={(p) => setProductToAgotado(p)}
+                                    onAvailable={(p) => setProductToAvailable(p)}
+                                  />
                             </div>
                           )}
                         </Draggable>
                       ))}
                       {provided.placeholder}
+                      
+                      {/* Sentinel for infinite scroll */}
+                      {hasMore && (
+                        <div 
+                          ref={sentinelRef} 
+                          className="h-20 flex items-center justify-center"
+                        >
+                          {prodLoading && (
+                            <div className="flex flex-col items-center gap-2">
+                              <RotateCcw className="animate-spin text-[var(--accent)]" size={20} />
+                              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Cargando más...</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </Droppable>
               </DragDropContext>
+
             )}
           </div>
         )}
@@ -654,7 +887,7 @@ export const CatalogDetailPage = () => {
                   </div>
                 ))}
               </div>
-            ) : messages.length === 0 ? (
+            ) : messages.filter(m => m.is_individual).length === 0 ? (
               <EmptyState
                 icon={MessageSquare}
                 title="Sin mensajes"
@@ -671,7 +904,7 @@ export const CatalogDetailPage = () => {
                       ref={provided.innerRef}
                       className="grid gap-4"
                     >
-                      {messages.map((message, index) => (
+                      {messages.filter(m => m.is_individual).map((message, index) => (
                         <Draggable key={message.id} draggableId={message.id} index={index}>
                           {(provided, snapshot) => (
                             <div
@@ -679,23 +912,19 @@ export const CatalogDetailPage = () => {
                               {...provided.draggableProps}
                               className={`${snapshot.isDragging ? 'z-50' : ''}`}
                             >
-                              <div className="relative group">
-                                <div 
-                                  {...provided.dragHandleProps}
-                                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white cursor-grab active:cursor-grabbing p-2"
-                                >
-                                  <GripVertical size={20} />
-                                </div>
                                 <MessageCard
                                   message={message}
+                                  isSelected={selectedMessageIds.includes(message.id)}
+                                  onSelect={toggleSelectMessage}
+                                  dragHandleProps={provided.dragHandleProps}
                                   onEdit={(m) => {
                                     setEditingMessage(m);
                                     setIsMsgFormOpen(true);
                                   }}
                                   onDelete={setMessageToDelete}
                                   onSendNow={sendSingleMessage}
+                                  onToggleSequence={toggleMessageSequence}
                                 />
-                              </div>
                             </div>
                           )}
                         </Draggable>
@@ -716,7 +945,7 @@ export const CatalogDetailPage = () => {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-black border-[#25D366]/30 px-4 py-5 rounded-xl text-[10px] font-bold uppercase tracking-widest"
+                className="bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)] hover:text-black border-[var(--accent)]/30 px-4 py-5 rounded-xl text-[10px] font-bold uppercase tracking-widest"
                 icon={Send} 
                 loading={sending}
                 onClick={() => catalogId && sendCatalogToGroups(catalogId)}
@@ -740,15 +969,15 @@ export const CatalogDetailPage = () => {
                       }}
                       onKeyDown={(e) => e.preventDefault()}
                       style={{ colorScheme: 'dark' }}
-                      className="bg-black/60 border border-white/5 rounded-lg pl-2 pr-1 py-1.5 text-white text-xs focus:outline-none focus:border-[#25D366]/50 transition-all font-mono cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:invert-[0.8]"
+                      className="bg-black/60 border border-white/5 rounded-lg pl-2 pr-1 py-1.5 text-white text-xs focus:outline-none focus:border-[var(--accent)]/50 transition-all font-mono cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:invert-[0.8]"
                     />
                     {tempTime !== catalog?.sequence_start_time && (
                       <button
                         onClick={() => updateSequenceStartTime(tempTime)}
-                        className="p-1.5 bg-[#25D366]/20 text-[#25D366] rounded-md hover:bg-[#25D366] hover:text-black transition-colors border border-[#25D366]/30"
+                        className="p-1.5 bg-[var(--accent)]/20 text-[var(--accent)] rounded-md hover:bg-[var(--accent)] hover:text-black transition-colors border border-[var(--accent)]/30"
                         title="Confirmar hora"
                       >
-                        <Check size={14} strokeWidth={3} />
+                        <CheckCircle size={14} strokeWidth={3} />
                       </button>
                     )}
                   </div>
@@ -805,24 +1034,20 @@ export const CatalogDetailPage = () => {
                               {...provided.draggableProps}
                               className={`${snapshot.isDragging ? 'z-50' : ''}`}
                             >
-                              <div className="relative group">
-                                <div 
-                                  {...provided.dragHandleProps}
-                                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white cursor-grab active:cursor-grabbing p-2"
-                                >
-                                  <GripVertical size={20} />
-                                </div>
                                 <MessageCard
                                   message={message}
-                                  productCount={products.filter(p => p.is_active).length}
+                                  isSelected={selectedMessageIds.includes(message.id)}
+                                  onSelect={toggleSelectMessage}
+                                  dragHandleProps={provided.dragHandleProps}
+                                  productCount={products.filter(p => p.is_active !== false).length}
                                   onEdit={(m) => {
                                     setEditingMessage(m);
                                     setIsMsgFormOpen(true);
                                   }}
                                   onDelete={setMessageToDelete}
                                   onSendNow={sendSingleMessage}
+                                  onToggleSequence={toggleMessageSequence}
                                 />
-                              </div>
                             </div>
                           )}
                         </Draggable>
@@ -869,7 +1094,7 @@ export const CatalogDetailPage = () => {
                     size="sm" 
                     icon={Plus}
                     onClick={() => setIsLinkGroupOpen(true)}
-                    className="bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 border-white/5"
+                    className="bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 border-white/5"
                   >
                     Vincular más grupos
                   </Button>
@@ -889,12 +1114,85 @@ export const CatalogDetailPage = () => {
         )}
       </div>
 
-      {/* FAB para agregar contenido */}
+      {/* Barra de Selección Masiva (Flotante) */}
+      {(selectedProductIds.length > 0 || selectedMessageIds.length > 0) && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] w-full max-w-lg px-4 animate-in slide-in-from-bottom-10 duration-300">
+          <div className="bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-4 flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[var(--accent)] text-black flex items-center justify-center font-bold text-sm">
+                  {selectedProductIds.length + selectedMessageIds.length}
+                </div>
+                <div>
+                  <p className="text-white text-xs font-bold uppercase tracking-widest">Seleccionados</p>
+                  <button 
+                    onClick={clearSelection}
+                    className="text-[10px] text-gray-500 hover:text-white uppercase font-bold tracking-tighter"
+                  >
+                    Descartar selección
+                  </button>
+                </div>
+              </div>
+              <button 
+                onClick={selectAllVisible}
+                className="text-[10px] bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white px-3 py-1.5 rounded-lg border border-white/5 transition-colors font-bold uppercase"
+              >
+                Seleccionar todos
+              </button>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2">
+              <button 
+                onClick={handleBulkSend}
+                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl hover:bg-[var(--accent)]/10 text-gray-400 hover:text-[var(--accent)] transition-all group"
+              >
+                <div className="p-2 bg-[var(--accent)]/5 rounded-lg group-hover:bg-[var(--accent)]/20 transition-colors">
+                  <Send size={18} />
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-widest">Enviar</span>
+              </button>
+
+              <button 
+                onClick={handleBulkDeleteInitiate}
+                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl hover:bg-red-500/10 text-gray-400 hover:text-red-500 transition-all group"
+              >
+                <div className="p-2 bg-red-500/5 rounded-lg group-hover:bg-red-500/20 transition-colors">
+                  <Trash2 size={18} />
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-widest">Eliminar</span>
+              </button>
+
+              <button 
+                onClick={handleBulkShare}
+                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl hover:bg-blue-500/10 text-gray-400 hover:text-blue-500 transition-all group"
+              >
+                <div className="p-2 bg-blue-500/5 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+                  <Share2 size={18} />
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-widest">Compartir</span>
+              </button>
+
+              <button 
+                onClick={handleBulkSequence}
+                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl hover:bg-yellow-500/10 text-gray-400 hover:text-yellow-400 transition-all group"
+                title="Poner en secuencia (solo mensajes)"
+              >
+                <div className="p-2 bg-yellow-500/5 rounded-lg group-hover:bg-yellow-500/20 transition-colors">
+                  <Zap size={18} />
+                </div>
+                <span className="text-[9px] font-bold uppercase tracking-widest">Secuencia</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="fixed bottom-24 right-6 z-20">
         <Button 
           size="lg"
-          className="w-14 h-14 rounded-full shadow-[0_8px_30px_rgb(37,211,102,0.4)] flex items-center justify-center p-0" 
+          className="w-14 h-14 rounded-full flex items-center justify-center p-0" 
           icon={Plus}
+          iconSize={24}
           onClick={handleAddAction}
           title={view === 'products' ? 'Nuevo Producto' : view === 'groups' ? 'Vincular Grupos' : 'Nuevo Mensaje'}
         />
@@ -925,10 +1223,20 @@ export const CatalogDetailPage = () => {
         isOpen={isProdFormOpen}
         onClose={() => setIsProdFormOpen(false)}
         product={editingProduct}
-        onSave={async (form, id, file) => {
-          const ok = await saveProduct(form, id, file);
-          if (ok) refreshLimits();
-          return ok;
+        onSave={async (form, id, file, shouldSend) => {
+          try {
+            const product = await saveProduct(form, id, file);
+            if (product) {
+              refreshLimits();
+              if (shouldSend) {
+                await sendProductAvailable(product);
+              }
+              return true;
+            }
+            return false;
+          } catch (err) {
+            return false;
+          }
         }}
         loading={prodLoading}
       />
@@ -952,7 +1260,10 @@ export const CatalogDetailPage = () => {
         isOpen={isMsgFormOpen}
         onClose={() => setIsMsgFormOpen(false)}
         message={editingMessage}
-        onSave={saveMessage}
+        onSave={async (form, id, file) => {
+          const success = await saveMessage(form, id, file);
+          return !!success;
+        }}
         loading={msgLoading}
       />
 
@@ -1004,11 +1315,217 @@ export const CatalogDetailPage = () => {
         variant="danger"
       />
 
+      <ConfirmDialog
+        isOpen={isBulkDeleteConfirmOpen}
+        onClose={() => setIsBulkDeleteConfirmOpen(false)}
+        onConfirm={executeBulkDelete}
+        title="Eliminar Selección"
+        message={`¿Estás seguro de que deseas eliminar los ${selectedProductIds.length + selectedMessageIds.length} ítems seleccionados? Esta acción no se puede deshacer.`}
+        variant="danger"
+        confirmLabel="Eliminar todos"
+      />
+
       <UpgradeModal
         isOpen={showUpgrade}
         onClose={() => setShowUpgrade(false)}
         currentPlan={limits.products <= 8 ? 'free' : 'basic'}
         reachedLimit="products"
+      />
+
+      {/* Modal de Agotado */}
+      <Modal
+        isOpen={!!productToAgotado}
+        onClose={() => setProductToAgotado(null)}
+        title="Marcar como Agotado"
+        footer={
+          <div className="flex justify-between items-center w-full">
+            <Button 
+              variant="ghost" 
+              onClick={() => setProductToAgotado(null)}
+              disabled={isAgotadoLoading}
+            >
+              Cancelar
+            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="secondary" 
+                onClick={async () => {
+                  if (productToAgotado) {
+                    setIsAgotadoLoading(true);
+                    try {
+                      const { error } = await supabase
+                        .from('products')
+                        .update({ is_out_of_stock: true, stock_status: 'out_of_stock' })
+                        .eq('id', productToAgotado.id);
+                      
+                      if (error) throw error;
+                      toast.success('Producto marcado como agotado');
+                      getProducts();
+                      setProductToAgotado(null);
+                    } catch (err: any) {
+                      toast.error('Error: ' + err.message);
+                    } finally {
+                      setIsAgotadoLoading(false);
+                    }
+                  }
+                }}
+                loading={isAgotadoLoading}
+              >
+                Confirmar
+              </Button>
+              <Button 
+                variant="primary" 
+                icon={Send}
+                onClick={async () => {
+                  if (productToAgotado) {
+                    setIsAgotadoLoading(true);
+                    try {
+                      // 1. Actualizar DB
+                      const { error } = await supabase
+                        .from('products')
+                        .update({ is_out_of_stock: true, stock_status: 'out_of_stock' })
+                        .eq('id', productToAgotado.id);
+                      
+                      if (error) throw error;
+                      
+                      // 2. Enviar a grupos
+                      await sendProductOutOfStock(productToAgotado);
+                      
+                      getProducts();
+                      setProductToAgotado(null);
+                    } catch (err: any) {
+                      toast.error('Error: ' + err.message);
+                    } finally {
+                      setIsAgotadoLoading(false);
+                    }
+                  }
+                }}
+                loading={isAgotadoLoading}
+              >
+                Confirmar y enviar
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-2xl bg-orange-500/10 text-orange-500">
+            <PackageX size={24} />
+          </div>
+          <div>
+            <p className="text-white font-bold mb-1">{productToAgotado?.name}</p>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              ¿Deseas marcar este producto como agotado? Puedes solo confirmarlo en el sistema o enviarlo también como aviso a los grupos de WhatsApp vinculados.
+            </p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de Disponible */}
+      <Modal
+        isOpen={!!productToAvailable}
+        onClose={() => setProductToAvailable(null)}
+        title="Marcar como Disponible"
+        footer={
+          <div className="flex justify-between items-center w-full">
+            <Button 
+              variant="ghost" 
+              onClick={() => setProductToAvailable(null)}
+              disabled={isAgotadoLoading}
+            >
+              Cancelar
+            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="secondary" 
+                onClick={async () => {
+                  if (productToAvailable) {
+                    setIsAgotadoLoading(true);
+                    try {
+                      const { error } = await supabase
+                        .from('products')
+                        .update({ is_out_of_stock: false, stock_status: 'available' })
+                        .eq('id', productToAvailable.id);
+                      
+                      if (error) throw error;
+                      toast.success('Producto marcado como disponible');
+                      getProducts();
+                      setProductToAvailable(null);
+                    } catch (err: any) {
+                      toast.error('Error: ' + err.message);
+                    } finally {
+                      setIsAgotadoLoading(false);
+                    }
+                  }
+                }}
+                loading={isAgotadoLoading}
+              >
+                Confirmar
+              </Button>
+              <Button 
+                variant="primary" 
+                icon={Send}
+                onClick={async () => {
+                  if (productToAvailable) {
+                    setIsAgotadoLoading(true);
+                    try {
+                      // 1. Actualizar DB
+                      const { error } = await supabase
+                        .from('products')
+                        .update({ is_out_of_stock: false, stock_status: 'available' })
+                        .eq('id', productToAvailable.id);
+                      
+                      if (error) throw error;
+                      
+                      // 2. Enviar a grupos
+                      await sendProductAvailable(productToAvailable);
+                      
+                      getProducts();
+                      setProductToAvailable(null);
+                    } catch (err: any) {
+                      toast.error('Error: ' + err.message);
+                    } finally {
+                      setIsAgotadoLoading(false);
+                    }
+                  }
+                }}
+                loading={isAgotadoLoading}
+              >
+                Confirmar y enviar
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-2xl bg-green-500/10 text-green-500">
+            <PackageCheck size={24} />
+          </div>
+          <div>
+            <p className="text-white font-bold mb-1">{productToAvailable?.name}</p>
+            <p className="text-gray-400 text-sm leading-relaxed">
+              ¿Deseas marcar este producto nuevamente como disponible? Puedes solo confirmarlo en el sistema o enviarlo también como aviso a los grupos de WhatsApp vinculados.
+            </p>
+          </div>
+        </div>
+      </Modal>
+      <NemuImportModal
+        isOpen={isNemuImportOpen}
+        onClose={() => setIsNemuImportOpen(false)}
+        catalogId={catalogId!}
+        onSuccess={() => getProducts(true)}
+      />
+
+      <ConfirmDialog
+        isOpen={isClearQueueConfirmOpen}
+        onClose={() => setIsClearQueueConfirmOpen(false)}
+        onConfirm={handleClearQueue}
+        title="Limpiar Cola de Envío"
+        message="¿Estás seguro de que deseas eliminar todos los mensajes pendientes de envío para este catálogo? Esta acción detendrá cualquier envío en curso."
+        confirmLabel="Limpiar Cola"
+        cancelLabel="Mantener Mensajes"
+        loading={isClearingQueue}
+        variant="danger"
       />
     </div>
   );

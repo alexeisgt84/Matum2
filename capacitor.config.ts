@@ -2,10 +2,15 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.app.whatsappcatalog',
-  appName: 'WA Catalog',
+  appName: 'Matum',
   webDir: 'dist',
   server: {
     androidScheme: 'https'
+  },
+  plugins: {
+    CapacitorHttp: {
+      enabled: true
+    }
   }
 };
 

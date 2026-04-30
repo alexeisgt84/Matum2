@@ -134,5 +134,31 @@ export const useMessages = (catalogId?: string) => {
     }
   };
 
-  return { messages, loading, getMessages, saveMessage, deleteMessage, updateMessagesOrder };
+  const toggleMessageSequence = async (message: WhatsAppMessage) => {
+    const newIsSequence = !message.is_sequence;
+    
+    // Optimistic update
+    setMessages(msgs => msgs.map(m => 
+      m.id === message.id ? { ...m, is_sequence: newIsSequence } : m
+    ));
+
+    try {
+      const { error } = await supabase
+        .from('whatsapp_messages')
+        .update({ is_sequence: newIsSequence })
+        .eq('id', message.id);
+
+      if (error) throw error;
+      
+      toast.success(newIsSequence ? 'Agregado a secuencia' : 'Quitado de secuencia');
+    } catch (err: any) {
+      // Revert on error
+      setMessages(msgs => msgs.map(m => 
+        m.id === message.id ? { ...m, is_sequence: !newIsSequence } : m
+      ));
+      toast.error('Error al actualizar secuencia');
+    }
+  };
+
+  return { messages, loading, getMessages, saveMessage, deleteMessage, updateMessagesOrder, toggleMessageSequence };
 };

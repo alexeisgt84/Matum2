@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useEvolution } from '../../hooks/useEvolution';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
-import { Phone, CheckCircle2, AlertCircle, RefreshCw, QrCode, LogOut, Hash, Copy } from 'lucide-react';
+import { Phone, CheckCircle2, AlertCircle, RefreshCw, QrCode, LogOut, Hash, Copy, Server } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface EvolutionConfigProps {
@@ -11,25 +11,23 @@ interface EvolutionConfigProps {
 }
 
 export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps) => {
-  const { instance, loading, createInstance, getQR, getPairingCode, disconnectInstance, checkStatus } = useEvolution(catalogId);
+  const { instance, loading, availableServers, createInstance, getQR, getPairingCode, disconnectInstance, checkStatus } = useEvolution(catalogId);
   const [instanceName, setInstanceName] = useState('');
+  const [selectedServerId, setSelectedServerId] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [method, setMethod] = useState<'qr' | 'code'>('qr');
 
-  // Rastrear si la conexión ocurrió durante esta sesión (transición real)
+  // Rastrear si la conexión ocurrió durante esta sesión
   const prevStatusRef = useRef<string | undefined>(instance?.status);
 
-  // Notificar al padre solo cuando hay una transición real a 'connected'
-  // (no cuando el componente se monta con una instancia ya conectada)
   useEffect(() => {
     const prevStatus = prevStatusRef.current;
     prevStatusRef.current = instance?.status;
 
-    // Solo disparar si hubo un cambio real: de algo != 'connected' → 'connected'
     if (instance?.status === 'connected' && prevStatus && prevStatus !== 'connected') {
       const timer = setTimeout(() => {
         onConnected?.();
-      }, 1500); // Pequeño delay para que el usuario vea el estado de éxito
+      }, 1500);
       return () => clearTimeout(timer);
     }
   }, [instance?.status, onConnected]);
@@ -47,6 +45,12 @@ export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps
     return () => clearInterval(interval);
   }, [instance?.id, instance?.status, method]);
 
+  useEffect(() => {
+    if (availableServers.length > 0 && !selectedServerId) {
+      setSelectedServerId(availableServers[0].id);
+    }
+  }, [availableServers, selectedServerId]);
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast.success('Código copiado al portapapeles');
@@ -54,32 +58,68 @@ export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps
 
   if (!instance) {
     return (
-      <div className="card space-y-4 border-white/5 bg-white/[0.02]">
+      <div className="card space-y-4 border-border bg-surface-hover/20">
         <div className="flex items-center gap-4 mb-2">
-          <div className="p-3 bg-primary/10 text-primary rounded-2xl">
+          <div className="p-3 bg-accent/10 text-accent rounded-2xl">
             <Phone size={28} />
           </div>
           <div>
-            <h3 className="text-white font-bold text-lg mb-0.5">Vincular WhatsApp</h3>
-            <p className="text-gray-500 text-xs">Elige cómo quieres conectar tu dispositivo</p>
+            <h3 className="text-primary font-bold text-lg mb-0.5">Vincular WhatsApp</h3>
+            <p className="text-secondary text-xs">Elige cómo quieres conectar tu dispositivo</p>
           </div>
         </div>
 
-        <Input
-          label="Nombre de la Instancia"
-          placeholder="Ej: MiWhatsAppSoporte"
-          value={instanceName}
-          onChange={(e) => setInstanceName(e.target.value)}
-          className="bg-black/20 border-white/10"
-        />
+        <div className="space-y-4">
+          <Input
+            label="Nombre de la Instancia"
+            placeholder="Ej: MiWhatsAppSoporte"
+            value={instanceName}
+            onChange={(e) => setInstanceName(e.target.value)}
+            className="bg-surface-hover/40 border-border"
+          />
+
+          <div className="space-y-2">
+            <label className="text-[11px] font-bold uppercase tracking-widest text-secondary px-1 flex items-center gap-2">
+              <Server size={12} /> Seleccionar Servidor
+            </label>
+            <div className="grid grid-cols-1 gap-2">
+              {availableServers.map((server) => (
+                <button
+                  key={server.id}
+                  onClick={() => setSelectedServerId(server.id)}
+                  className={`flex items-center justify-between p-3 rounded-xl border transition-all text-left ${
+                    selectedServerId === server.id
+                      ? 'border-accent bg-accent/5 ring-1 ring-accent'
+                      : 'border-border bg-surface-hover/20 hover:bg-surface-hover/40'
+                  }`}
+                >
+                  <div>
+                    <p className="text-xs font-bold text-primary">{server.name}</p>
+                    <p className="text-[10px] text-secondary">
+                      {server.active_instances} / {server.capacity_limit} instancias
+                    </p>
+                  </div>
+                  {selectedServerId === server.id && (
+                    <CheckCircle2 size={16} className="text-accent" />
+                  )}
+                </button>
+              ))}
+              {availableServers.length === 0 && (
+                <div className="p-3 text-[10px] text-amber-500 bg-amber-500/10 rounded-xl border border-amber-500/20 text-center">
+                  No hay servidores disponibles en este momento.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
 
         <div className="grid grid-cols-2 gap-3 mt-4">
           <button
             onClick={() => setMethod('qr')}
             className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
               method === 'qr' 
-                ? 'border-primary bg-primary/10 text-primary' 
-                : 'border-white/5 bg-white/[0.02] text-gray-500 hover:bg-white/[0.05]'
+                ? 'border-accent bg-accent/10 text-accent' 
+                : 'border-border bg-surface-hover/20 text-secondary hover:bg-surface-hover/40'
             }`}
           >
             <QrCode size={24} />
@@ -89,8 +129,8 @@ export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps
             onClick={() => setMethod('code')}
             className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
               method === 'code' 
-                ? 'border-primary bg-primary/10 text-primary' 
-                : 'border-white/5 bg-white/[0.02] text-gray-500 hover:bg-white/[0.05]'
+                ? 'border-accent bg-accent/10 text-accent' 
+                : 'border-border bg-surface-hover/20 text-secondary hover:bg-surface-hover/40'
             }`}
           >
             <Hash size={24} />
@@ -100,9 +140,9 @@ export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps
 
         <Button 
           className="w-full mt-4 py-6 text-sm font-bold uppercase tracking-widest" 
-          onClick={() => createInstance(instanceName)}
+          onClick={() => createInstance(instanceName, selectedServerId)}
           loading={loading}
-          disabled={!instanceName}
+          disabled={!instanceName || !selectedServerId}
         >
           {method === 'qr' ? 'Generar Código QR' : 'Siguiente Paso'}
         </Button>
@@ -111,24 +151,24 @@ export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps
   }
 
   return (
-    <div className="card space-y-6 border-white/5 bg-white/[0.02]">
+    <div className="card space-y-6 border-border bg-surface-hover/20">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
           <div className={`p-3 rounded-2xl transition-colors ${
             instance.status === 'connected' 
-              ? 'bg-[#25D366]/10 text-[#25D366]' 
+              ? 'bg-accent/10 text-accent' 
               : 'bg-amber-500/10 text-amber-500'
           }`}>
             <Phone size={28} />
           </div>
           <div>
-            <h3 className="text-white font-bold text-lg uppercase tracking-tight">{instance.name}</h3>
+            <h3 className="text-primary font-bold text-lg uppercase tracking-tight">{instance.name}</h3>
             <div className="flex items-center gap-2 mt-1">
               <div className={`w-2 h-2 rounded-full ${
-                instance.status === 'connected' ? 'bg-[#25D366] animate-pulse' : 'bg-amber-500 animate-bounce'
+                instance.status === 'connected' ? 'bg-[var(--accent)] animate-pulse' : 'bg-amber-500 animate-bounce'
               }`} />
               <span className={`text-[11px] font-bold uppercase tracking-widest ${
-                instance.status === 'connected' ? 'text-[#25D366]' : 'text-amber-500 italic'
+                instance.status === 'connected' ? 'text-[var(--accent)]' : 'text-amber-500 italic'
               }`}>
                 {instance.status === 'connected' ? 'Conectado' : 'Esperando Conexión...'}
               </span>
@@ -139,7 +179,7 @@ export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps
         <button 
           onClick={checkStatus} 
           disabled={loading}
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-white/50 hover:text-white"
+          className="p-2 rounded-xl bg-surface-hover hover:bg-surface-hover/80 transition-colors text-secondary hover:text-primary"
         >
           <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
         </button>
@@ -159,21 +199,21 @@ export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps
                   </div>
                 )}
               </div>
-              <p className="text-[11px] text-gray-500 text-center max-w-[280px] leading-relaxed font-medium">
-                Escanea este código desde la sección <span className="text-white">Dispositivos Vinculados</span> de tu WhatsApp.
+              <p className="text-[11px] text-secondary text-center max-w-[280px] leading-relaxed font-medium">
+                Escanea este código desde la sección <span className="text-primary">Dispositivos Vinculados</span> de tu WhatsApp.
               </p>
             </div>
           ) : (
             <div className="space-y-6">
               {!instance.pairing_code ? (
-                <div className="space-y-4 bg-white/[0.03] p-6 rounded-3xl border border-white/5">
+                <div className="space-y-4 bg-surface-hover/20 p-6 rounded-3xl border border-border">
                   <div className="flex flex-col gap-2">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-gray-500 px-1">Número de Teléfono</label>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-secondary px-1">Número de Teléfono</label>
                     <Input
                       placeholder="Ej: 5351234567"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="bg-black/20 border-white/10 py-6"
+                      className="bg-surface-hover/40 border-border py-6"
                       type="tel"
                     />
                   </div>
@@ -188,17 +228,17 @@ export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps
               ) : (
                 <div className="flex flex-col items-center gap-8 py-4">
                   <div className="relative group">
-                    <div className="absolute -inset-4 bg-primary/20 rounded-[2.5rem] blur-2xl group-hover:bg-primary/30 transition-all" />
-                    <div className="relative bg-black/40 border border-primary/30 p-8 rounded-[2rem] flex flex-col items-center gap-4 min-w-[300px]">
-                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/70">Tu Código</span>
+                    <div className="absolute -inset-4 bg-accent/20 rounded-[2.5rem] blur-2xl group-hover:bg-accent/30 transition-all" />
+                    <div className="relative bg-surface border border-accent/30 p-8 rounded-[2rem] flex flex-col items-center gap-4 min-w-[300px]">
+                      <span className="text-[10px] font-black uppercase tracking-[0.3em] text-accent/70">Tu Código</span>
                       <div className="flex items-center gap-4">
-                        <span className="text-5xl font-mono font-black text-white tracking-widest">
+                        <span className="text-5xl font-mono font-black text-primary tracking-widest">
                           {instance.pairing_code}
                         </span>
                       </div>
                       <button 
                         onClick={() => copyToClipboard(instance.pairing_code || '')}
-                        className="flex items-center gap-2 mt-2 px-6 py-2 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-all border border-primary/20"
+                        className="flex items-center gap-2 mt-2 px-6 py-2 rounded-full bg-accent/10 text-accent hover:bg-accent/20 transition-all border border-accent/20"
                       >
                         <Copy size={14} />
                         <span className="text-[10px] font-bold uppercase tracking-widest">Copiar Código</span>
@@ -206,8 +246,8 @@ export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps
                     </div>
                   </div>
                   <div className="space-y-3 px-4">
-                     <p className="text-[11px] text-gray-500 text-center leading-relaxed">
-                       Ve a <span className="text-white">Dispositivos Vinculados</span> → <span className="text-white">Vincular con número</span> e ingresa este código.
+                     <p className="text-[11px] text-secondary text-center leading-relaxed">
+                       Ve a <span className="text-primary">Dispositivos Vinculados</span> → <span className="text-white">Vincular con número</span> e ingresa este código.
                      </p>
                   </div>
                 </div>
@@ -216,27 +256,27 @@ export const EvolutionConfig = ({ catalogId, onConnected }: EvolutionConfigProps
           )}
 
           <div className="flex items-center gap-4">
-            <div className="h-px flex-1 bg-white/5" />
+            <div className="h-px flex-1 bg-border" />
             <button 
               onClick={() => {
                 setMethod(method === 'qr' ? 'code' : 'qr');
                 if (method === 'code' && !instance.qrcode) getQR();
               }}
-              className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] hover:brightness-125 transition-all"
+              className="text-[10px] font-bold text-accent uppercase tracking-[0.2em] hover:brightness-125 transition-all"
             >
               Usar {method === 'qr' ? 'Número' : 'QR'}
             </button>
-            <div className="h-px flex-1 bg-white/5" />
+            <div className="h-px flex-1 bg-border" />
           </div>
         </div>
       )}
 
       {instance.status === 'connected' && (
-        <div className="p-6 bg-[#25D366]/5 rounded-3xl border border-[#25D366]/10 relative overflow-hidden group">
+        <div className="p-6 bg-accent/5 rounded-3xl border border-accent/10 relative overflow-hidden group">
           <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-700">
              <CheckCircle2 size={120} />
           </div>
-          <p className="text-xs text-[#25D366] leading-relaxed font-medium relative z-10">
+          <p className="text-xs text-accent leading-relaxed font-medium relative z-10">
             Tu cuenta está vinculada y lista para la acción. Los envíos automáticos y catálogos están habilitados para esta instancia.
           </p>
         </div>

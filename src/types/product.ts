@@ -8,7 +8,10 @@ export interface Product {
   imagen_url: string | null;
   position: number;
   is_active: boolean;
+  is_out_of_stock: boolean;
+  stock_status: 'available' | 'out_of_stock';
   created_at: string;
+  nemu_product_id: string | null;
 }
 
 export interface ProductForm {

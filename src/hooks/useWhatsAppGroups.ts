@@ -4,13 +4,10 @@ import type { WhatsAppGroup, EvolutionGroup } from '../types/whatsappGroup';
 import { useEvolution } from './useEvolution';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'react-hot-toast';
+import { callEvolutionProxy } from '../lib/api';
 
-const EVOLUTION_URL = import.meta.env.VITE_EVOLUTION_DEFAULT_URL;
-const EVOLUTION_KEY = import.meta.env.VITE_EVOLUTION_API_KEY;
-
-let groupsCache: EvolutionGroup[] | null = null;
-let lastFetch = 0;
 const CACHE_TIME = 2 * 60 * 1000; // 2 minutos
+const groupsCache: Record<string, { groups: EvolutionGroup[], timestamp: number }> = {};
 
 export const useWhatsAppGroups = (catalogId?: string) => {
   const { user } = useAuthStore();
@@ -37,41 +34,47 @@ export const useWhatsAppGroups = (catalogId?: string) => {
   }, [catalogId]);
 
   const fetchAvailableGroups = async (forceRefresh = false): Promise<EvolutionGroup[]> => {
-    if (!instance || instance.status !== 'connected') {
+    if (!instance || instance.status !== 'connected' || !instance.server_id) {
       toast.error('WhatsApp no está conectado');
       return [];
     }
 
     const now = Date.now();
-    if (!forceRefresh && groupsCache && (now - lastFetch < CACHE_TIME)) {
-      console.log('Usando grupos desde caché');
-      return groupsCache;
+    const cache = groupsCache[instance.name];
+    
+    if (!forceRefresh && cache && (now - cache.timestamp < CACHE_TIME)) {
+      console.log('Usando grupos desde caché para:', instance.name);
+      return cache.groups;
     }
 
     setLoading(true);
     try {
-      console.log('Fetching groups from Evolution API...');
-      const response = await fetch(`${EVOLUTION_URL}/group/fetchAllGroups/${instance.name}?getParticipants=false`, {
-        headers: { 'apikey': EVOLUTION_KEY }
-      });
+      console.log('Fetching groups from Evolution Proxy for:', instance.name);
       
-      if (!response.ok) throw new Error('Error en API de Evolution');
+      const data = await callEvolutionProxy(
+        instance.server_id,
+        `/group/fetchAllGroups/${instance.name}?getParticipants=false`,
+        'GET',
+        null,
+        null
+      );
       
-      const data = await response.json();
-      console.log('Respuesta de Grupos API:', data);
+      console.log('Respuesta de Grupos API (Proxy):', data);
       
       // Evolution API puede devolver el array directo o dentro de un objeto { groups: [...] }
       const groups = Array.isArray(data) ? data : (data.groups || []);
       
       // Actualizar caché
-      groupsCache = groups;
-      lastFetch = now;
+      groupsCache[instance.name] = {
+        groups,
+        timestamp: now
+      };
       
       return groups;
     } catch (err) {
       console.error('Error fetchAvailableGroups:', err);
       toast.error('Error al obtener grupos de WhatsApp');
-      return groupsCache || []; // Devolver caché si falla el refresh
+      return groupsCache[instance.name]?.groups || []; // Devolver caché si falla el refresh
     } finally {
       setLoading(false);
     }

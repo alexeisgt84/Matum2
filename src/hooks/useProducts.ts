@@ -8,28 +8,63 @@ import { optimizeImage, blobToFile } from '../lib/imageOptimizer';
 export const useProducts = (catalogId?: string) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 20;
 
-  const getProducts = useCallback(async () => {
+  const getProducts = useCallback(async (isInitial = true) => {
     if (!catalogId) return;
+    
     setLoading(true);
+    if (isInitial) {
+      setPage(0);
+      setHasMore(true);
+    }
+
+    const currentPage = isInitial ? 0 : page;
+    const from = currentPage * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     try {
       const { data, error } = await supabase
         .from('products')
         .select('*')
         .eq('catalog_id', catalogId)
-        .order('position', { ascending: true });
+        .order('is_out_of_stock', { ascending: true })
+        .order('position', { ascending: true })
+        .range(from, to);
 
       if (error) throw error;
-      setProducts(data || []);
+      
+      const newProducts = data || [];
+      
+      if (isInitial) {
+        setProducts(newProducts);
+      } else {
+        setProducts(prev => [...prev, ...newProducts]);
+      }
+
+      setHasMore(newProducts.length === PAGE_SIZE);
+      if (!isInitial) {
+        setPage(prev => prev + 1);
+      } else {
+        setPage(1);
+      }
     } catch (err: any) {
       toast.error('Error al cargar productos: ' + err.message);
     } finally {
       setLoading(false);
     }
-  }, [catalogId]);
+  }, [catalogId, page]);
 
-  const saveProduct = async (form: ProductForm, id?: string, file?: File) => {
-    if (!catalogId) return;
+  const loadMore = useCallback(() => {
+    if (!loading && hasMore) {
+      getProducts(false);
+    }
+  }, [getProducts, loading, hasMore]);
+
+  const saveProduct = async (form: ProductForm, id?: string, file?: File): Promise<Product | null> => {
+    if (!catalogId) return null;
     setLoading(true);
     try {
       let imagen_url = form.imagen_url;
@@ -52,7 +87,10 @@ export const useProducts = (catalogId?: string) => {
             upsert: true
           });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Upload Error:', uploadError);
+          throw new Error(`Error al subir imagen: ${uploadError.message}`);
+        }
 
 
         const { data: { publicUrl } } = supabase.storage
@@ -62,32 +100,55 @@ export const useProducts = (catalogId?: string) => {
         imagen_url = publicUrl;
       }
 
+      // Preparar data limpia
+      const productData = {
+        name: form.name.trim(),
+        description: form.description?.trim() || null,
+        price: form.price === '' || form.price === null ? null : Number(form.price),
+        currency: form.currency,
+        imagen_url
+      };
+
+      let result: Product | null = null;
+
       if (id) {
         // Update
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('products')
-          .update({ ...form, imagen_url })
-          .eq('id', id);
+          .update(productData)
+          .eq('id', id)
+          .select()
+          .single();
         if (error) throw error;
+        result = data;
+        
+        // Actualizar estado local para evitar duplicados y mejorar UX
+        setProducts(prev => prev.map(p => p.id === id ? result! : p));
       } else {
         // Create
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('products')
           .insert([{ 
-            ...form, 
+            ...productData, 
             catalog_id: catalogId, 
-            imagen_url,
-            position: products.length 
-          }]);
+            position: 0,
+            is_active: true
+          }])
+          .select()
+          .single();
         if (error) throw error;
+        result = data;
+
+        // Agregar al inicio localmente
+        setProducts(prev => [result!, ...prev]);
       }
 
       toast.success(id ? 'Producto actualizado' : 'Producto creado');
-      getProducts();
-      return true;
+      return result;
     } catch (err: any) {
-      toast.error('Error al guardar: ' + err.message);
-      return false;
+      console.error('Error saving product:', err);
+      toast.error('Error al guardar: ' + (err.message || 'Error desconocido'));
+      return null;
     } finally {
       setLoading(false);
     }
@@ -108,7 +169,8 @@ export const useProducts = (catalogId?: string) => {
         currency: p.currency,
         imagen_url: p.imagen_url,
         position: index,
-        is_active: p.is_active
+        is_active: p.is_active,
+        is_out_of_stock: p.is_out_of_stock
       }));
 
       const { error } = await supabase.from('products').upsert(updates);
@@ -131,5 +193,6 @@ export const useProducts = (catalogId?: string) => {
     }
   };
 
-  return { products, loading, getProducts, saveProduct, deleteProduct, updateProductsOrder };
+  return { products, loading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, updateProductsOrder };
 };
+

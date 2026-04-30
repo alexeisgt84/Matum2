@@ -10,10 +10,25 @@
     --border: #2a2a2a;
     --text-primary: #ffffff;
     --text-secondary: #a0a0a0;
-    --accent: #25D366;
-    --accent-hover: #1eb956;
+    --accent: #ff782e;
+    --accent-hover: #e66420;
     --danger: #ef4444;
     --danger-hover: #dc2626;
+    --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+  }
+
+  :root.light {
+    --background: #f8f9fa;
+    --surface: #ffffff;
+    --surface-hover: #e9ecef;
+    --border: #dee2e6;
+    --text-primary: #212529;
+    --text-secondary: #495057;
+    --accent: #ff782e;
+    --accent-hover: #e66420;
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   }
 
   body {
@@ -26,11 +41,11 @@
 
 @layer components {
   .card {
-    @apply bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-xl;
+    @apply bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-[var(--card-shadow)];
   }
 
   .input-base {
-    @apply w-full bg-[#242424] border border-white/10 rounded-lg p-3 text-white focus:border-[var(--accent)] outline-none transition-all;
+    @apply w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg p-3 text-[var(--text-primary)] focus:border-[var(--accent)] outline-none transition-all;
   }
 
   .btn-whatsapp {

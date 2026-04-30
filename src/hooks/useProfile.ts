@@ -43,15 +43,18 @@ export const useProfile = () => {
           quality: 0.7
         });
 
-        const fileName = `${user.id}-${Date.now()}.jpg`;
+        // Usar una carpeta por usuario para mejor organización y control de RLS
+        const fileName = `${user.id}/${Date.now()}.jpg`;
         const optimizedFile = blobToFile(optimizedBlob, fileName);
 
         const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(fileName, optimizedFile, { upsert: true });
+          .upload(fileName, optimizedFile, { 
+            contentType: 'image/jpeg',
+            upsert: true 
+          });
 
         if (uploadError) throw uploadError;
-
 
         const { data: { publicUrl } } = supabase.storage
           .from('avatars')
@@ -62,7 +65,11 @@ export const useProfile = () => {
 
       const { error: updateError } = await supabase
         .from('users')
-        .update({ full_name: nombre, avatar_url })
+        .update({ 
+          full_name: nombre, 
+          avatar_url,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', user.id);
 
       if (updateError) throw updateError;
@@ -70,6 +77,7 @@ export const useProfile = () => {
       setProfile({ ...profile, full_name: nombre, avatar_url });
       return true;
     } catch (err: any) {
+      console.error('Error updating profile:', err);
       setError(err.message);
       return false;
     } finally {

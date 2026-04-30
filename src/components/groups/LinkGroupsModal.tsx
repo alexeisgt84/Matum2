@@ -25,9 +25,14 @@ export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
 
   const loadGroups = async (force = false) => {
     setFetching(true);
-    const groups = await onFetch(force);
-    setAvailableGroups(groups);
-    setFetching(false);
+    try {
+      const groups = await onFetch(force);
+      setAvailableGroups(groups);
+    } catch (error) {
+      console.error('Error loading groups:', error);
+    } finally {
+      setFetching(false);
+    }
   };
 
   useEffect(() => {
@@ -61,7 +66,7 @@ export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
           <input
             type="text"
             placeholder="Buscar grupo..."
-            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-gray-600 focus:border-[#25D366]/50 focus:ring-1 focus:ring-[#25D366]/50 transition-all"
+            className="w-full pl-10 pr-4 py-3 bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50 focus:border-[var(--accent)]/50 focus:ring-1 focus:ring-[var(--accent)]/50 transition-all"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -70,34 +75,34 @@ export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
         <div className="max-h-[350px] overflow-y-auto space-y-2 pr-2">
           {fetching ? (
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-              <RefreshCw size={48} className="mb-4 animate-spin text-[#25D366]" />
-              <p className="text-xs uppercase font-bold tracking-widest text-white">Sincronizando grupos...</p>
+              <RefreshCw size={48} className="mb-4 animate-spin text-[var(--accent)]" />
+              <p className="text-xs uppercase font-bold tracking-widest text-[var(--text-primary)]">Sincronizando grupos...</p>
               <p className="text-[10px] text-gray-600 mt-2 text-center max-w-[200px]">
                 Esto puede demorar unos segundos dependiendo de tu conexión a WhatsApp.
               </p>
             </div>
           ) : filteredGroups.length === 0 ? (
-            <div className="text-center py-12 text-gray-600">
+            <div className="text-center py-12 text-[var(--text-secondary)]">
               <p className="text-sm">No se encontraron grupos disponibles.</p>
             </div>
           ) : (
             filteredGroups.map((group) => (
               <div 
                 key={group.id} 
-                className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-transparent hover:border-white/10 transition-all group"
+                className="flex items-center justify-between p-3 rounded-xl bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-all group"
               >
                 <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="p-2 bg-white/5 rounded-lg text-gray-500 group-hover:text-[#25D366] transition-colors">
+                  <div className="p-2 bg-[var(--surface)] rounded-lg text-gray-500 group-hover:text-[var(--accent)] transition-colors">
                     <Users size={18} />
                   </div>
                   <div className="overflow-hidden">
-                    <p className="text-sm text-white font-bold truncate">{group.subject}</p>
-                    <p className="text-[10px] text-gray-500 uppercase">{group.size || 0} miembros</p>
+                    <p className="text-sm text-[var(--text-primary)] font-bold truncate">{group.subject}</p>
+                    <p className="text-[10px] text-[var(--text-secondary)] uppercase">{group.size || 0} miembros</p>
                   </div>
                 </div>
                 <button
                   onClick={() => onLink(group)}
-                  className="p-2 bg-[#25D366]/10 text-[#25D366] rounded-lg hover:bg-[#25D366] hover:text-black transition-all"
+                  className="p-2 bg-[var(--accent)]/10 text-[var(--accent)] rounded-lg hover:bg-[var(--accent)] hover:text-black transition-all"
                 >
                   <Plus size={18} />
                 </button>

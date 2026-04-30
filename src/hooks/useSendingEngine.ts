@@ -10,6 +10,20 @@ export const useSendingEngine = (catalogId?: string) => {
   const { instance } = useEvolution(catalogId);
   const [sending, setSending] = useState(false);
 
+  const logSending = async (groupName: string, status: 'success' | 'failed', errorMessage?: string) => {
+    if (!catalogId) return;
+    try {
+      await supabase.from('sending_logs').insert({
+        catalog_id: catalogId,
+        group_name: groupName,
+        status,
+        error_message: errorMessage
+      });
+    } catch (err) {
+      console.error('Error recording log:', err);
+    }
+  };
+
   const dispatchToEvolution = async (endpoint: string, payload: any, instanceName: string) => {
     try {
       const response = await fetch(`${EVOLUTION_URL}${endpoint}/${instanceName}`, {
@@ -34,7 +48,7 @@ export const useSendingEngine = (catalogId?: string) => {
     }
 
     setSending(true);
-    const toastId = toast.loading('Iniciando envío directo...');
+    const toastId = toast.loading('Preparando envío en segundo plano...');
 
     try {
       // 1. Obtener Datos del Catálogo
@@ -52,6 +66,7 @@ export const useSendingEngine = (catalogId?: string) => {
         .select('*')
         .eq('catalog_id', catalogId)
         .eq('is_active', true)
+        .neq('is_out_of_stock', true)
         .order('position', { ascending: true });
 
       // 3. Obtener Mensajes de Secuencia
@@ -77,15 +92,17 @@ export const useSendingEngine = (catalogId?: string) => {
         throw new Error('No hay grupos vinculados o activos');
       }
 
-      let sentCount = 0;
-      const totalMessages = groups.length * (messages.length + (messages.some(m => m.type === 'catalog_products') ? (products?.length || 0) - 1 : 0));
+      const queueItems: any[] = [];
+      let totalToWait = 0;
+      const now = new Date();
 
       for (const group of groups) {
         for (const item of messages) {
           if (item.type === 'catalog_products') {
             if (products && products.length > 0) {
               for (const product of products) {
-                const productCaption = catalog.template
+                const productCaption = (catalog.template || '')
+                  .replace(/\\n/g, '\n')
                   .replace(/{product_name}/g, (product.name || '').trim())
                   .replace(/{product_description}/g, (product.description || '').trim())
                   .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
@@ -93,56 +110,78 @@ export const useSendingEngine = (catalogId?: string) => {
                   .replace(/{catalog_name}/g, (catalog.name || '').trim())
                   .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
 
-                const endpoint = product.imagen_url ? '/message/sendMedia' : '/message/sendText';
-                const payload = product.imagen_url ? {
-                  number: group.group_id,
-                  media: product.imagen_url,
-                  mediatype: 'image',
-                  caption: productCaption,
-                  delay: 1000
-                } : {
-                  number: group.group_id,
-                  text: productCaption
-                };
-
-                await dispatchToEvolution(endpoint, payload, instance.name);
-                sentCount++;
-                toast.loading(`Enviando: ${sentCount} mensajes...`, { id: toastId });
+                const scheduledDate = new Date(now.getTime() + totalToWait);
+                queueItems.push({
+                  catalog_id: catalogId,
+                  group_id: group.group_id,
+                  instance_name: instance.name,
+                  endpoint: product.imagen_url ? '/message/sendMedia' : '/message/sendText',
+                  payload: product.imagen_url ? {
+                    number: group.group_id,
+                    media: product.imagen_url,
+                    mediatype: 'image',
+                    caption: productCaption,
+                    delay: 1000
+                  } : {
+                    number: group.group_id,
+                    text: productCaption
+                  },
+                  scheduled_at: scheduledDate.toISOString(),
+                  status: 'pending'
+                });
                 
-                // Pequeño retardo de seguridad pero mucho más rápido que antes
-                await new Promise(r => setTimeout(r, 2000));
+                // Añadir un pequeño retraso entre mensajes en la cola para no saturar
+                totalToWait += 5000 + Math.random() * 5000;
               }
             }
           } else {
             const processedContent = (item.content || '')
+              .replace(/\\n/g, '\n')
               .replace(/{catalog_name}/g, (catalog.name || '').trim())
               .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
 
-            const endpoint = item.image_url ? '/message/sendMedia' : '/message/sendText';
-            const payload = item.image_url ? {
-              number: group.group_id,
-              media: item.image_url,
-              mediatype: 'image',
-              caption: processedContent,
-              delay: 1000
-            } : {
-              number: group.group_id,
-              text: processedContent
-            };
-
-            await dispatchToEvolution(endpoint, payload, instance.name);
-            sentCount++;
-            toast.loading(`Enviando: ${sentCount} mensajes...`, { id: toastId });
+            const scheduledDate = new Date(now.getTime() + totalToWait);
+            queueItems.push({
+              catalog_id: catalogId,
+              group_id: group.group_id,
+              instance_name: instance.name,
+              endpoint: item.image_url ? '/message/sendMedia' : '/message/sendText',
+              payload: item.image_url ? {
+                number: group.group_id,
+                media: item.image_url,
+                mediatype: 'image',
+                caption: processedContent,
+                delay: 1000
+              } : {
+                number: group.group_id,
+                text: processedContent
+              },
+              scheduled_at: scheduledDate.toISOString(),
+              status: 'pending'
+            });
             
-            await new Promise(r => setTimeout(r, 2000));
+            totalToWait += 5000 + Math.random() * 5000;
           }
         }
       }
 
-      toast.success(`¡Envío completado! Se enviaron ${sentCount} mensajes directamente.`, { id: toastId });
+      // Insertar en la cola
+      const { error: queueError } = await supabase.from('wa_message_queue').insert(queueItems);
+      if (queueError) throw queueError;
+
+      toast.success(`Se han encolado ${queueItems.length} mensajes. El envío comenzará en breve.`, { id: toastId });
+
+      // Opcional: Disparar el procesador de inmediato
+      const { data: { session } } = await supabase.auth.getSession();
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-message-sender`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      }).catch(e => console.warn('Error disparando sender manual:', e));
 
     } catch (err: any) {
-      toast.error('Error durante el envío: ' + err.message, { id: toastId });
+      toast.error('Error al programar envío: ' + err.message, { id: toastId });
     } finally {
       setSending(false);
     }
@@ -155,7 +194,7 @@ export const useSendingEngine = (catalogId?: string) => {
     }
 
     setSending(true);
-    const toastId = toast.loading('Enviando mensaje directamente...');
+    const toastId = toast.loading('Encolando mensaje...');
 
     try {
       const { data: catalog } = await supabase
@@ -176,7 +215,9 @@ export const useSendingEngine = (catalogId?: string) => {
         throw new Error('No hay grupos vinculados o activos');
       }
 
-      let sentCount = 0;
+      const queueItems: any[] = [];
+      let totalToWait = 0;
+      const now = new Date();
 
       for (const group of groups) {
         if (message.type === 'catalog_products') {
@@ -185,11 +226,13 @@ export const useSendingEngine = (catalogId?: string) => {
             .select('*')
             .eq('catalog_id', catalogId)
             .eq('is_active', true)
+            .neq('is_out_of_stock', true)
             .order('position', { ascending: true });
 
           if (products && products.length > 0) {
             for (const product of products) {
-              const productCaption = catalog.template
+              const productCaption = (catalog.template || '')
+                .replace(/\\n/g, '\n')
                 .replace(/{product_name}/g, (product.name || '').trim())
                 .replace(/{product_description}/g, (product.description || '').trim())
                 .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
@@ -197,52 +240,72 @@ export const useSendingEngine = (catalogId?: string) => {
                 .replace(/{catalog_name}/g, (catalog.name || '').trim())
                 .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
 
-              const endpoint = product.imagen_url ? '/message/sendMedia' : '/message/sendText';
-              const payload = product.imagen_url ? {
-                number: group.group_id,
-                media: product.imagen_url,
-                mediatype: 'image',
-                caption: productCaption,
-                delay: 1000
-              } : {
-                number: group.group_id,
-                text: productCaption
-              };
-
-              await dispatchToEvolution(endpoint, payload, instance.name);
-              sentCount++;
-              toast.loading(`Enviando: ${sentCount} mensajes...`, { id: toastId });
-              await new Promise(r => setTimeout(r, 2000));
+              const scheduledDate = new Date(now.getTime() + totalToWait);
+              queueItems.push({
+                catalog_id: catalogId,
+                group_id: group.group_id,
+                instance_name: instance.name,
+                endpoint: product.imagen_url ? '/message/sendMedia' : '/message/sendText',
+                payload: product.imagen_url ? {
+                  number: group.group_id,
+                  media: product.imagen_url,
+                  mediatype: 'image',
+                  caption: productCaption,
+                  delay: 1000
+                } : {
+                  number: group.group_id,
+                  text: productCaption
+                },
+                scheduled_at: scheduledDate.toISOString(),
+                status: 'pending'
+              });
+              totalToWait += 5000 + Math.random() * 5000;
             }
           }
         } else {
           const processedContent = (message.content || '')
+            .replace(/\\n/g, '\n')
             .replace(/{catalog_name}/g, (catalog.name || '').trim())
             .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
 
-          const endpoint = message.image_url ? '/message/sendMedia' : '/message/sendText';
-          const payload = message.image_url ? {
-            number: group.group_id,
-            media: message.image_url,
-            mediatype: 'image',
-            caption: processedContent,
-            delay: 1000
-          } : {
-            number: group.group_id,
-            text: processedContent
-          };
-
-          await dispatchToEvolution(endpoint, payload, instance.name);
-          sentCount++;
-          toast.loading(`Enviando: ${sentCount} mensajes...`, { id: toastId });
-          await new Promise(r => setTimeout(r, 2000));
+          const scheduledDate = new Date(now.getTime() + totalToWait);
+          queueItems.push({
+            catalog_id: catalogId,
+            group_id: group.group_id,
+            instance_name: instance.name,
+            endpoint: message.image_url ? '/message/sendMedia' : '/message/sendText',
+            payload: message.image_url ? {
+              number: group.group_id,
+              media: message.image_url,
+              mediatype: 'image',
+              caption: processedContent,
+              delay: 1000
+            } : {
+              number: group.group_id,
+              text: processedContent
+            },
+            scheduled_at: scheduledDate.toISOString(),
+            status: 'pending'
+          });
+          totalToWait += 5000 + Math.random() * 5000;
         }
       }
 
-      toast.success(`Mensaje enviado a ${groups.length} grupos directamente.`, { id: toastId });
+      const { error: queueError } = await supabase.from('wa_message_queue').insert(queueItems);
+      if (queueError) throw queueError;
+
+      toast.success(`Mensaje programado para ${groups.length} grupos.`, { id: toastId });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-message-sender`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      }).catch(() => {});
 
     } catch (err: any) {
-      toast.error('Error al enviar: ' + err.message, { id: toastId });
+      toast.error('Error al programar: ' + err.message, { id: toastId });
     } finally {
       setSending(false);
     }
@@ -255,7 +318,7 @@ export const useSendingEngine = (catalogId?: string) => {
     }
 
     setSending(true);
-    const toastId = toast.loading('Enviando producto directamente...');
+    const toastId = toast.loading('Encolando producto...');
 
     try {
       const { data: catalog } = await supabase
@@ -276,10 +339,13 @@ export const useSendingEngine = (catalogId?: string) => {
         throw new Error('No hay grupos vinculados o activos');
       }
 
-      let sentCount = 0;
+      const queueItems: any[] = [];
+      let totalToWait = 0;
+      const now = new Date();
 
       for (const group of groups) {
-        const productCaption = catalog.template
+        const productCaption = (catalog.template || '')
+          .replace(/\\n/g, '\n')
           .replace(/{product_name}/g, (product.name || '').trim())
           .replace(/{product_description}/g, (product.description || '').trim())
           .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
@@ -287,34 +353,217 @@ export const useSendingEngine = (catalogId?: string) => {
           .replace(/{catalog_name}/g, (catalog.name || '').trim())
           .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
 
-        const endpoint = product.imagen_url ? '/message/sendMedia' : '/message/sendText';
-        const payload = product.imagen_url ? {
-          number: group.group_id,
-          media: product.imagen_url,
-          mediatype: 'image',
-          caption: productCaption,
-          delay: 1000
-        } : {
-          number: group.group_id,
-          text: productCaption
-        };
-
-        await dispatchToEvolution(endpoint, payload, instance.name);
-        sentCount++;
-        toast.loading(`Enviando a grupos: ${sentCount}/${groups.length}`, { id: toastId });
-        await new Promise(r => setTimeout(r, 2000));
+        const scheduledDate = new Date(now.getTime() + totalToWait);
+        queueItems.push({
+          catalog_id: catalogId,
+          group_id: group.group_id,
+          instance_name: instance.name,
+          endpoint: product.imagen_url ? '/message/sendMedia' : '/message/sendText',
+          payload: product.imagen_url ? {
+            number: group.group_id,
+            media: product.imagen_url,
+            mediatype: 'image',
+            caption: productCaption,
+            delay: 1000
+          } : {
+            number: group.group_id,
+            text: productCaption
+          },
+          scheduled_at: scheduledDate.toISOString(),
+          status: 'pending'
+        });
+        totalToWait += 5000 + Math.random() * 5000;
       }
 
-      toast.success(`Producto enviado a ${groups.length} grupos directamente.`, { id: toastId });
+      const { error: queueError } = await supabase.from('wa_message_queue').insert(queueItems);
+      if (queueError) throw queueError;
+
+      toast.success(`Producto programado para ${groups.length} grupos.`, { id: toastId });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-message-sender`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      }).catch(() => {});
 
     } catch (err: any) {
-      toast.error('Error al enviar: ' + err.message, { id: toastId });
+      toast.error('Error al programar: ' + err.message, { id: toastId });
     } finally {
       setSending(false);
     }
   };
 
-  return { sendCatalogToGroups, sendSingleMessage, sendSingleProduct, sending };
+  const sendProductOutOfStock = async (product: any) => {
+    if (!instance || instance.status !== 'connected') {
+      toast.error('WhatsApp no está conectado');
+      return;
+    }
+
+    setSending(true);
+    const toastId = toast.loading('Encolando aviso de agotado...');
+
+    try {
+      const { data: catalog } = await supabase
+        .from('catalogs')
+        .select('*')
+        .eq('id', catalogId)
+        .single();
+      
+      if (!catalog) throw new Error('Catálogo no encontrado');
+
+      const { data: groups } = await supabase
+        .from('whatsapp_groups')
+        .select('*')
+        .eq('catalog_id', catalogId)
+        .eq('is_active', true);
+
+      if (!groups || groups.length === 0) {
+        throw new Error('No hay grupos vinculados o activos');
+      }
+
+      const queueItems: any[] = [];
+      let totalToWait = 0;
+      const now = new Date();
+
+      for (const group of groups) {
+        const template = catalog.out_of_stock_template || '*AGOTADO*\n{product_name}';
+        const productCaption = template
+          .replace(/\\n/g, '\n')
+          .replace(/{product_name}/g, (product.name || '').trim())
+          .replace(/{product_description}/g, (product.description || '').trim())
+          .replace(/{catalog_name}/g, (catalog.name || '').trim())
+          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+
+        const scheduledDate = new Date(now.getTime() + totalToWait);
+        queueItems.push({
+          catalog_id: catalogId,
+          group_id: group.group_id,
+          instance_name: instance.name,
+          endpoint: product.imagen_url ? '/message/sendMedia' : '/message/sendText',
+          payload: product.imagen_url ? {
+            number: group.group_id,
+            media: product.imagen_url,
+            mediatype: 'image',
+            caption: productCaption,
+            delay: 1000
+          } : {
+            number: group.group_id,
+            text: productCaption
+          },
+          scheduled_at: scheduledDate.toISOString(),
+          status: 'pending'
+        });
+        totalToWait += 5000 + Math.random() * 5000;
+      }
+
+      const { error: queueError } = await supabase.from('wa_message_queue').insert(queueItems);
+      if (queueError) throw queueError;
+
+      toast.success(`Aviso de agotado encolado para ${groups.length} grupos.`, { id: toastId });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-message-sender`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      }).catch(() => {});
+
+    } catch (err: any) {
+      toast.error('Error al programar: ' + err.message, { id: toastId });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const sendProductAvailable = async (product: any) => {
+    if (!instance || instance.status !== 'connected') {
+      toast.error('WhatsApp no está conectado');
+      return;
+    }
+
+    setSending(true);
+    const toastId = toast.loading('Encolando aviso de disponibilidad...');
+
+    try {
+      const { data: catalog } = await supabase
+        .from('catalogs')
+        .select('*')
+        .eq('id', catalogId)
+        .single();
+      
+      if (!catalog) throw new Error('Catálogo no encontrado');
+
+      const { data: groups } = await supabase
+        .from('whatsapp_groups')
+        .select('*')
+        .eq('catalog_id', catalogId)
+        .eq('is_active', true);
+
+      if (!groups || groups.length === 0) {
+        throw new Error('No hay grupos vinculados o activos');
+      }
+
+      const queueItems: any[] = [];
+      let totalToWait = 0;
+      const now = new Date();
+
+      for (const group of groups) {
+        const template = catalog.available_template || catalog.new_product_template || '*PRODUCTO DISPONIBLE*\n{product_name}\nPrecio: {product_price}';
+        const productCaption = template
+          .replace(/\\n/g, '\n')
+          .replace(/{product_name}/g, (product.name || '').trim())
+          .replace(/{product_description}/g, (product.description || '').trim())
+          .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
+          .replace(/{product_currency}/g, (product.currency || '$').trim())
+          .replace(/{catalog_name}/g, (catalog.name || '').trim())
+          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+
+        const scheduledDate = new Date(now.getTime() + totalToWait);
+        queueItems.push({
+          catalog_id: catalogId,
+          group_id: group.group_id,
+          instance_name: instance.name,
+          endpoint: product.imagen_url ? '/message/sendMedia' : '/message/sendText',
+          payload: product.imagen_url ? {
+            number: group.group_id,
+            media: product.imagen_url,
+            mediatype: 'image',
+            caption: productCaption,
+            delay: 1000
+          } : {
+            number: group.group_id,
+            text: productCaption
+          },
+          scheduled_at: scheduledDate.toISOString(),
+          status: 'pending'
+        });
+        totalToWait += 5000 + Math.random() * 5000;
+      }
+
+      const { error: queueError } = await supabase.from('wa_message_queue').insert(queueItems);
+      if (queueError) throw queueError;
+
+      toast.success(`Aviso de disponibilidad encolado para ${groups.length} grupos.`, { id: toastId });
+
+      const { data: { session } } = await supabase.auth.getSession();
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-message-sender`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
+      }).catch(() => {});
+
+    } catch (err: any) {
+      toast.error('Error al programar: ' + err.message, { id: toastId });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return { sendCatalogToGroups, sendSingleMessage, sendSingleProduct, sendProductOutOfStock, sendProductAvailable, sending };
 };
 
 

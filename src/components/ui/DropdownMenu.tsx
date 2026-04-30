@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MoreVertical } from 'lucide-react';
 
-interface DropdownItem {
+export interface DropdownItem {
   label: string;
   icon?: React.ComponentType<{ size?: number; className?: string }>;
   onClick: () => void;
