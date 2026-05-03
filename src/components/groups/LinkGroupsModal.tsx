@@ -7,6 +7,7 @@ import { Users, Search, Plus, RefreshCw } from 'lucide-react';
 interface LinkGroupsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  availableGroups: EvolutionGroup[];
   onFetch: (force?: boolean) => Promise<EvolutionGroup[]>;
   onLink: (group: EvolutionGroup) => Promise<void>;
   loading?: boolean;
@@ -15,33 +16,23 @@ interface LinkGroupsModalProps {
 export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
   isOpen,
   onClose,
+  availableGroups,
   onFetch,
   onLink,
   loading = false,
 }) => {
-  const [availableGroups, setAvailableGroups] = useState<EvolutionGroup[]>([]);
   const [search, setSearch] = useState('');
-  const [fetching, setFetching] = useState(false);
-
-  const loadGroups = async (force = false) => {
-    setFetching(true);
-    try {
-      const groups = await onFetch(force);
-      setAvailableGroups(groups);
-    } catch (error) {
-      console.error('Error loading groups:', error);
-    } finally {
-      setFetching(false);
-    }
-  };
 
   useEffect(() => {
-    if (isOpen) loadGroups();
+    if (isOpen) {
+      onFetch();
+    }
   }, [isOpen]);
 
   const filteredGroups = Array.isArray(availableGroups) 
     ? availableGroups.filter(g => g.subject.toLowerCase().includes(search.toLowerCase()))
     : [];
+
 
   return (
     <Modal
@@ -51,10 +42,10 @@ export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
       footer={
         <Button 
           variant="secondary" 
-          onClick={() => loadGroups(true)} 
+          onClick={() => onFetch(true)} 
           className="w-full" 
           icon={RefreshCw}
-          loading={fetching}
+          loading={loading}
         >
           Actualizar Lista
         </Button>
@@ -73,7 +64,7 @@ export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
         </div>
 
         <div className="max-h-[350px] overflow-y-auto space-y-2 pr-2">
-          {fetching ? (
+          {loading && availableGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
               <RefreshCw size={48} className="mb-4 animate-spin text-[var(--accent)]" />
               <p className="text-xs uppercase font-bold tracking-widest text-[var(--text-primary)]">Sincronizando grupos...</p>

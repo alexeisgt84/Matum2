@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 
 import { optimizeImage, blobToFile } from '../lib/imageOptimizer';
 
-export const useProducts = (catalogId?: string) => {
+export const useProducts = (catalogId?: string, search?: string, sortField: string = 'position', sortOrder: 'asc' | 'desc' = 'asc') => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -26,13 +26,33 @@ export const useProducts = (catalogId?: string) => {
     const to = from + PAGE_SIZE - 1;
 
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('products')
         .select('*')
-        .eq('catalog_id', catalogId)
-        .order('is_out_of_stock', { ascending: true })
-        .order('position', { ascending: true })
-        .range(from, to);
+        .eq('catalog_id', catalogId);
+
+      // Búsqueda
+      if (search && search.trim() !== '') {
+        const s = `%${search.trim()}%`;
+        // Intentar buscar por precio si es un número
+        const numSearch = Number(search.trim());
+        if (!isNaN(numSearch)) {
+          query = query.or(`name.ilike.${s},description.ilike.${s},price.eq.${numSearch}`);
+        } else {
+          query = query.or(`name.ilike.${s},description.ilike.${s}`);
+        }
+      }
+
+      // Ordenación
+      if (sortField === 'position') {
+        query = query
+          .order('is_out_of_stock', { ascending: true })
+          .order('position', { ascending: true });
+      } else {
+        query = query.order(sortField, { ascending: sortOrder === 'asc' });
+      }
+
+      const { data, error } = await query.range(from, to);
 
       if (error) throw error;
       
@@ -55,7 +75,7 @@ export const useProducts = (catalogId?: string) => {
     } finally {
       setLoading(false);
     }
-  }, [catalogId, page]);
+  }, [catalogId, page, search, sortField, sortOrder]);
 
   const loadMore = useCallback(() => {
     if (!loading && hasMore) {

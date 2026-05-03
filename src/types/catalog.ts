@@ -1,3 +1,9 @@
+export type SequenceSchedule = {
+  time: string;
+  enabled: boolean;
+  last_sent_at?: string | null;
+}
+
 export interface Catalog {
   id: string;
   user_id: string;
@@ -13,6 +19,7 @@ export interface Catalog {
   is_active: boolean;
   nemu_store_id: string | null;
   sequence_start_time: string | null;
+  sequence_schedules?: SequenceSchedule[] | null;
   is_sequence_scheduled: boolean;
   is_individual_scheduled: boolean;
   last_sequence_sent_at: string | null;
@@ -31,9 +38,9 @@ export interface CatalogForm {
   price_update_template?: string;
   product_edit_template?: string;
   sequence_start_time: string;
+  sequence_schedules?: SequenceSchedule[];
   is_active: boolean;
   is_sequence_scheduled: boolean;
   is_individual_scheduled: boolean;
   nemu_store_id?: string | null;
 }
-

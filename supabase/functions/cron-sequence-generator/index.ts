@@ -80,12 +80,26 @@ Deno.serve(async (req) => {
       // ============================================
       // 1. EVALUAR SECUENCIA DEL CATÁLOGO
       // ============================================
-      if (catalog.is_sequence_scheduled && catalog.sequence_start_time) {
-        const catalogTime = catalog.sequence_start_time.substring(0, 5);
-        const alreadySentToday = isSameDayLocal(catalog.last_sequence_sent_at);
+      let schedules = catalog.sequence_schedules || [];
+      
+      // Si no hay horarios en el nuevo formato pero sí en el viejo, añadirlo como fallback
+      if (schedules.length === 0 && catalog.is_sequence_scheduled && catalog.sequence_start_time) {
+        schedules = [{ 
+          time: catalog.sequence_start_time, 
+          enabled: true, 
+          last_sent_at: catalog.last_sequence_sent_at 
+        }];
+      }
 
-        if (!alreadySentToday && currentTimeStr >= catalogTime) {
-          logInfo(`[Secuencia] Generando para catálogo ${catalog.name} (Hora p.: ${catalogTime}).`);
+      for (let i = 0; i < schedules.length; i++) {
+        const schedule = schedules[i];
+        if (!schedule.enabled) continue;
+
+        const scheduleTime = schedule.time.substring(0, 5);
+        const alreadySentToday = isSameDayLocal(schedule.last_sent_at);
+
+        if (!alreadySentToday && currentTimeStr >= scheduleTime) {
+          logInfo(`[Secuencia] Generando para catálogo ${catalog.name} (Horario ${i+1}: ${scheduleTime}).`);
           
           const { data: messages } = await supabase
             .from('whatsapp_messages')
@@ -103,79 +117,89 @@ Deno.serve(async (req) => {
             .order('position', { ascending: true });
 
           if (messages && messages.length > 0) {
-            // 1. Marcar catálogo como enviado hoy ANTES de empezar a encolar (evitar race conditions)
-            // Solo procedemos si logramos actualizar el registro que NO ha sido enviado hoy
+            // Actualizar el last_sent_at de este horario específico
+            const updatedSchedules = [...schedules];
+            updatedSchedules[i] = { ...schedule, last_sent_at: now.toISOString() };
+
+            // Intentar bloquear el envío actualizando el catálogo
+            // Usamos el array completo para asegurar consistencia (aunque no sea perfecto contra race conditions)
             const { data: lockResult } = await supabase
               .from('catalogs')
-              .update({ last_sequence_sent_at: now.toISOString() })
+              .update({ 
+                sequence_schedules: updatedSchedules,
+                last_sequence_sent_at: now.toISOString() // Actualizamos también el global por compatibilidad
+              })
               .eq('id', catalog.id)
-              .or(`last_sequence_sent_at.is.null,last_sequence_sent_at.lt.${currentLocalDayStr}T00:00:00Z`)
               .select();
 
             if (!lockResult || lockResult.length === 0) {
-              logInfo(`[Secuencia] Catálogo ${catalog.name} ya fue procesado por otra instancia.`);
-            } else {
-              for (const group of groups) {
-                for (const item of messages) {
-                  if (item.type === 'catalog_products') {
-                    if (products && products.length > 0) {
-                      for (const product of products) {
-                        cumulativeDelayMs += Math.floor(Math.random() * (20000 - 10000 + 1)) + 10000;
-                        const productCaption = (catalog.template || '')
-                          .replace(/\\n/g, '\n')
-                          .replace(/{product_name}/g, (product.name || '').trim())
-                          .replace(/{product_description}/g, (product.description || '').trim())
-                          .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
-                          .replace(/{product_currency}/g, (product.currency || '$').trim())
-                          .replace(/{catalog_name}/g, (catalog.name || '').trim())
-                          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+              logInfo(`[Secuencia] Catálogo ${catalog.name} no se pudo actualizar.`);
+              continue;
+            }
 
-                        const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
-                        queueItems.push({
-                          catalog_id: catalog.id,
-                          group_id: group.group_id,
-                          instance_name: instanceName,
-                          endpoint: product.imagen_url ? '/message/sendMedia' : '/message/sendText',
-                          payload: product.imagen_url ? {
-                            number: group.group_id,
-                            media: product.imagen_url,
-                            mediatype: 'image',
-                            caption: productCaption,
-                            delay: 1000
-                          } : {
-                            number: group.group_id,
-                            text: productCaption
-                          },
-                          scheduled_at: scheduleDate.toISOString()
-                        });
-                      }
+            // Actualizamos la variable local por si hay más horarios que procesar en este mismo loop (aunque raro)
+            schedules = updatedSchedules;
+
+            for (const group of groups) {
+              for (const item of messages) {
+                if (item.type === 'catalog_products') {
+                  if (products && products.length > 0) {
+                    for (const product of products) {
+                      cumulativeDelayMs += Math.floor(Math.random() * (20000 - 10000 + 1)) + 10000;
+                      const productCaption = (catalog.template || '')
+                        .replace(/\\n/g, '\n')
+                        .replace(/{product_name}/g, (product.name || '').trim())
+                        .replace(/{product_description}/g, (product.description || '').trim())
+                        .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
+                        .replace(/{product_currency}/g, (product.currency || '$').trim())
+                        .replace(/{catalog_name}/g, (catalog.name || '').trim())
+                        .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+
+                      const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
+                      queueItems.push({
+                        catalog_id: catalog.id,
+                        group_id: group.group_id,
+                        instance_name: instanceName,
+                        endpoint: product.imagen_url ? '/message/sendMedia' : '/message/sendText',
+                        payload: product.imagen_url ? {
+                          number: group.group_id,
+                          media: product.imagen_url,
+                          mediatype: 'image',
+                          caption: productCaption,
+                          delay: 1000
+                        } : {
+                          number: group.group_id,
+                          text: productCaption
+                        },
+                        scheduled_at: scheduleDate.toISOString()
+                      });
                     }
-                  } else {
-                    cumulativeDelayMs += Math.floor(Math.random() * (20000 - 10000 + 1)) + 10000;
-                    const processedContent = (item.content || '')
-                      .replace(/\\n/g, '\n')
-                      .replace(/{catalog_name}/g, (catalog.name || '').trim())
-                      .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
-
-                    const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
-                    queueItems.push({
-                      catalog_id: catalog.id,
-                      group_id: group.group_id,
-                      instance_name: instanceName,
-                      endpoint: item.image_url ? '/message/sendMedia' : '/message/sendText',
-                      payload: item.image_url ? {
-                        number: group.group_id,
-                        media: item.image_url,
-                        mediatype: 'image',
-                        caption: processedContent,
-                        delay: 1000
-                      } : {
-                        number: group.group_id,
-                        text: processedContent
-                      },
-                      scheduled_at: scheduleDate.toISOString()
-                    });
                   }
+                } else {
+                  cumulativeDelayMs += Math.floor(Math.random() * (20000 - 10000 + 1)) + 10000;
+                  const processedContent = (item.content || '')
+                    .replace(/\\n/g, '\n')
+                    .replace(/{catalog_name}/g, (catalog.name || '').trim())
+                    .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+
+                  const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
+                  queueItems.push({
+                    catalog_id: catalog.id,
+                    group_id: group.group_id,
+                    instance_name: instanceName,
+                    endpoint: item.image_url ? '/message/sendMedia' : '/message/sendText',
+                    payload: item.image_url ? {
+                      number: group.group_id,
+                      media: item.image_url,
+                      mediatype: 'image',
+                      caption: processedContent,
+                      delay: 1000
+                    } : {
+                      number: group.group_id,
+                      text: processedContent
+                    },
+                    scheduled_at: scheduleDate.toISOString()
+                  });
                 }
               }
             }

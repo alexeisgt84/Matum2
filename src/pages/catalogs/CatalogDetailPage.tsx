@@ -19,6 +19,10 @@ import {
   RotateCcw,
   AlertCircle,
   CheckCircle,
+  ArrowUpDown,
+  SortAsc,
+  SortDesc,
+  Search,
   PackageX,
   PackageCheck,
   Tag,
@@ -54,6 +58,8 @@ import type { Product } from '../../types/product';
 import type { WhatsAppMessage } from '../../types/message';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { CatalogStatusBar } from '../../components/catalogs/CatalogStatusBar';
+import { ScheduleSequenceModal } from '../../components/catalogs/ScheduleSequenceModal';
+import type { SequenceSchedule } from '../../types/catalog';
 
 type View = 'individual' | 'sequences' | 'products' | 'groups';
 
@@ -72,14 +78,29 @@ export const CatalogDetailPage = () => {
   // Hooks de Evolución (para saber si está conectado)
   const { instance } = useEvolution(catalogId);
 
+  // Estados de Búsqueda y Ordenación
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortField, setSortField] = useState('position');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+
+  // Debounce para la búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Hooks de Producto
-  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, updateProductsOrder } = useProducts(catalogId);
+  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, updateProductsOrder } = useProducts(catalogId, debouncedSearch, sortField, sortOrder);
   
   // Hooks de Mensaje
   const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, updateMessagesOrder, toggleMessageSequence } = useMessages(catalogId);
   
   // Hooks de Grupos (Seguimos usándolos para el modal de grupos)
-  const { linkedGroups, loading: groupsLoading, getLinkedGroups, fetchAvailableGroups, linkGroup, unlinkGroup } = useWhatsAppGroups(catalogId);
+  const { linkedGroups, availableGroups, loading: groupsLoading, getLinkedGroups, fetchAvailableGroups, linkGroup, unlinkGroup } = useWhatsAppGroups(catalogId);
+
 
   // Motor de Envío
   const { sendCatalogToGroups, sendSingleMessage, sendSingleProduct, sendProductOutOfStock, sendProductAvailable, sending } = useSendingEngine(catalogId);
@@ -111,6 +132,7 @@ export const CatalogDetailPage = () => {
   const [statsLoading, setStatsLoading] = useState(false);
   const [queueStats, setQueueStats] = useState({ pending: 0, sent: 0, error: 0 });
   const [tempTime, setTempTime] = useState('');
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   
   // Estados de Selección
@@ -147,7 +169,7 @@ export const CatalogDetailPage = () => {
     getProducts(true);
     getMessages();
     getLinkedGroups();
-  }, [catalogId, getMessages, getLinkedGroups]); // Removido getProducts de las dependencias para evitar loops si cambia por paginación interno
+  }, [catalogId, getMessages, getLinkedGroups, debouncedSearch, sortField, sortOrder]);
 
 
   const [isEnsuringCatalog, setIsEnsuringCatalog] = useState(false);
@@ -361,6 +383,23 @@ export const CatalogDetailPage = () => {
       }
     } catch (err: any) {
       toast.error('Error al actualizar programación');
+    }
+  };
+
+  const handleSaveSchedules = async (schedules: SequenceSchedule[]) => {
+    if (!catalogId) return;
+    try {
+      const { error } = await supabase
+        .from('catalogs')
+        .update({ sequence_schedules: schedules })
+        .eq('id', catalogId);
+      
+      if (error) throw error;
+      setCatalog({ ...catalog, sequence_schedules: schedules });
+      toast.success('Horarios de secuencia actualizados');
+    } catch (err: any) {
+      toast.error('Error al guardar horarios');
+      throw err;
     }
   };
 
@@ -787,7 +826,58 @@ export const CatalogDetailPage = () => {
       <div className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 pb-32">
         {view === 'products' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {prodLoading ? (
+            
+            {/* Buscador y Ordenación */}
+            <div className="flex items-center gap-2 mb-6">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" size={18} />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, descripción o precio..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-surface-hover border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
+                />
+              </div>
+              
+              <DropdownMenu
+                trigger={
+                  <button className="flex items-center gap-2 px-3 py-2.5 bg-surface-hover border border-border rounded-xl hover:bg-surface transition-colors">
+                    <ArrowUpDown size={18} className="text-accent" />
+                    <span className="hidden sm:inline text-xs font-bold uppercase">Ordenar</span>
+                  </button>
+                }
+                items={[
+                  {
+                    label: 'Orden manual',
+                    icon: GripVertical,
+                    onClick: () => { setSortField('position'); setSortOrder('asc'); }
+                  },
+                  {
+                    label: 'Nombre (A-Z)',
+                    icon: SortAsc,
+                    onClick: () => { setSortField('name'); setSortOrder('asc'); }
+                  },
+                  {
+                    label: 'Nombre (Z-A)',
+                    icon: SortDesc,
+                    onClick: () => { setSortField('name'); setSortOrder('desc'); }
+                  },
+                  {
+                    label: 'Precio: Menor a Mayor',
+                    icon: SortAsc,
+                    onClick: () => { setSortField('price'); setSortOrder('asc'); }
+                  },
+                  {
+                    label: 'Precio: Mayor a Menor',
+                    icon: SortDesc,
+                    onClick: () => { setSortField('price'); setSortOrder('desc'); }
+                  }
+                ]}
+              />
+            </div>
+
+            {prodLoading && products.length === 0 ? (
               <div className="grid gap-4">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="card p-4 flex gap-4">
@@ -802,11 +892,11 @@ export const CatalogDetailPage = () => {
               </div>
             ) : products.length === 0 ? (
               <EmptyState
-                icon={Package}
-                title="Sin productos"
-                description="Agrega los productos que deseas mostrar en este catálogo."
-                actionLabel="Agregar Producto"
-                onAction={handleAddAction}
+                icon={searchQuery ? Search : Package}
+                title={searchQuery ? "Sin resultados" : "Sin productos"}
+                description={searchQuery ? `No encontramos productos que coincidan con "${searchQuery}"` : "Agrega los productos que deseas mostrar en este catálogo."}
+                actionLabel={searchQuery ? "Limpiar búsqueda" : "Agregar Producto"}
+                onAction={searchQuery ? () => setSearchQuery('') : handleAddAction}
               />
             ) : (
               <DragDropContext onDragEnd={onDragEnd}>
@@ -818,7 +908,12 @@ export const CatalogDetailPage = () => {
                       className="grid grid-cols-1 gap-3"
                     >
                       {products.map((product, index) => (
-                        <Draggable key={product.id} draggableId={product.id} index={index}>
+                        <Draggable 
+                          key={product.id} 
+                          draggableId={product.id} 
+                          index={index}
+                          isDragDisabled={sortField !== 'position'}
+                        >
                           {(provided, snapshot) => (
                             <div
                               ref={provided.innerRef}
@@ -829,7 +924,7 @@ export const CatalogDetailPage = () => {
                                     product={product}
                                     isSelected={selectedProductIds.includes(product.id)}
                                     onSelect={toggleSelectProduct}
-                                    dragHandleProps={provided.dragHandleProps}
+                                    dragHandleProps={sortField === 'position' ? provided.dragHandleProps : undefined}
                                     shareTemplate={catalog?.share_template}
                                     catalogName={catalog?.name}
                                     onEdit={(p) => {
@@ -941,7 +1036,7 @@ export const CatalogDetailPage = () => {
         {view === 'sequences' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Control de Secuencia Minimalista */}
-            <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/10 gap-4">
+            <div className="flex items-center justify-between p-3 bg-surface border border-border rounded-2xl gap-4 shadow-sm">
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -954,38 +1049,18 @@ export const CatalogDetailPage = () => {
               </Button>
 
               <div className="flex items-center gap-3">
-                {catalog?.is_sequence_scheduled && (
-                  <div className="animate-in slide-in-from-right-2 duration-300 flex items-center gap-1">
-                    <input 
-                      type="time" 
-                      value={tempTime || '09:00'}
-                      onChange={(e) => setTempTime(e.target.value)}
-                      onClick={(e) => {
-                        try {
-                          e.currentTarget.showPicker();
-                        } catch (err) {
-                          // ignore if not supported
-                        }
-                      }}
-                      onKeyDown={(e) => e.preventDefault()}
-                      style={{ colorScheme: 'dark' }}
-                      className="bg-black/60 border border-white/5 rounded-lg pl-2 pr-1 py-1.5 text-white text-xs focus:outline-none focus:border-[var(--accent)]/50 transition-all font-mono cursor-pointer [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:invert-[0.8]"
-                    />
-                    {tempTime !== catalog?.sequence_start_time && (
-                      <button
-                        onClick={() => updateSequenceStartTime(tempTime)}
-                        className="p-1.5 bg-[var(--accent)]/20 text-[var(--accent)] rounded-md hover:bg-[var(--accent)] hover:text-black transition-colors border border-[var(--accent)]/30"
-                        title="Confirmar hora"
-                      >
-                        <CheckCircle size={14} strokeWidth={3} />
-                      </button>
-                    )}
-                  </div>
-                )}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={Clock}
+                  className="bg-surface-hover text-primary hover:bg-surface border-border px-4 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest"
+                  onClick={() => setIsScheduleModalOpen(true)}
+                >
+                  Programar
+                </Button>
                 
                 <div className="flex items-center gap-2 pr-1">
                   <Switch
-                    label="Programar"
                     checked={catalog?.is_sequence_scheduled || false}
                     onChange={(checked) => updateSequenceScheduled(checked)}
                   />
@@ -1284,6 +1359,7 @@ export const CatalogDetailPage = () => {
       <LinkGroupsModal
         isOpen={isLinkGroupOpen}
         onClose={() => setIsLinkGroupOpen(false)}
+        availableGroups={availableGroups}
         onFetch={fetchAvailableGroups}
         onLink={async (group) => {
           await linkGroup(group);
@@ -1330,6 +1406,13 @@ export const CatalogDetailPage = () => {
         onClose={() => setShowUpgrade(false)}
         currentPlan={limits.products <= 8 ? 'free' : 'basic'}
         reachedLimit="products"
+      />
+
+      <ScheduleSequenceModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        schedules={catalog?.sequence_schedules || []}
+        onSave={handleSaveSchedules}
       />
 
       {/* Modal de Agotado */}

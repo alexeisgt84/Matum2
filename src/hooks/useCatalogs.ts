@@ -94,6 +94,7 @@ export const useCatalogs = () => {
       if (form.price_update_template !== undefined) updateData.price_update_template = form.price_update_template;
       if (form.product_edit_template !== undefined) updateData.product_edit_template = form.product_edit_template;
       if (form.nemu_store_id !== undefined) updateData.nemu_store_id = form.nemu_store_id;
+      if (form.sequence_schedules !== undefined) updateData.sequence_schedules = form.sequence_schedules;
 
       const { error } = await supabase
         .from('catalogs')
