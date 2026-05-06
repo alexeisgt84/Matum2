@@ -31,7 +31,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
       
       {/* Content */}
       <div className="relative bg-surface border border-border w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between p-6 border-b border-border">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-border">
           <h2 className="text-xl font-bold text-primary">{title}</h2>
           <button 
             onClick={onClose}
@@ -41,12 +41,12 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
           </button>
         </div>
         
-        <div className="p-6 overflow-y-auto max-h-[70vh]">
+        <div className="p-4 sm:p-6 overflow-y-auto max-h-[70vh]">
           {children}
         </div>
 
         {footer && (
-          <div className="p-6 border-t border-border flex justify-end gap-3 bg-surface">
+          <div className="p-4 sm:p-6 border-t border-border flex justify-end gap-3 bg-surface">
             {footer}
           </div>
         )}

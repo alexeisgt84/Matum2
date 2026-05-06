@@ -12,6 +12,7 @@ interface MessageCardProps {
   onEdit: (message: WhatsAppMessage) => void;
   onDelete: (id: string) => void;
   onSendNow?: (message: WhatsAppMessage) => void;
+  isSending?: boolean;
   onToggleSequence?: (message: WhatsAppMessage) => void;
   dragHandleProps?: any;
   isSelected?: boolean;
@@ -27,7 +28,8 @@ export const MessageCard: React.FC<MessageCardProps> = ({
   onToggleSequence,
   dragHandleProps,
   isSelected,
-  onSelect
+  onSelect,
+  isSending
 }) => {
   const icons = {
     text: MessageSquare,
@@ -68,8 +70,9 @@ export const MessageCard: React.FC<MessageCardProps> = ({
       <div className="flex justify-end gap-1.5 border-b border-border pb-2">
         <button 
           onClick={() => onSendNow?.(message)}
-          className="p-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-colors flex items-center justify-center"
+          className="p-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
           title="Enviar ahora"
+          disabled={isSending}
         >
           <Send size={15} />
         </button>

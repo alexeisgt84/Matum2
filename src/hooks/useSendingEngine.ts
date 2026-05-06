@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useEvolution } from './useEvolution';
 import { toast } from 'react-hot-toast';
@@ -8,7 +8,22 @@ const EVOLUTION_KEY = import.meta.env.VITE_EVOLUTION_API_KEY;
 
 export const useSendingEngine = (catalogId?: string) => {
   const { instance } = useEvolution(catalogId);
-  const [sending, setSending] = useState(false);
+  // Set de IDs en proceso — permite enviar productos distintos en paralelo
+  // pero bloquea doble clic en el mismo ítem
+  const [sendingIds, setSendingIds] = useState<Set<string>>(new Set());
+  const sendingIdsRef = useRef<Set<string>>(new Set());
+
+  const markSending = (id: string) => {
+    sendingIdsRef.current.add(id);
+    setSendingIds(new Set(sendingIdsRef.current));
+  };
+
+  const unmarkSending = (id: string) => {
+    sendingIdsRef.current.delete(id);
+    setSendingIds(new Set(sendingIdsRef.current));
+  };
+
+  const isSendingItem = (id: string) => sendingIdsRef.current.has(id);
 
   const logSending = async (groupName: string, status: 'success' | 'failed', errorMessage?: string) => {
     if (!catalogId) return;
@@ -41,13 +56,67 @@ export const useSendingEngine = (catalogId?: string) => {
     }
   };
 
+  /**
+   * Filtra items duplicados antes de insertar en la cola.
+   * Verifica si ya existe un mensaje con el mismo catalog_id, group_id, endpoint
+   * y contenido similar (texto o media) creado en los últimos DEDUP_WINDOW_MINUTES minutos.
+   */
+  const DEDUP_WINDOW_MINUTES = 5;
+
+  const deduplicateQueueItems = async (items: any[]): Promise<any[]> => {
+    if (items.length === 0) return items;
+
+    const fiveMinAgo = new Date(Date.now() - DEDUP_WINDOW_MINUTES * 60 * 1000).toISOString();
+    
+    // Obtener mensajes recientes de la cola para el mismo catálogo
+    const catalogId = items[0].catalog_id;
+    const { data: existingItems } = await supabase
+      .from('wa_message_queue')
+      .select('group_id, endpoint, payload, created_at')
+      .eq('catalog_id', catalogId)
+      .in('status', ['pending', 'sent'])
+      .gte('created_at', fiveMinAgo);
+
+    if (!existingItems || existingItems.length === 0) return items;
+
+    // Crear un Set de huellas de los items existentes para búsqueda O(1)
+    const existingFingerprints = new Set<string>();
+    for (const existing of existingItems) {
+      const payload = existing.payload as any;
+      // La huella es: group_id + endpoint + texto o media del payload
+      const contentKey = payload?.text || payload?.caption || payload?.media || '';
+      const fp = `${existing.group_id}|${existing.endpoint}|${contentKey}`;
+      existingFingerprints.add(fp);
+    }
+
+    // Filtrar los items nuevos, excluyendo los que ya tienen huella en la cola
+    const filtered = items.filter(item => {
+      const payload = item.payload as any;
+      const contentKey = payload?.text || payload?.caption || payload?.media || '';
+      const fp = `${item.group_id}|${item.endpoint}|${contentKey}`;
+      return !existingFingerprints.has(fp);
+    });
+
+    const skipped = items.length - filtered.length;
+    if (skipped > 0) {
+      console.log(`[Dedup] Se omitieron ${skipped} mensajes duplicados (ventana de ${DEDUP_WINDOW_MINUTES} min).`);
+    }
+
+    return filtered;
+  };
+
   const sendCatalogToGroups = async (catalogId: string) => {
+    const guardKey = `catalog_${catalogId}`;
+    if (isSendingItem(guardKey)) {
+      console.log('[Guard] sendCatalogToGroups bloqueado: ya hay un envío en curso para este catálogo.');
+      return;
+    }
     if (!instance || instance.status !== 'connected') {
       toast.error('WhatsApp no está conectado');
       return;
     }
 
-    setSending(true);
+    markSending(guardKey);
     const toastId = toast.loading('Preparando envío en segundo plano...');
 
     try {
@@ -165,11 +234,18 @@ export const useSendingEngine = (catalogId?: string) => {
         }
       }
 
-      // Insertar en la cola
-      const { error: queueError } = await supabase.from('wa_message_queue').insert(queueItems);
+      // Deduplicar y luego insertar en la cola
+      const uniqueItems = await deduplicateQueueItems(queueItems);
+      if (uniqueItems.length === 0) {
+        toast('Estos mensajes ya están en cola (duplicado detectado).', { id: toastId, icon: '⚠️' });
+        return;
+      }
+      const { error: queueError } = await supabase.from('wa_message_queue').insert(uniqueItems);
       if (queueError) throw queueError;
 
-      toast.success(`Se han encolado ${queueItems.length} mensajes. El envío comenzará en breve.`, { id: toastId });
+      const skippedCount = queueItems.length - uniqueItems.length;
+      const skippedMsg = skippedCount > 0 ? ` (${skippedCount} duplicados omitidos)` : '';
+      toast.success(`Se han encolado ${uniqueItems.length} mensajes${skippedMsg}. El envío comenzará en breve.`, { id: toastId });
 
       // Opcional: Disparar el procesador de inmediato
       const { data: { session } } = await supabase.auth.getSession();
@@ -183,17 +259,22 @@ export const useSendingEngine = (catalogId?: string) => {
     } catch (err: any) {
       toast.error('Error al programar envío: ' + err.message, { id: toastId });
     } finally {
-      setSending(false);
+      unmarkSending(`catalog_${catalogId}`);
     }
   };
 
   const sendSingleMessage = async (message: any) => {
+    const guardKey = `msg_${message.id}`;
+    if (isSendingItem(guardKey)) {
+      console.log('[Guard] sendSingleMessage bloqueado: este mensaje ya se está enviando.');
+      return;
+    }
     if (!instance || instance.status !== 'connected') {
       toast.error('WhatsApp no está conectado');
       return;
     }
 
-    setSending(true);
+    markSending(guardKey);
     const toastId = toast.loading('Encolando mensaje...');
 
     try {
@@ -291,33 +372,37 @@ export const useSendingEngine = (catalogId?: string) => {
         }
       }
 
-      const { error: queueError } = await supabase.from('wa_message_queue').insert(queueItems);
+      const uniqueItems = await deduplicateQueueItems(queueItems);
+      if (uniqueItems.length === 0) {
+        toast('Este mensaje ya está en cola (duplicado detectado).', { id: toastId, icon: '⚠️' });
+        return;
+      }
+      const { error: queueError } = await supabase.from('wa_message_queue').insert(uniqueItems);
       if (queueError) throw queueError;
 
-      toast.success(`Mensaje programado para ${groups.length} grupos.`, { id: toastId });
+      toast.success(`Mensaje programado para ${uniqueItems.length} grupos.`, { id: toastId });
 
-      const { data: { session } } = await supabase.auth.getSession();
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-message-sender`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`
-        }
-      }).catch(() => {});
+      // El cron-message-sender programado se encargará de procesar la cola
 
     } catch (err: any) {
       toast.error('Error al programar: ' + err.message, { id: toastId });
     } finally {
-      setSending(false);
+      unmarkSending(`msg_${message.id}`);
     }
   };
 
   const sendSingleProduct = async (product: any) => {
+    const guardKey = `prod_${product.id}`;
+    if (isSendingItem(guardKey)) {
+      console.log('[Guard] sendSingleProduct bloqueado: este producto ya se está enviando.');
+      return;
+    }
     if (!instance || instance.status !== 'connected') {
       toast.error('WhatsApp no está conectado');
       return;
     }
 
-    setSending(true);
+    markSending(guardKey);
     const toastId = toast.loading('Encolando producto...');
 
     try {
@@ -375,33 +460,37 @@ export const useSendingEngine = (catalogId?: string) => {
         totalToWait += 5000 + Math.random() * 5000;
       }
 
-      const { error: queueError } = await supabase.from('wa_message_queue').insert(queueItems);
+      const uniqueItems = await deduplicateQueueItems(queueItems);
+      if (uniqueItems.length === 0) {
+        toast('Este producto ya está en cola (duplicado detectado).', { id: toastId, icon: '⚠️' });
+        return;
+      }
+      const { error: queueError } = await supabase.from('wa_message_queue').insert(uniqueItems);
       if (queueError) throw queueError;
 
-      toast.success(`Producto programado para ${groups.length} grupos.`, { id: toastId });
+      toast.success(`Producto programado para ${uniqueItems.length} grupos.`, { id: toastId });
 
-      const { data: { session } } = await supabase.auth.getSession();
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-message-sender`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`
-        }
-      }).catch(() => {});
+      // El cron-message-sender programado se encargará de procesar la cola
 
     } catch (err: any) {
       toast.error('Error al programar: ' + err.message, { id: toastId });
     } finally {
-      setSending(false);
+      unmarkSending(`prod_${product.id}`);
     }
   };
 
   const sendProductOutOfStock = async (product: any) => {
+    const guardKey = `oos_${product.id}`;
+    if (isSendingItem(guardKey)) {
+      console.log('[Guard] sendProductOutOfStock bloqueado: este aviso ya se está enviando.');
+      return;
+    }
     if (!instance || instance.status !== 'connected') {
       toast.error('WhatsApp no está conectado');
       return;
     }
 
-    setSending(true);
+    markSending(guardKey);
     const toastId = toast.loading('Encolando aviso de agotado...');
 
     try {
@@ -458,33 +547,37 @@ export const useSendingEngine = (catalogId?: string) => {
         totalToWait += 5000 + Math.random() * 5000;
       }
 
-      const { error: queueError } = await supabase.from('wa_message_queue').insert(queueItems);
+      const uniqueItems = await deduplicateQueueItems(queueItems);
+      if (uniqueItems.length === 0) {
+        toast('Este aviso ya está en cola (duplicado detectado).', { id: toastId, icon: '⚠️' });
+        return;
+      }
+      const { error: queueError } = await supabase.from('wa_message_queue').insert(uniqueItems);
       if (queueError) throw queueError;
 
-      toast.success(`Aviso de agotado encolado para ${groups.length} grupos.`, { id: toastId });
+      toast.success(`Aviso de agotado encolado para ${uniqueItems.length} grupos.`, { id: toastId });
 
-      const { data: { session } } = await supabase.auth.getSession();
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-message-sender`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`
-        }
-      }).catch(() => {});
+      // El cron-message-sender programado se encargará de procesar la cola
 
     } catch (err: any) {
       toast.error('Error al programar: ' + err.message, { id: toastId });
     } finally {
-      setSending(false);
+      unmarkSending(`oos_${product.id}`);
     }
   };
 
   const sendProductAvailable = async (product: any) => {
+    const guardKey = `avail_${product.id}`;
+    if (isSendingItem(guardKey)) {
+      console.log('[Guard] sendProductAvailable bloqueado: este aviso ya se está enviando.');
+      return;
+    }
     if (!instance || instance.status !== 'connected') {
       toast.error('WhatsApp no está conectado');
       return;
     }
 
-    setSending(true);
+    markSending(guardKey);
     const toastId = toast.loading('Encolando aviso de disponibilidad...');
 
     try {
@@ -543,27 +636,26 @@ export const useSendingEngine = (catalogId?: string) => {
         totalToWait += 5000 + Math.random() * 5000;
       }
 
-      const { error: queueError } = await supabase.from('wa_message_queue').insert(queueItems);
+      const uniqueItems = await deduplicateQueueItems(queueItems);
+      if (uniqueItems.length === 0) {
+        toast('Este aviso ya está en cola (duplicado detectado).', { id: toastId, icon: '⚠️' });
+        return;
+      }
+      const { error: queueError } = await supabase.from('wa_message_queue').insert(uniqueItems);
       if (queueError) throw queueError;
 
-      toast.success(`Aviso de disponibilidad encolado para ${groups.length} grupos.`, { id: toastId });
+      toast.success(`Aviso de disponibilidad encolado para ${uniqueItems.length} grupos.`, { id: toastId });
 
-      const { data: { session } } = await supabase.auth.getSession();
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cron-message-sender`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.access_token}`
-        }
-      }).catch(() => {});
+      // El cron-message-sender programado se encargará de procesar la cola
 
     } catch (err: any) {
       toast.error('Error al programar: ' + err.message, { id: toastId });
     } finally {
-      setSending(false);
+      unmarkSending(`avail_${product.id}`);
     }
   };
 
-  return { sendCatalogToGroups, sendSingleMessage, sendSingleProduct, sendProductOutOfStock, sendProductAvailable, sending };
+  return { sendCatalogToGroups, sendSingleMessage, sendSingleProduct, sendProductOutOfStock, sendProductAvailable, sendingIds };
 };
 
 

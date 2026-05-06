@@ -132,6 +132,21 @@ export const useWhatsAppGroups = (catalogId?: string) => {
     }
   };
 
+  const toggleGroupStatus = async (id: string, isActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('whatsapp_groups')
+        .update({ is_active: isActive })
+        .eq('id', id);
+      
+      if (error) throw error;
+      setLinkedGroups(linkedGroups.map(g => g.id === id ? { ...g, is_active: isActive } : g));
+      toast.success(isActive ? 'Grupo activado' : 'Grupo desactivado');
+    } catch (err) {
+      toast.error('Error al cambiar estado del grupo');
+    }
+  };
+
   return { 
     linkedGroups, 
     availableGroups, 
@@ -139,6 +154,7 @@ export const useWhatsAppGroups = (catalogId?: string) => {
     getLinkedGroups, 
     fetchAvailableGroups, 
     linkGroup, 
-    unlinkGroup 
+    unlinkGroup,
+    toggleGroupStatus
   };
 };

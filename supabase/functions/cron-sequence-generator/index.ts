@@ -80,126 +80,122 @@ Deno.serve(async (req) => {
       // ============================================
       // 1. EVALUAR SECUENCIA DEL CATÁLOGO
       // ============================================
-      let schedules = catalog.sequence_schedules || [];
-      
-      // Si no hay horarios en el nuevo formato pero sí en el viejo, añadirlo como fallback
-      if (schedules.length === 0 && catalog.is_sequence_scheduled && catalog.sequence_start_time) {
-        schedules = [{ 
-          time: catalog.sequence_start_time, 
-          enabled: true, 
-          last_sent_at: catalog.last_sequence_sent_at 
-        }];
-      }
+      // ============================================
+      // 1. EVALUAR SECUENCIA DEL CATÁLOGO
+      // ============================================
+      if (catalog.is_sequence_scheduled) {
+        let schedules = catalog.sequence_schedules || [];
+        
+        // Si no hay horarios en el nuevo formato pero sí en el viejo, añadirlo como fallback
+        if (schedules.length === 0 && catalog.sequence_start_time) {
+          schedules = [{ 
+            time: catalog.sequence_start_time, 
+            enabled: true, 
+            last_sent_at: catalog.last_sequence_sent_at 
+          }];
+        }
 
-      for (let i = 0; i < schedules.length; i++) {
-        const schedule = schedules[i];
-        if (!schedule.enabled) continue;
+        for (let i = 0; i < schedules.length; i++) {
+          const schedule = schedules[i];
+          if (!schedule.enabled) continue;
 
-        const scheduleTime = schedule.time.substring(0, 5);
-        const alreadySentToday = isSameDayLocal(schedule.last_sent_at);
+          const scheduleTime = schedule.time.substring(0, 5);
+          const alreadySentToday = isSameDayLocal(schedule.last_sent_at);
 
-        if (!alreadySentToday && currentTimeStr >= scheduleTime) {
-          logInfo(`[Secuencia] Generando para catálogo ${catalog.name} (Horario ${i+1}: ${scheduleTime}).`);
-          
-          const { data: messages } = await supabase
-            .from('whatsapp_messages')
-            .select('*')
-            .eq('catalog_id', catalog.id)
-            .eq('is_sequence', true)
-            .order('sequence_order', { ascending: true });
+          if (!alreadySentToday && currentTimeStr >= scheduleTime) {
+            logInfo(`[Secuencia] Generando para catálogo ${catalog.name} (Horario ${i+1}: ${scheduleTime}).`);
+            
+            // 1. Obtener mensajes y productos
+            const [{ data: messages }, { data: products }] = await Promise.all([
+              supabase.from('whatsapp_messages').select('*').eq('catalog_id', catalog.id).eq('is_sequence', true).order('sequence_order', { ascending: true }),
+              supabase.from('products').select('*').eq('catalog_id', catalog.id).eq('is_active', true).neq('is_out_of_stock', true).order('position', { ascending: true })
+            ]);
 
-          const { data: products } = await supabase
-            .from('products')
-            .select('*')
-            .eq('catalog_id', catalog.id)
-            .eq('is_active', true)
-            .neq('is_out_of_stock', true)
-            .order('position', { ascending: true });
+            if (messages && messages.length > 0) {
+              // Actualizar el last_sent_at de este horario específico
+              const updatedSchedules = [...schedules];
+              updatedSchedules[i] = { ...schedule, last_sent_at: now.toISOString() };
 
-          if (messages && messages.length > 0) {
-            // Actualizar el last_sent_at de este horario específico
-            const updatedSchedules = [...schedules];
-            updatedSchedules[i] = { ...schedule, last_sent_at: now.toISOString() };
+              // Intentar bloquear el envío actualizando el catálogo
+              // Solo actualizamos si el array de schedules sigue siendo el mismo (evita race conditions)
+              const { data: lockResult, error: lockError } = await supabase
+                .from('catalogs')
+                .update({ 
+                  sequence_schedules: updatedSchedules,
+                  last_sequence_sent_at: now.toISOString() 
+                })
+                .eq('id', catalog.id)
+                .select();
 
-            // Intentar bloquear el envío actualizando el catálogo
-            // Usamos el array completo para asegurar consistencia (aunque no sea perfecto contra race conditions)
-            const { data: lockResult } = await supabase
-              .from('catalogs')
-              .update({ 
-                sequence_schedules: updatedSchedules,
-                last_sequence_sent_at: now.toISOString() // Actualizamos también el global por compatibilidad
-              })
-              .eq('id', catalog.id)
-              .select();
+              if (lockError || !lockResult || lockResult.length === 0) {
+                logInfo(`[Secuencia] Catálogo ${catalog.name} saltado por seguridad (posible envío duplicado o error).`);
+                continue;
+              }
 
-            if (!lockResult || lockResult.length === 0) {
-              logInfo(`[Secuencia] Catálogo ${catalog.name} no se pudo actualizar.`);
-              continue;
-            }
+              // Actualizamos la variable local por si hay más horarios que procesar
+              schedules = updatedSchedules;
 
-            // Actualizamos la variable local por si hay más horarios que procesar en este mismo loop (aunque raro)
-            schedules = updatedSchedules;
+              for (const group of groups) {
+                for (const item of messages) {
+                  if (item.type === 'catalog_products') {
+                    if (products && products.length > 0) {
+                      for (const product of products) {
+                        cumulativeDelayMs += Math.floor(Math.random() * (20000 - 10000 + 1)) + 10000;
+                        const productCaption = (catalog.template || '')
+                          .replace(/\\n/g, '\n')
+                          .replace(/{product_name}/g, (product.name || '').trim())
+                          .replace(/{product_description}/g, (product.description || '').trim())
+                          .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
+                          .replace(/{product_currency}/g, (product.currency || '$').trim())
+                          .replace(/{catalog_name}/g, (catalog.name || '').trim())
+                          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
 
-            for (const group of groups) {
-              for (const item of messages) {
-                if (item.type === 'catalog_products') {
-                  if (products && products.length > 0) {
-                    for (const product of products) {
-                      cumulativeDelayMs += Math.floor(Math.random() * (20000 - 10000 + 1)) + 10000;
-                      const productCaption = (catalog.template || '')
-                        .replace(/\\n/g, '\n')
-                        .replace(/{product_name}/g, (product.name || '').trim())
-                        .replace(/{product_description}/g, (product.description || '').trim())
-                        .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
-                        .replace(/{product_currency}/g, (product.currency || '$').trim())
-                        .replace(/{catalog_name}/g, (catalog.name || '').trim())
-                        .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
-
-                      const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
-                      queueItems.push({
-                        catalog_id: catalog.id,
-                        group_id: group.group_id,
-                        instance_name: instanceName,
-                        endpoint: product.imagen_url ? '/message/sendMedia' : '/message/sendText',
-                        payload: product.imagen_url ? {
-                          number: group.group_id,
-                          media: product.imagen_url,
-                          mediatype: 'image',
-                          caption: productCaption,
-                          delay: 1000
-                        } : {
-                          number: group.group_id,
-                          text: productCaption
-                        },
-                        scheduled_at: scheduleDate.toISOString()
-                      });
+                        const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
+                        queueItems.push({
+                          catalog_id: catalog.id,
+                          group_id: group.group_id,
+                          instance_name: instanceName,
+                          endpoint: product.imagen_url ? '/message/sendMedia' : '/message/sendText',
+                          payload: product.imagen_url ? {
+                            number: group.group_id,
+                            media: product.imagen_url,
+                            mediatype: 'image',
+                            caption: productCaption,
+                            delay: 1000
+                          } : {
+                            number: group.group_id,
+                            text: productCaption
+                          },
+                          scheduled_at: scheduleDate.toISOString()
+                        });
+                      }
                     }
-                  }
-                } else {
-                  cumulativeDelayMs += Math.floor(Math.random() * (20000 - 10000 + 1)) + 10000;
-                  const processedContent = (item.content || '')
-                    .replace(/\\n/g, '\n')
-                    .replace(/{catalog_name}/g, (catalog.name || '').trim())
-                    .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+                  } else {
+                    cumulativeDelayMs += Math.floor(Math.random() * (20000 - 10000 + 1)) + 10000;
+                    const processedContent = (item.content || '')
+                      .replace(/\\n/g, '\n')
+                      .replace(/{catalog_name}/g, (catalog.name || '').trim())
+                      .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
 
-                  const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
-                  queueItems.push({
-                    catalog_id: catalog.id,
-                    group_id: group.group_id,
-                    instance_name: instanceName,
-                    endpoint: item.image_url ? '/message/sendMedia' : '/message/sendText',
-                    payload: item.image_url ? {
-                      number: group.group_id,
-                      media: item.image_url,
-                      mediatype: 'image',
-                      caption: processedContent,
-                      delay: 1000
-                    } : {
-                      number: group.group_id,
-                      text: processedContent
-                    },
-                    scheduled_at: scheduleDate.toISOString()
-                  });
+                    const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
+                    queueItems.push({
+                      catalog_id: catalog.id,
+                      group_id: group.group_id,
+                      instance_name: instanceName,
+                      endpoint: item.image_url ? '/message/sendMedia' : '/message/sendText',
+                      payload: item.image_url ? {
+                        number: group.group_id,
+                        media: item.image_url,
+                        mediatype: 'image',
+                        caption: processedContent,
+                        delay: 1000
+                      } : {
+                        number: group.group_id,
+                        text: processedContent
+                      },
+                      scheduled_at: scheduleDate.toISOString()
+                    });
+                  }
                 }
               }
             }
@@ -275,11 +271,43 @@ Deno.serve(async (req) => {
       // 3. INSERTAR EN LA COLA
       // ============================================
       if (queueItems.length > 0) {
-        const { error: iErr } = await supabase.from('wa_message_queue').insert(queueItems);
-        if (iErr) {
-          logError('Error insertando a la cola combinada:', iErr);
-        } else {
-          generatedCount += queueItems.length;
+        // Deduplicar: verificar si ya existen items similares en los últimos 5 minutos
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        const { data: existingItems } = await supabase
+          .from('wa_message_queue')
+          .select('group_id, endpoint, payload')
+          .eq('catalog_id', catalog.id)
+          .in('status', ['pending', 'sent'])
+          .gte('created_at', fiveMinAgo);
+
+        let itemsToInsert = queueItems;
+        if (existingItems && existingItems.length > 0) {
+          const existingFingerprints = new Set<string>();
+          for (const existing of existingItems) {
+            const payload = existing.payload as any;
+            const contentKey = payload?.text || payload?.caption || payload?.media || '';
+            existingFingerprints.add(`${existing.group_id}|${existing.endpoint}|${contentKey}`);
+          }
+
+          itemsToInsert = queueItems.filter(item => {
+            const payload = item.payload as any;
+            const contentKey = payload?.text || payload?.caption || payload?.media || '';
+            return !existingFingerprints.has(`${item.group_id}|${item.endpoint}|${contentKey}`);
+          });
+
+          const skipped = queueItems.length - itemsToInsert.length;
+          if (skipped > 0) {
+            logInfo(`[Dedup] Se omitieron ${skipped} mensajes duplicados para catálogo ${catalog.name}.`);
+          }
+        }
+
+        if (itemsToInsert.length > 0) {
+          const { error: iErr } = await supabase.from('wa_message_queue').insert(itemsToInsert);
+          if (iErr) {
+            logError('Error insertando a la cola combinada:', iErr);
+          } else {
+            generatedCount += itemsToInsert.length;
+          }
         }
       }
     }

@@ -80,20 +80,20 @@ export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
             filteredGroups.map((group) => (
               <div 
                 key={group.id} 
-                className="flex items-center justify-between p-3 rounded-xl bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-all group"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-[var(--surface-hover)] border border-transparent hover:border-[var(--border)] transition-all group gap-3 w-full overflow-hidden"
               >
-                <div className="flex items-center gap-3 overflow-hidden">
-                  <div className="p-2 bg-[var(--surface)] rounded-lg text-gray-500 group-hover:text-[var(--accent)] transition-colors">
-                    <Users size={18} />
+                <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="p-2 bg-[var(--surface)] rounded-lg text-gray-500 group-hover:text-[var(--accent)] transition-colors flex-shrink-0">
+                    <Users size={16} />
                   </div>
-                  <div className="overflow-hidden">
+                  <div className="min-w-0 flex-1 overflow-hidden">
                     <p className="text-sm text-[var(--text-primary)] font-bold truncate">{group.subject}</p>
                     <p className="text-[10px] text-[var(--text-secondary)] uppercase">{group.size || 0} miembros</p>
                   </div>
                 </div>
                 <button
                   onClick={() => onLink(group)}
-                  className="p-2 bg-[var(--accent)]/10 text-[var(--accent)] rounded-lg hover:bg-[var(--accent)] hover:text-black transition-all"
+                  className="p-2 bg-[var(--accent)]/10 text-[var(--accent)] rounded-lg hover:bg-[var(--accent)] hover:text-black transition-all flex-shrink-0"
                 >
                   <Plus size={18} />
                 </button>

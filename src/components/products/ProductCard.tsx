@@ -11,6 +11,7 @@ interface ProductCardProps {
   onEdit: (product: Product) => void;
   onDelete: (id: string) => void;
   onSendNow?: (product: Product) => void;
+  isSending?: boolean;
   onOutOfStock?: (product: Product) => void;
   onAvailable?: (product: Product) => void;
   dragHandleProps?: any;
@@ -25,6 +26,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onEdit, 
   onDelete, 
   onSendNow, 
+  isSending,
   onOutOfStock, 
   onAvailable,
   dragHandleProps,
@@ -72,9 +74,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="flex justify-end gap-1 pb-1 flex-wrap sm:flex-nowrap">
         {onSendNow && !product.is_out_of_stock && (
           <button 
-            onClick={() => onSendNow(product)}
-            className="p-1 px-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-colors text-xs flex items-center gap-1"
+           onClick={() => onSendNow(product)}
+            className="p-1 px-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-colors text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
             title="Enviar como producto normal"
+            disabled={isSending}
           >
             <Send size={14} />
             <span className="hidden sm:inline">Enviar</span>

@@ -99,11 +99,11 @@ export const CatalogDetailPage = () => {
   const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, updateMessagesOrder, toggleMessageSequence } = useMessages(catalogId);
   
   // Hooks de Grupos (Seguimos usándolos para el modal de grupos)
-  const { linkedGroups, availableGroups, loading: groupsLoading, getLinkedGroups, fetchAvailableGroups, linkGroup, unlinkGroup } = useWhatsAppGroups(catalogId);
+  const { linkedGroups, availableGroups, loading: groupsLoading, getLinkedGroups, fetchAvailableGroups, linkGroup, unlinkGroup, toggleGroupStatus } = useWhatsAppGroups(catalogId);
 
 
   // Motor de Envío
-  const { sendCatalogToGroups, sendSingleMessage, sendSingleProduct, sendProductOutOfStock, sendProductAvailable, sending } = useSendingEngine(catalogId);
+  const { sendCatalogToGroups, sendSingleMessage, sendSingleProduct, sendProductOutOfStock, sendProductAvailable, sendingIds } = useSendingEngine(catalogId);
 
   const { counts, limits, canAddProduct, refresh: refreshLimits } = usePlanLimits();
 
@@ -933,6 +933,7 @@ export const CatalogDetailPage = () => {
                                     }}
                                     onDelete={setProductToDelete}
                                     onSendNow={sendSingleProduct}
+                                    isSending={sendingIds.has(`prod_${product.id}`)}
                                     onOutOfStock={(p) => setProductToAgotado(p)}
                                     onAvailable={(p) => setProductToAvailable(p)}
                                   />
@@ -1018,6 +1019,7 @@ export const CatalogDetailPage = () => {
                                   }}
                                   onDelete={setMessageToDelete}
                                   onSendNow={sendSingleMessage}
+                                  isSending={sendingIds.has(`msg_${message.id}`)}
                                   onToggleSequence={toggleMessageSequence}
                                 />
                             </div>
@@ -1042,7 +1044,7 @@ export const CatalogDetailPage = () => {
                 size="sm" 
                 className="bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)] hover:text-black border-[var(--accent)]/30 px-4 py-5 rounded-xl text-[10px] font-bold uppercase tracking-widest"
                 icon={Send} 
-                loading={sending}
+                loading={sendingIds.has(`catalog_${catalogId}`)}
                 onClick={() => catalogId && sendCatalogToGroups(catalogId)}
               >
                 Enviar ahora
@@ -1121,6 +1123,7 @@ export const CatalogDetailPage = () => {
                                   }}
                                   onDelete={setMessageToDelete}
                                   onSendNow={sendSingleMessage}
+                                  isSending={sendingIds.has(`msg_${message.id}`)}
                                   onToggleSequence={toggleMessageSequence}
                                 />
                             </div>
@@ -1174,12 +1177,13 @@ export const CatalogDetailPage = () => {
                     Vincular más grupos
                   </Button>
                 </div>
-                <div className="grid gap-4">
+                <div className="grid grid-cols-1 gap-4 w-full">
                   {linkedGroups.map(group => (
                     <GroupCard
                       key={group.id}
                       group={group}
                       onUnlink={() => setGroupUnlinkId(group.id)}
+                      onToggle={toggleGroupStatus}
                     />
                   ))}
                 </div>
