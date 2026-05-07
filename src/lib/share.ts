@@ -8,6 +8,7 @@ interface ShareOptions {
   text?: string;
   url?: string;
   imageUrl?: string;
+  imageUrls?: string[];
 }
 
 /**
@@ -15,7 +16,10 @@ interface ShareOptions {
  * Fallbacks to clipboard if neither is available.
  */
 export const shareContent = async (options: ShareOptions) => {
-  const { title, text, url, imageUrl } = options;
+  const { title, text, url, imageUrl, imageUrls = [] } = options;
+
+  // Combine single imageUrl and imageUrls array
+  const allImageUrls = [...(imageUrl ? [imageUrl] : []), ...imageUrls];
 
   // Prepare full text for clipboard and sharing
   const fullTextParts = [];
@@ -40,50 +44,53 @@ export const shareContent = async (options: ShareOptions) => {
     const isNative = Capacitor.isNativePlatform();
 
     if (isNative) {
-      let fileUri: string | undefined;
+      const fileUris: string[] = [];
 
-      if (imageUrl) {
-        try {
-          // Download image and save to cache for sharing
-          const response = await fetch(imageUrl);
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          
-          const blob = await response.blob();
-          
-          // Basic validation that we actually got an image
-          if (!blob.type.startsWith('image/')) {
-            throw new Error('Fetched file is not an image');
+      if (allImageUrls.length > 0) {
+        // Process images in parallel
+        await Promise.all(allImageUrls.map(async (imgUrl) => {
+          try {
+            // Download image and save to cache for sharing
+            const response = await fetch(imgUrl);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            
+            const blob = await response.blob();
+            
+            // Basic validation that we actually got an image
+            if (!blob.type.startsWith('image/')) {
+              throw new Error('Fetched file is not an image');
+            }
+
+            const base64Data = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const result = reader.result as string;
+                if (!result) return reject(new Error('Failed to read blob as data URL'));
+                // Remove data:image/xxx;base64, prefix
+                const commaIndex = result.indexOf(',');
+                if (commaIndex === -1) return reject(new Error('Invalid data URL format'));
+                const base64 = result.substring(commaIndex + 1);
+                resolve(base64);
+              };
+              reader.onerror = () => reject(new Error('FileReader error'));
+              reader.readAsDataURL(blob);
+            });
+
+            const extension = blob.type.split('/')[1]?.split(';')[0] || 'jpg';
+            const fileName = `share_${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
+            
+            // On Android, we should ensure the file is in a place where it can be shared
+            const savedFile = await Filesystem.writeFile({
+              path: fileName,
+              data: base64Data,
+              directory: Directory.Cache
+            });
+            
+            fileUris.push(savedFile.uri);
+          } catch (error) {
+            console.warn(`Error processing image ${imgUrl} for native share:`, error);
           }
-
-          const base64Data = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const result = reader.result as string;
-              if (!result) return reject(new Error('Failed to read blob as data URL'));
-              // Remove data:image/xxx;base64, prefix
-              const commaIndex = result.indexOf(',');
-              if (commaIndex === -1) return reject(new Error('Invalid data URL format'));
-              const base64 = result.substring(commaIndex + 1);
-              resolve(base64);
-            };
-            reader.onerror = () => reject(new Error('FileReader error'));
-            reader.readAsDataURL(blob);
-          });
-
-          const extension = blob.type.split('/')[1]?.split(';')[0] || 'jpg';
-          const fileName = `share_${Date.now()}.${extension}`;
-          
-          // On Android, we should ensure the file is in a place where it can be shared
-          const savedFile = await Filesystem.writeFile({
-            path: fileName,
-            data: base64Data,
-            directory: Directory.Cache
-          });
-          
-          fileUri = savedFile.uri;
-        } catch (error) {
-          console.warn('Error processing image for native share, continuing with text only:', error);
-        }
+        }));
       }
 
       // Prepare share options for Native
@@ -101,8 +108,8 @@ export const shareContent = async (options: ShareOptions) => {
         }
       }
 
-      if (fileUri) {
-        nativeShareOptions.files = [fileUri];
+      if (fileUris.length > 0) {
+        nativeShareOptions.files = fileUris;
       }
 
       await Share.share(nativeShareOptions);
@@ -116,30 +123,32 @@ export const shareContent = async (options: ShareOptions) => {
 
       if (url) {
         shareData.url = url;
-      } else {
-        // If no URL provided, we might still want the current location as fallback
-        // but only if we are not sharing files, as some browsers (Safari)
-        // have issues sharing both files and URL sometimes
       }
 
-      // Try to include image if provided and supported
-      if (imageUrl) {
+      // Try to include images if provided and supported
+      if (allImageUrls.length > 0 && (navigator as any).canShare) {
         try {
-          const response = await fetch(imageUrl);
-          if (response.ok) {
-            const blob = await response.blob();
-            // Check if browsing context supports sharing files
-            if ((navigator as any).canShare) {
-              const extension = blob.type.split('/')[1]?.split(';')[0] || 'jpg';
-              const file = new File([blob], `share-image.${extension}`, { type: blob.type });
-
-              if (navigator.canShare({ files: [file] })) {
-                shareData.files = [file];
+          const files: File[] = [];
+          
+          await Promise.all(allImageUrls.map(async (imgUrl) => {
+            try {
+              const response = await fetch(imgUrl);
+              if (response.ok) {
+                const blob = await response.blob();
+                const extension = blob.type.split('/')[1]?.split(';')[0] || 'jpg';
+                const file = new File([blob], `share-image-${Date.now()}-${Math.random().toString(36).substring(7)}.${extension}`, { type: blob.type });
+                files.push(file);
               }
+            } catch (err) {
+              console.warn(`Could not fetch image ${imgUrl} for web share:`, err);
             }
+          }));
+
+          if (files.length > 0 && navigator.canShare({ files })) {
+            shareData.files = files;
           }
         } catch (error) {
-          console.warn('Could not fetch image for web share (likely CORS), continuing with text:', error);
+          console.warn('Error processing images for web share:', error);
         }
       }
 

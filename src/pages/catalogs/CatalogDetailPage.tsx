@@ -28,7 +28,8 @@ import {
   Tag,
   Share2,
   ShoppingBag,
-  Layout
+  Layout,
+  X
 } from 'lucide-react';
 import { shareContent } from '../../lib/share';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -689,12 +690,12 @@ export const CatalogDetailPage = () => {
 
   const handleBulkShare = async () => {
     let text = '';
-    let firstImageUrl: string | undefined;
+    const imageUrls: string[] = [];
     
     selectedProductIds.forEach(id => {
       const p = products.find(prod => prod.id === id);
       if (p) {
-        if (!firstImageUrl && p.imagen_url) firstImageUrl = p.imagen_url;
+        if (p.imagen_url) imageUrls.push(p.imagen_url);
         text += `🛍️ *${p.name}*\n${p.price} ${p.currency}\n${p.description || ''}\n\n`;
       }
     });
@@ -702,7 +703,7 @@ export const CatalogDetailPage = () => {
     selectedMessageIds.forEach(id => {
       const m = messages.find(msg => msg.id === id);
       if (m) {
-        if (!firstImageUrl && m.image_url) firstImageUrl = m.image_url;
+        if (m.image_url) imageUrls.push(m.image_url);
         text += `💬 *${m.name}*\n${m.content || ''}\n\n`;
       }
     });
@@ -712,7 +713,7 @@ export const CatalogDetailPage = () => {
     await shareContent({
       title: 'Selección de Catálogo',
       text: text.trim(),
-      imageUrl: firstImageUrl
+      imageUrls: imageUrls
     });
   };
 
@@ -735,6 +736,31 @@ export const CatalogDetailPage = () => {
       clearSelection();
     } catch (err: any) {
       toast.error('Error al actualizar: ' + err.message, { id: toastId });
+    }
+  };
+
+  const handleBulkStockStatus = async (status: 'out_of_stock' | 'available') => {
+    if (selectedProductIds.length === 0) return;
+    
+    const isOutOfStock = status === 'out_of_stock';
+    const toastId = toast.loading(`Marcando ${selectedProductIds.length} productos como ${isOutOfStock ? 'agotados' : 'disponibles'}...`);
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ 
+          is_out_of_stock: isOutOfStock, 
+          stock_status: status 
+        })
+        .in('id', selectedProductIds);
+
+      if (error) throw error;
+      
+      toast.success(`${selectedProductIds.length} productos actualizados`, { id: toastId });
+      getProducts(true);
+      clearSelection();
+    } catch (err: any) {
+      toast.error('Error al actualizar productos: ' + err.message, { id: toastId });
     }
   };
 
@@ -777,30 +803,116 @@ export const CatalogDetailPage = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-9rem)] max-w-lg mx-auto w-full">
-      {/* Selector de Vistas */}
+      {/* Selector de Vistas / Barra de Selección */}
       <div className="px-4 py-6 bg-gradient-to-b from-surface to-background border-b border-border w-full">
+        {(selectedProductIds.length > 0 || selectedMessageIds.length > 0) ? (
+          /* Barra de Selección Masiva (Integrada) */
+          <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-7 h-7 rounded-full bg-accent text-black flex items-center justify-center font-bold text-xs shadow-lg shadow-accent/20">
+                  {selectedProductIds.length + selectedMessageIds.length}
+                </div>
+                <div>
+                  <p className="text-primary text-[10px] font-bold uppercase tracking-[0.2em]">Seleccionados</p>
+                  <p className="text-secondary text-[9px] uppercase font-bold opacity-60">Acciones masivas</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={selectAllVisible}
+                  className="text-[9px] bg-surface-hover hover:bg-surface text-secondary hover:text-primary px-3 py-1.5 rounded-xl border border-border transition-all font-bold uppercase tracking-wider"
+                >
+                  Todos
+                </button>
+                <button 
+                  onClick={clearSelection}
+                  className="p-2 bg-surface-hover hover:bg-surface text-secondary hover:text-red-500 rounded-xl border border-border transition-all"
+                  title="Salir de selección"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
 
-        {/* Triple Switch Moderno */}
-        <div className="relative flex p-1.5 bg-surface-hover rounded-2xl border border-border backdrop-blur-sm">
-          <button
-            onClick={() => setView('individual')}
-            className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
-              view === 'individual' ? 'text-accent' : 'text-secondary hover:text-primary'
-            }`}
-          >
-            <MessageSquare size={18} className={view === 'individual' ? 'animate-pulse' : ''} />
-            <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Mensajes</span>
-          </button>
-          
-          <button
-            onClick={() => setView('products')}
-            className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
-              view === 'products' ? 'text-accent' : 'text-secondary hover:text-primary'
-            }`}
-          >
-            <Package size={18} className={view === 'products' ? 'animate-pulse' : ''} />
-            <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Productos</span>
-          </button>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              <button 
+                onClick={handleBulkSend}
+                className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-accent/10 text-secondary hover:text-accent border border-border hover:border-accent/20 transition-all group"
+              >
+                <Send size={16} className="group-hover:scale-110 transition-transform" />
+                <span className="text-[8px] font-bold uppercase tracking-widest">Enviar</span>
+              </button>
+
+              <button 
+                onClick={handleBulkDeleteInitiate}
+                className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-red-500/10 text-secondary hover:text-red-500 border border-border hover:border-red-500/20 transition-all group"
+              >
+                <Trash2 size={16} className="group-hover:scale-110 transition-transform" />
+                <span className="text-[8px] font-bold uppercase tracking-widest">Borrar</span>
+              </button>
+
+              <button 
+                onClick={handleBulkShare}
+                className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-blue-500/10 text-secondary hover:text-blue-500 border border-border hover:border-blue-500/20 transition-all group"
+              >
+                <Share2 size={16} className="group-hover:scale-110 transition-transform" />
+                <span className="text-[8px] font-bold uppercase tracking-widest">Compartir</span>
+              </button>
+
+              {selectedMessageIds.length > 0 && (
+                <button 
+                  onClick={handleBulkSequence}
+                  className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-yellow-500/10 text-secondary hover:text-yellow-400 border border-border hover:border-yellow-500/20 transition-all group"
+                >
+                  <Zap size={16} className="group-hover:scale-110 transition-transform" />
+                  <span className="text-[8px] font-bold uppercase tracking-widest">Secuencia</span>
+                </button>
+              )}
+
+              {selectedProductIds.length > 0 && (
+                <>
+                  <button 
+                    onClick={() => handleBulkStockStatus('out_of_stock')}
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-orange-500/10 text-secondary hover:text-orange-500 border border-border hover:border-orange-500/20 transition-all group"
+                  >
+                    <PackageX size={16} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest">Agotados</span>
+                  </button>
+
+                  <button 
+                    onClick={() => handleBulkStockStatus('available')}
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-green-500/10 text-secondary hover:text-green-500 border border-border hover:border-green-500/20 transition-all group"
+                  >
+                    <PackageCheck size={16} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest">Disponible</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* Triple Switch Moderno */
+          <div className="relative flex p-1.5 bg-surface-hover rounded-2xl border border-border backdrop-blur-sm">
+            <button
+              onClick={() => setView('individual')}
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
+                view === 'individual' ? 'text-accent' : 'text-secondary hover:text-primary'
+              }`}
+            >
+              <MessageSquare size={18} className={view === 'individual' ? 'animate-pulse' : ''} />
+              <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Mensajes</span>
+            </button>
+            
+            <button
+              onClick={() => setView('products')}
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
+                view === 'products' ? 'text-accent' : 'text-secondary hover:text-primary'
+              }`}
+            >
+              <Package size={18} className={view === 'products' ? 'animate-pulse' : ''} />
+              <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Productos</span>
+            </button>
 
           <button
             onClick={() => setView('sequences')}
@@ -820,7 +932,8 @@ export const CatalogDetailPage = () => {
               transform: `translateX(${view === 'individual' ? '0%' : view === 'products' ? '100%' : view === 'sequences' ? '200%' : '0%'})`
             }}
           />
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 pb-32">
@@ -1192,79 +1305,6 @@ export const CatalogDetailPage = () => {
           </div>
         )}
       </div>
-
-      {/* Barra de Selección Masiva (Flotante) */}
-      {(selectedProductIds.length > 0 || selectedMessageIds.length > 0) && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] w-full max-w-lg px-4 animate-in slide-in-from-bottom-10 duration-300">
-          <div className="bg-black/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-4 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-[var(--accent)] text-black flex items-center justify-center font-bold text-sm">
-                  {selectedProductIds.length + selectedMessageIds.length}
-                </div>
-                <div>
-                  <p className="text-white text-xs font-bold uppercase tracking-widest">Seleccionados</p>
-                  <button 
-                    onClick={clearSelection}
-                    className="text-[10px] text-gray-500 hover:text-white uppercase font-bold tracking-tighter"
-                  >
-                    Descartar selección
-                  </button>
-                </div>
-              </div>
-              <button 
-                onClick={selectAllVisible}
-                className="text-[10px] bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white px-3 py-1.5 rounded-lg border border-white/5 transition-colors font-bold uppercase"
-              >
-                Seleccionar todos
-              </button>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2">
-              <button 
-                onClick={handleBulkSend}
-                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl hover:bg-[var(--accent)]/10 text-gray-400 hover:text-[var(--accent)] transition-all group"
-              >
-                <div className="p-2 bg-[var(--accent)]/5 rounded-lg group-hover:bg-[var(--accent)]/20 transition-colors">
-                  <Send size={18} />
-                </div>
-                <span className="text-[9px] font-bold uppercase tracking-widest">Enviar</span>
-              </button>
-
-              <button 
-                onClick={handleBulkDeleteInitiate}
-                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl hover:bg-red-500/10 text-gray-400 hover:text-red-500 transition-all group"
-              >
-                <div className="p-2 bg-red-500/5 rounded-lg group-hover:bg-red-500/20 transition-colors">
-                  <Trash2 size={18} />
-                </div>
-                <span className="text-[9px] font-bold uppercase tracking-widest">Eliminar</span>
-              </button>
-
-              <button 
-                onClick={handleBulkShare}
-                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl hover:bg-blue-500/10 text-gray-400 hover:text-blue-500 transition-all group"
-              >
-                <div className="p-2 bg-blue-500/5 rounded-lg group-hover:bg-blue-500/20 transition-colors">
-                  <Share2 size={18} />
-                </div>
-                <span className="text-[9px] font-bold uppercase tracking-widest">Compartir</span>
-              </button>
-
-              <button 
-                onClick={handleBulkSequence}
-                className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl hover:bg-yellow-500/10 text-gray-400 hover:text-yellow-400 transition-all group"
-                title="Poner en secuencia (solo mensajes)"
-              >
-                <div className="p-2 bg-yellow-500/5 rounded-lg group-hover:bg-yellow-500/20 transition-colors">
-                  <Zap size={18} />
-                </div>
-                <span className="text-[9px] font-bold uppercase tracking-widest">Secuencia</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <div className="fixed bottom-24 right-6 z-20">
         <Button 
