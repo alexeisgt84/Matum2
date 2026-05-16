@@ -72,6 +72,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
           onClick={() => onSendNow?.(message)}
           className="p-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
           title="Enviar ahora"
+          aria-label={`Enviar mensaje ${message.name} ahora`}
           disabled={isSending}
         >
           <Send size={15} />
@@ -87,6 +88,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
                   : 'text-gray-500 hover:text-yellow-400 hover:bg-yellow-500/10'
               }`}
               title={message.is_sequence ? "Quitar de la secuencia" : "Agregar a la secuencia"}
+              aria-label={message.is_sequence ? `Quitar ${message.name} de la secuencia` : `Agregar ${message.name} a la secuencia`}
             >
               <Zap size={15} className={message.is_sequence ? 'fill-yellow-400' : ''} />
             </button>
@@ -95,6 +97,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
               onClick={() => onEdit(message)}
               className="p-2 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-colors flex items-center justify-center"
               title="Editar"
+              aria-label={`Editar mensaje ${message.name}`}
             >
               <Edit3 size={15} />
             </button>
@@ -102,6 +105,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
               onClick={handleShare}
               className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center justify-center"
               title="Compartir mensaje"
+              aria-label={`Compartir mensaje ${message.name}`}
             >
               <Share2 size={15} />
             </button>
@@ -109,6 +113,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
               onClick={() => onDelete(message.id)}
               className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center justify-center"
               title="Eliminar"
+              aria-label={`Eliminar mensaje ${message.name}`}
             >
               <Trash2 size={15} />
             </button>
@@ -142,13 +147,13 @@ export const MessageCard: React.FC<MessageCardProps> = ({
             {!isCatalog && message.scheduled_time && (
               <div className="flex items-center gap-1.5 text-[10px] text-secondary mt-0.5">
                 <Clock size={10} />
-                <span className="text-accent font-bold">Programado: {message.scheduled_time}</span>
+                <span className="text-accent font-bold tabular-nums">Programado: {message.scheduled_time}</span>
               </div>
             )}
             {isCatalog && (
               <div className="flex items-center gap-1.5 text-[10px] text-[var(--accent)] mt-0.5 font-bold">
                 <Package size={10} />
-                <span>{productCount || 0} Productos configurados</span>
+                <span className="tabular-nums">{productCount || 0} Productos configurados</span>
               </div>
             )}
           </div>

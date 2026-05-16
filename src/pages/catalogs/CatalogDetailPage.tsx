@@ -31,6 +31,7 @@ import {
   Layout,
   X
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { shareContent } from '../../lib/share';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -69,7 +70,17 @@ export const CatalogDetailPage = () => {
   const navigate = useNavigate();
   const { setTitle, setSubtitle, setRightAction } = useHeader();
   
-  const [view, setView] = useState<View>('individual');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const currentView = (searchParams.get('view') as View) || 'individual';
+  
+  const setView = (newView: View) => {
+    setSearchParams(prev => {
+      prev.set('view', newView);
+      return prev;
+    });
+  };
+
+  const view = currentView;
   const [catalog, setCatalog] = useState<any>(null);
   const [catLoading, setCatLoading] = useState(true);
 
@@ -379,8 +390,20 @@ export const CatalogDetailPage = () => {
       setCatalog({ ...catalog, is_sequence_scheduled: scheduled });
       toast.success(scheduled ? 'Programación activada' : 'Programación desactivada');
       
-      if (!scheduled && queueStats.pending > 0) {
-        setIsClearQueueConfirmOpen(true);
+      // Al desactivar, cancelar automáticamente todos los mensajes pendientes en la cola
+      if (!scheduled) {
+        const { error: clearError } = await supabase
+          .from('wa_message_queue')
+          .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .eq('catalog_id', catalogId)
+          .eq('status', 'pending');
+        
+        if (clearError) {
+          console.error('Error al cancelar cola:', clearError);
+        } else if (queueStats.pending > 0) {
+          toast.success(`${queueStats.pending} mensajes pendientes cancelados`);
+        }
+        fetchQueueStats();
       }
     } catch (err: any) {
       toast.error('Error al actualizar programación');
@@ -407,7 +430,7 @@ export const CatalogDetailPage = () => {
   const handleClearQueue = async () => {
     if (!catalogId) return;
     setIsClearingQueue(true);
-    const toastId = toast.loading('Limpiando cola de envío...');
+    const toastId = toast.loading('Limpiando cola de envío…');
     try {
       const { error } = await supabase
         .from('wa_message_queue')
@@ -641,7 +664,7 @@ export const CatalogDetailPage = () => {
 
   const executeBulkDelete = async () => {
     const total = selectedProductIds.length + selectedMessageIds.length;
-    const toastId = toast.loading('Eliminando ítems...');
+    const toastId = toast.loading('Eliminando ítems…');
     try {
       if (selectedProductIds.length > 0) {
         const { error } = await supabase.from('products').delete().in('id', selectedProductIds);
@@ -665,7 +688,7 @@ export const CatalogDetailPage = () => {
     const total = selectedProductIds.length + selectedMessageIds.length;
     if (total === 0) return;
 
-    const toastId = toast.loading(`Iniciando envío de ${total} ítems...`);
+    const toastId = toast.loading(`Iniciando envío de ${total} ítems…`);
     try {
       // Enviar productos
       for (const id of selectedProductIds) {
@@ -723,7 +746,7 @@ export const CatalogDetailPage = () => {
       return;
     }
 
-    const toastId = toast.loading('Actualizando secuencia...');
+    const toastId = toast.loading('Actualizando secuencia…');
     try {
       const { error } = await supabase
         .from('whatsapp_messages')
@@ -743,7 +766,7 @@ export const CatalogDetailPage = () => {
     if (selectedProductIds.length === 0) return;
     
     const isOutOfStock = status === 'out_of_stock';
-    const toastId = toast.loading(`Marcando ${selectedProductIds.length} productos como ${isOutOfStock ? 'agotados' : 'disponibles'}...`);
+    const toastId = toast.loading(`Marcando ${selectedProductIds.length} productos como ${isOutOfStock ? 'agotados' : 'disponibles'}…`);
     
     try {
       const { error } = await supabase
@@ -810,7 +833,7 @@ export const CatalogDetailPage = () => {
           <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-full bg-accent text-black flex items-center justify-center font-bold text-xs shadow-lg shadow-accent/20">
+                <div className="w-7 h-7 rounded-full bg-accent text-black flex items-center justify-center font-bold text-xs shadow-lg shadow-accent/20 tabular-nums">
                   {selectedProductIds.length + selectedMessageIds.length}
                 </div>
                 <div>
@@ -829,6 +852,7 @@ export const CatalogDetailPage = () => {
                   onClick={clearSelection}
                   className="p-2 bg-surface-hover hover:bg-surface text-secondary hover:text-red-500 rounded-xl border border-border transition-all"
                   title="Salir de selección"
+                  aria-label="Cerrar modo de selección"
                 >
                   <X size={16} />
                 </button>
@@ -946,7 +970,7 @@ export const CatalogDetailPage = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" size={18} />
                 <input
                   type="text"
-                  placeholder="Buscar por nombre, descripción o precio..."
+                  placeholder="Buscar por nombre, descripción o precio…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-surface-hover border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
@@ -1065,7 +1089,7 @@ export const CatalogDetailPage = () => {
                           {prodLoading && (
                             <div className="flex flex-col items-center gap-2">
                               <RotateCcw className="animate-spin text-[var(--accent)]" size={20} />
-                              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Cargando más...</span>
+                              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Cargando más…</span>
                             </div>
                           )}
                         </div>

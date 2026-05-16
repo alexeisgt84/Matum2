@@ -14,7 +14,7 @@ export const LimitBadge: React.FC<LimitBadgeProps> = ({ current, limit, label })
     <div className="w-full space-y-2 mb-6">
       <div className="flex justify-between items-end">
         <span className="text-xs font-bold text-secondary uppercase tracking-widest">{label}</span>
-        <span className={`text-sm font-bold ${isNearLimit ? 'text-danger' : 'text-primary'}`}>
+        <span className={`text-sm font-bold tabular-nums ${isNearLimit ? 'text-danger' : 'text-primary'}`}>
           {current} <span className="text-secondary font-normal">/ {limit}</span>
         </span>
       </div>

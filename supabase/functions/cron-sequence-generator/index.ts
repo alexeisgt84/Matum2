@@ -74,12 +74,12 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      logInfo(`Catálogo "${catalog.name}" (${catalog.id}): ${groups.length} grupos activos: [${groups.map(g => g.name || g.group_id).join(', ')}]`);
+      logInfo(`  is_sequence_scheduled=${catalog.is_sequence_scheduled}, is_individual_scheduled=${catalog.is_individual_scheduled}`);
+
       const queueItems: any[] = [];
       let cumulativeDelayMs = 0;
 
-      // ============================================
-      // 1. EVALUAR SECUENCIA DEL CATÁLOGO
-      // ============================================
       // ============================================
       // 1. EVALUAR SECUENCIA DEL CATÁLOGO
       // ============================================
@@ -135,11 +135,16 @@ Deno.serve(async (req) => {
               // Actualizamos la variable local por si hay más horarios que procesar
               schedules = updatedSchedules;
 
-              for (const group of groups) {
-                for (const item of messages) {
-                  if (item.type === 'catalog_products') {
-                    if (products && products.length > 0) {
-                      for (const product of products) {
+              logInfo(`[Secuencia] Procesando ${messages.length} mensajes y ${products?.length || 0} productos para ${groups.length} grupos.`);
+
+              // Loop: mensajes → (productos → grupos) para distribuir equitativamente
+              // Así cada producto/mensaje se envía a TODOS los grupos antes de pasar al siguiente,
+              // garantizando distribución justa si el sender tiene límite de procesamiento.
+              for (const item of messages) {
+                if (item.type === 'catalog_products') {
+                  if (products && products.length > 0) {
+                    for (const product of products) {
+                      for (const group of groups) {
                         cumulativeDelayMs += Math.floor(Math.random() * (20000 - 10000 + 1)) + 10000;
                         const productCaption = (catalog.template || '')
                           .replace(/\\n/g, '\n')
@@ -170,7 +175,9 @@ Deno.serve(async (req) => {
                         });
                       }
                     }
-                  } else {
+                  }
+                } else {
+                  for (const group of groups) {
                     cumulativeDelayMs += Math.floor(Math.random() * (20000 - 10000 + 1)) + 10000;
                     const processedContent = (item.content || '')
                       .replace(/\\n/g, '\n')
@@ -197,6 +204,16 @@ Deno.serve(async (req) => {
                     });
                   }
                 }
+              }
+
+              // Log de distribución por grupo
+              const groupCounts: Record<string, number> = {};
+              for (const qi of queueItems) {
+                groupCounts[qi.group_id] = (groupCounts[qi.group_id] || 0) + 1;
+              }
+              for (const [gid, count] of Object.entries(groupCounts)) {
+                const gName = groups.find(g => g.group_id === gid)?.name || gid;
+                logInfo(`  → ${gName}: ${count} mensajes encolados`);
               }
             }
           }

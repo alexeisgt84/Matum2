@@ -22,13 +22,13 @@ Deno.serve(async (req) => {
     logInfo('Iniciando disparador de mensajes multi-servidor...');
     const now = new Date();
 
-    // 1. Obtener mensajes con JOIN para conocer el servidor
+    // 1. Obtener mensajes con JOIN para conocer el servidor y estado de programación
     // Nota: wa_message_queue.instance_name se usa para buscar en evolution_instances
     const { data: queueItems, error: qError } = await supabase
       .from('wa_message_queue')
       .select(`
         *,
-        catalogs(user_id, is_active)
+        catalogs(user_id, is_active, is_sequence_scheduled, is_individual_scheduled)
       `)
       .eq('status', 'pending')
       .lte('scheduled_at', now.toISOString())
@@ -69,6 +69,19 @@ Deno.serve(async (req) => {
       const isCatalogActive = item.catalogs?.is_active ?? true;
       if (!isCatalogActive) {
         logInfo(`Cancelando mensaje ${item.id} porque el catálogo ${item.catalog_id} está desactivado.`);
+        await supabase.from('wa_message_queue')
+          .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+          .eq('id', item.id);
+        cancelled++;
+        continue;
+      }
+
+      // Verificar si la programación sigue activa
+      // Si AMBOS switches (secuencia e individual) están desactivados, cancelar el mensaje
+      const isSeqScheduled = item.catalogs?.is_sequence_scheduled ?? false;
+      const isIndScheduled = item.catalogs?.is_individual_scheduled ?? false;
+      if (!isSeqScheduled && !isIndScheduled) {
+        logInfo(`Cancelando mensaje ${item.id} porque la programación del catálogo ${item.catalog_id} está desactivada.`);
         await supabase.from('wa_message_queue')
           .update({ status: 'cancelled', updated_at: new Date().toISOString() })
           .eq('id', item.id);

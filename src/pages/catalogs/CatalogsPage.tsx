@@ -36,7 +36,7 @@ export const CatalogsPage = () => {
       <div className="p-4 max-w-lg mx-auto pb-24">
         <PageHeader 
           title="Tus Catálogos" 
-          subtitle="Cargando..."
+          subtitle="Cargando…"
           rightAction={
             <div className="w-24 h-9 bg-surface-hover animate-pulse rounded-lg" />
           }
@@ -129,6 +129,7 @@ export const CatalogsPage = () => {
                       navigate(`/catalogs/${catalog.id}/edit`);
                     }}
                     className="p-2 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-colors"
+                    aria-label={`Editar catálogo ${catalog.name}`}
                   >
                     <Edit3 size={18} />
                   </button>
@@ -138,6 +139,7 @@ export const CatalogsPage = () => {
                       setCatalogToDelete(catalog.id);
                     }}
                     className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                    aria-label={`Eliminar catálogo ${catalog.name}`}
                   >
                     <Trash2 size={18} />
                   </button>
@@ -147,7 +149,7 @@ export const CatalogsPage = () => {
               <div className="pt-6 mt-4 border-t border-border flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-secondary">
                 <div className="flex items-center gap-1.5">
                   <LayoutGrid size={12} />
-                  <span>{catalog.productCount || 0} Productos</span>
+                  <span className="tabular-nums">{catalog.productCount || 0} Productos</span>
                 </div>
                 <div className="flex items-center gap-1 group-hover:text-accent transition-colors">
                   Abrir Catálogo

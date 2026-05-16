@@ -74,9 +74,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="flex justify-end gap-1 pb-1 flex-wrap sm:flex-nowrap">
         {onSendNow && !product.is_out_of_stock && (
           <button 
-           onClick={() => onSendNow(product)}
+            onClick={() => onSendNow(product)}
             className="p-1 px-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-colors text-xs flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
             title="Enviar como producto normal"
+            aria-label={`Enviar producto ${product.name}`}
             disabled={isSending}
           >
             <Send size={14} />
@@ -88,6 +89,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             onClick={() => onOutOfStock(product)}
             className="p-1 px-2 text-gray-500 hover:text-orange-500 hover:bg-orange-500/10 rounded-lg transition-colors text-xs flex items-center gap-1"
             title="Marcar como agotado"
+            aria-label={`Marcar ${product.name} como agotado`}
           >
             <PackageX size={14} />
             <span className="hidden sm:inline">Agotado</span>
@@ -98,6 +100,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             onClick={() => onAvailable(product)}
             className="p-1 px-2 text-gray-400 hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded-lg transition-colors text-xs flex items-center gap-1"
             title="Marcar como disponible"
+            aria-label={`Marcar ${product.name} como disponible`}
           >
             <PackageCheck size={14} />
             <span className="hidden sm:inline">Disponible</span>
@@ -106,6 +109,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <button 
           onClick={() => onEdit(product)}
           className="p-1 px-2 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-colors text-xs flex items-center gap-1"
+          aria-label={`Editar producto ${product.name}`}
         >
           <Edit3 size={14} />
           <span className="hidden sm:inline">Editar</span>
@@ -114,12 +118,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           onClick={handleShare}
           className="p-1 px-2 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors text-xs flex items-center gap-1"
           title="Compartir producto"
+          aria-label={`Compartir producto ${product.name}`}
         >
           <Share2 size={14} />
         </button>
         <button 
           onClick={() => onDelete(product.id)}
           className="p-1 px-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors text-xs flex items-center gap-1"
+          aria-label={`Eliminar producto ${product.name}`}
         >
           <Trash2 size={14} />
         </button>
@@ -154,7 +160,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {product.description || 'Sin descripción'}
           </p>
           <div className="mt-1.5 flex items-center gap-2">
-            <span className="text-accent font-bold text-xs">
+            <span className="text-accent font-bold text-xs tabular-nums">
               {product.price ? `${product.price} ${product.currency}` : 'S/P'}
             </span>
             {product.is_out_of_stock && (
