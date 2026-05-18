@@ -11,6 +11,7 @@ interface RichTextareaProps {
   label?: string;
   helperText?: string;
   required?: boolean;
+  disabled?: boolean;
 }
 
 
@@ -20,7 +21,8 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
   placeholder,
   label,
   helperText,
-  required
+  required,
+  disabled
 }, ref) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -103,7 +105,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
     <div className="space-y-2 relative">
       {label && <label className="text-sm font-medium text-secondary ml-1">{label}</label>}
       
-      <div className="group relative flex flex-col bg-surface border border-border rounded-xl transition-all duration-200 focus-within:border-accent focus-within:bg-surface-hover overflow-hidden">
+      <div className={`group relative flex flex-col bg-surface border border-border rounded-xl transition-all duration-200 focus-within:border-accent focus-within:bg-surface-hover overflow-hidden ${disabled ? 'opacity-50' : ''}`}>
         <textarea
           ref={textareaRef}
           className="w-full bg-transparent p-4 text-primary placeholder:text-secondary/50 outline-none resize-none min-h-[120px] leading-relaxed"
@@ -112,22 +114,25 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
           placeholder={placeholder}
           rows={4}
           required={required}
+          disabled={disabled}
         />
         
         <div className="flex items-center gap-1 px-2 py-1.5 border-t border-border bg-surface-hover/20">
           <button
             type="button"
             onClick={() => insertText('*', '*')}
-            className="p-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-all"
+            className="p-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-all disabled:opacity-50 disabled:pointer-events-none"
             title="Negrita (*)"
+            disabled={disabled}
           >
             <Bold size={16} />
           </button>
           <button
             type="button"
             onClick={() => insertText('_', '_')}
-            className="p-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-all"
+            className="p-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-all disabled:opacity-50 disabled:pointer-events-none"
             title="Cursiva (_)"
+            disabled={disabled}
           >
             <Italic size={16} />
           </button>
@@ -136,13 +141,14 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
             <button
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className={`p-2 transition-all rounded-lg ${showEmojiPicker ? 'text-accent bg-accent/10' : 'text-secondary hover:text-accent hover:bg-accent/10'}`}
+              className={`p-2 transition-all rounded-lg disabled:opacity-50 disabled:pointer-events-none ${showEmojiPicker ? 'text-accent bg-accent/10' : 'text-secondary hover:text-accent hover:bg-accent/10'}`}
               title="Emojis"
+              disabled={disabled}
             >
               <Smile size={16} />
             </button>
             
-            {showEmojiPicker && (
+            {showEmojiPicker && !disabled && (
               <>
                 <div 
                   className="fixed inset-0 z-[60]" 

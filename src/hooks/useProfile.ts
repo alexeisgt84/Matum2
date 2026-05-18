@@ -28,7 +28,7 @@ export const useProfile = () => {
     }
   };
 
-  const updateProfile = async (nombre: string, avatarFile?: File) => {
+  const updateProfile = async (nombre: string, avatarFile?: File, geminiApiKey?: string, geminiModel?: string) => {
     if (!user) return;
     setLoading(true);
     setError(null);
@@ -63,18 +63,34 @@ export const useProfile = () => {
         avatar_url = publicUrl;
       }
 
+      const updateData: any = { 
+        full_name: nombre, 
+        avatar_url,
+        updated_at: new Date().toISOString()
+      };
+
+      if (geminiApiKey !== undefined) {
+        updateData.gemini_api_key = geminiApiKey;
+      }
+
+      if (geminiModel !== undefined) {
+        updateData.gemini_model = geminiModel;
+      }
+
       const { error: updateError } = await supabase
         .from('users')
-        .update({ 
-          full_name: nombre, 
-          avatar_url,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', user.id);
 
       if (updateError) throw updateError;
       
-      setProfile({ ...profile, full_name: nombre, avatar_url });
+      setProfile({ 
+        ...profile, 
+        full_name: nombre, 
+        avatar_url, 
+        ...(geminiApiKey !== undefined ? { gemini_api_key: geminiApiKey } : {}),
+        ...(geminiModel !== undefined ? { gemini_model: geminiModel } : {})
+      });
       return true;
     } catch (err: any) {
       console.error('Error updating profile:', err);
