@@ -147,6 +147,45 @@ export const useWhatsAppGroups = (catalogId?: string) => {
     }
   };
 
+  const applyGroupPreset = async (activeGroupJids: string[]) => {
+    if (!catalogId) return;
+    setLoading(true);
+    try {
+      // 1. Desactivar todos los grupos vinculados para este catálogo
+      const { error: deactivateError } = await supabase
+        .from('whatsapp_groups')
+        .update({ is_active: false })
+        .eq('catalog_id', catalogId);
+
+      if (deactivateError) throw deactivateError;
+
+      // 2. Activar los grupos especificados si hay alguno
+      if (activeGroupJids.length > 0) {
+        const { error: activateError } = await supabase
+          .from('whatsapp_groups')
+          .update({ is_active: true })
+          .eq('catalog_id', catalogId)
+          .in('group_id', activeGroupJids);
+
+        if (activateError) throw activateError;
+      }
+
+      // 3. Actualizar el estado local
+      setLinkedGroups(prev =>
+        prev.map(g => ({
+          ...g,
+          is_active: activeGroupJids.includes(g.group_id)
+        }))
+      );
+      toast.success('Configuración rápida aplicada');
+    } catch (err: any) {
+      console.error('Error al aplicar preset:', err);
+      toast.error('Error al aplicar la configuración rápida');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return { 
     linkedGroups, 
     availableGroups, 
@@ -155,6 +194,7 @@ export const useWhatsAppGroups = (catalogId?: string) => {
     fetchAvailableGroups, 
     linkGroup, 
     unlinkGroup,
-    toggleGroupStatus
+    toggleGroupStatus,
+    applyGroupPreset
   };
 };

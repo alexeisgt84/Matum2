@@ -29,7 +29,8 @@ import {
   Share2,
   ShoppingBag,
   Layout,
-  X
+  X,
+  ZapOff
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { shareContent } from '../../lib/share';
@@ -111,7 +112,7 @@ export const CatalogDetailPage = () => {
   const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, updateMessagesOrder, toggleMessageSequence } = useMessages(catalogId);
   
   // Hooks de Grupos (Seguimos usándolos para el modal de grupos)
-  const { linkedGroups, availableGroups, loading: groupsLoading, getLinkedGroups, fetchAvailableGroups, linkGroup, unlinkGroup, toggleGroupStatus } = useWhatsAppGroups(catalogId);
+  const { linkedGroups, availableGroups, loading: groupsLoading, getLinkedGroups, fetchAvailableGroups, linkGroup, unlinkGroup, toggleGroupStatus, applyGroupPreset } = useWhatsAppGroups(catalogId);
 
 
   // Motor de Envío
@@ -136,6 +137,84 @@ export const CatalogDetailPage = () => {
 
   const [isLinkGroupOpen, setIsLinkGroupOpen] = useState(false);
   const [groupUnlinkId, setGroupUnlinkId] = useState<string | null>(null);
+
+  // Estados y refs para accesos rápidos (Presets de grupos)
+  const [presets, setPresets] = useState<Record<number, string[]>>({
+    1: [],
+    2: [],
+    3: []
+  });
+  const presetTimeoutRef = useRef<Record<number, any>>({});
+  const isLongPressRef = useRef<Record<number, boolean>>({});
+
+  // Cargar presets de localStorage
+  useEffect(() => {
+    if (catalogId) {
+      const loadedPresets: Record<number, string[]> = { 1: [], 2: [], 3: [] };
+      for (let i = 1; i <= 3; i++) {
+        try {
+          const data = localStorage.getItem(`matum_group_preset_${catalogId}_${i}`);
+          if (data) {
+            loadedPresets[i] = JSON.parse(data);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      setPresets(loadedPresets);
+    }
+  }, [catalogId]);
+
+  const savePreset = (presetNum: number) => {
+    if (!catalogId) return;
+    const activeJids = linkedGroups.filter(g => g.is_active).map(g => g.group_id);
+    localStorage.setItem(`matum_group_preset_${catalogId}_${presetNum}`, JSON.stringify(activeJids));
+    setPresets(prev => ({ ...prev, [presetNum]: activeJids }));
+    toast.success(`Configuración guardada en G${presetNum}`);
+  };
+
+  const applyPreset = async (presetNum: number) => {
+    const savedJids = presets[presetNum];
+    if (!savedJids || savedJids.length === 0) {
+      toast.error(`El acceso rápido "G${presetNum}" está vacío. Activa los grupos deseados y mantén presionado este botón para guardarlo.`);
+      return;
+    }
+    const linkedGroupJids = linkedGroups.map(g => g.group_id);
+    const validJidsToActive = savedJids.filter(jid => linkedGroupJids.includes(jid));
+    await applyGroupPreset(validJidsToActive);
+  };
+
+  const handlePresetPointerDown = (e: React.PointerEvent, presetNum: number) => {
+    isLongPressRef.current[presetNum] = false;
+    if (presetTimeoutRef.current[presetNum]) {
+      clearTimeout(presetTimeoutRef.current[presetNum]);
+    }
+    presetTimeoutRef.current[presetNum] = setTimeout(() => {
+      isLongPressRef.current[presetNum] = true;
+      savePreset(presetNum);
+      if (navigator.vibrate) {
+        navigator.vibrate(100);
+      }
+      presetTimeoutRef.current[presetNum] = null;
+    }, 1200);
+  };
+
+  const handlePresetPointerUp = (e: React.PointerEvent, presetNum: number) => {
+    if (presetTimeoutRef.current[presetNum]) {
+      clearTimeout(presetTimeoutRef.current[presetNum]);
+      presetTimeoutRef.current[presetNum] = null;
+    }
+    if (!isLongPressRef.current[presetNum]) {
+      applyPreset(presetNum);
+    }
+  };
+
+  const handlePresetPointerCancel = (presetNum: number) => {
+    if (presetTimeoutRef.current[presetNum]) {
+      clearTimeout(presetTimeoutRef.current[presetNum]);
+      presetTimeoutRef.current[presetNum] = null;
+    }
+  };
 
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [isRestoreOpen, setIsRestoreOpen] = useState(false);
@@ -1303,7 +1382,41 @@ export const CatalogDetailPage = () => {
               />
             ) : (
               <>
-                <div className="flex justify-end px-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1 mb-2 bg-surface-hover/20 p-3 rounded-2xl border border-border/40">
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {[1, 2, 3].map(num => {
+                        const hasData = presets[num] && presets[num].length > 0;
+                        return (
+                          <button
+                            key={num}
+                            onPointerDown={(e) => handlePresetPointerDown(e, num)}
+                            onPointerUp={(e) => handlePresetPointerUp(e, num)}
+                            onPointerCancel={() => handlePresetPointerCancel(num)}
+                            onPointerLeave={() => handlePresetPointerCancel(num)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all select-none duration-200 active:scale-95 ${
+                              hasData 
+                                ? 'bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/30 hover:bg-[var(--accent)]/20 shadow-md shadow-accent/5' 
+                                : 'bg-surface border border-dashed border-white/10 text-[var(--text-secondary)] hover:border-white/20 hover:text-[var(--text-primary)]'
+                            }`}
+                            title={hasData ? `Aplicar G${num} con ${presets[num].length} grupos (Mantén presionado para sobrescribir)` : `G${num} vacío (Mantén presionado para guardar actual)`}
+                          >
+                            {hasData ? <Zap size={12} className="text-[var(--accent)]" /> : <ZapOff size={12} className="opacity-50" />}
+                            <span>G{num}</span>
+                            {hasData && (
+                              <span className="ml-0.5 text-[9px] bg-[var(--accent)]/20 px-1.5 py-0.5 rounded-full font-bold">
+                                {presets[num].length}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <span className="text-[9px] text-[var(--text-secondary)] opacity-60">
+                      * Clic para aplicar. Mantén presionado (1.2s) para guardar los grupos activos actuales.
+                    </span>
+                  </div>
+
                   <Button 
                     variant="secondary" 
                     size="sm" 
