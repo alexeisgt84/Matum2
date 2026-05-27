@@ -144,12 +144,34 @@ export const MessageCard: React.FC<MessageCardProps> = ({
             <h3 className="text-primary font-bold truncate group-hover:text-accent transition-colors uppercase text-[11px] tracking-widest">
               {isCatalog ? 'Catálogo de Productos' : message.name}
             </h3>
-            {!isCatalog && message.scheduled_time && (
-              <div className="flex items-center gap-1.5 text-[10px] text-secondary mt-0.5">
-                <Clock size={10} />
-                <span className="text-accent font-bold tabular-nums">Programado: {message.scheduled_time}</span>
-              </div>
-            )}
+            {!isCatalog && (message.schedule_type === 'interval' ? (
+              message.schedule_interval && (
+                <div className="flex items-center gap-1.5 text-[10px] text-secondary mt-0.5">
+                  <Clock size={10} />
+                  <span className="text-accent font-bold tabular-nums">
+                    Programado: Cada {message.schedule_interval >= 60 
+                      ? `${message.schedule_interval / 60} ${message.schedule_interval / 60 === 1 ? 'hora' : 'horas'}` 
+                      : `${message.schedule_interval} min`}
+                  </span>
+                </div>
+              )
+            ) : (
+              message.fixed_schedules && message.fixed_schedules.length > 0 ? (
+                <div className="flex items-center gap-1.5 text-[10px] text-secondary mt-0.5">
+                  <Clock size={10} />
+                  <span className="text-accent font-bold tabular-nums truncate max-w-[200px]" title={`Programado a las: ${message.fixed_schedules.map(s => s.time).join(', ')}`}>
+                    Programado: {message.fixed_schedules.map(s => s.time).join(', ')}
+                  </span>
+                </div>
+              ) : (
+                message.scheduled_time && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-secondary mt-0.5">
+                    <Clock size={10} />
+                    <span className="text-accent font-bold tabular-nums">Programado: {message.scheduled_time}</span>
+                  </div>
+                )
+              )
+            ))}
             {isCatalog && (
               <div className="flex items-center gap-1.5 text-[10px] text-[var(--accent)] mt-0.5 font-bold">
                 <Package size={10} />

@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { RichTextarea } from '../ui/RichTextarea';
 import type { WhatsAppMessage, MessageForm, MessageType } from '../../types/message';
-import { Save, Clock, X, ImagePlus, Sparkles, Crown } from 'lucide-react';
+import { Save, Clock, X, ImagePlus, Sparkles, Crown, Plus } from 'lucide-react';
 import heic2any from 'heic2any';
 import { toast } from 'react-hot-toast';
 import { useProfile } from '../../hooks/useProfile';
@@ -35,10 +35,14 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
     scheduled_at: null,
     scheduled_time: null,
     image_url: null,
+    schedule_type: 'fixed',
+    schedule_interval: 30,
+    fixed_schedules: [],
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
+  const [newTime, setNewTime] = useState('');
   const [isConverting, setIsConverting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -109,6 +113,10 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
 
   useEffect(() => {
     if (message) {
+      let fixedSchedules = message.fixed_schedules || [];
+      if (fixedSchedules.length === 0 && message.scheduled_time) {
+        fixedSchedules = [{ time: message.scheduled_time }];
+      }
       setForm({
         name: message.name,
         content: message.content,
@@ -118,9 +126,13 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
         scheduled_at: message.scheduled_at,
         scheduled_time: message.scheduled_time,
         image_url: message.image_url,
+        schedule_type: message.schedule_type || 'fixed',
+        schedule_interval: message.schedule_interval ?? 30,
+        fixed_schedules: fixedSchedules,
       });
       setPreviewUrl(message.image_url || null);
-      setShowSchedule(!!message.scheduled_time);
+      setShowSchedule(!!message.schedule_interval || fixedSchedules.length > 0 || !!message.scheduled_time);
+      setNewTime('');
     } else {
       setForm({ 
         name: '', 
@@ -131,10 +143,14 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
         scheduled_at: null,
         scheduled_time: null,
         image_url: null,
+        schedule_type: 'fixed',
+        schedule_interval: 30,
+        fixed_schedules: [],
       });
       setPreviewUrl(null);
       setImageFile(null);
       setShowSchedule(false);
+      setNewTime('');
     }
   }, [message, isOpen]);
 
@@ -189,11 +205,30 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
       return;
     }
 
+    // Si la programación está activada, validar según el tipo
+    if (showSchedule && !form.is_sequence) {
+      if (form.schedule_type === 'fixed' && (!form.fixed_schedules || form.fixed_schedules.length === 0)) {
+        toast.error('Agrega al menos un horario para la programación.');
+        return;
+      }
+      if (form.schedule_type === 'interval' && (!form.schedule_interval || form.schedule_interval <= 0)) {
+        toast.error('Especifica un intervalo válido en minutos.');
+        return;
+      }
+    }
+
+    const firstFixedTime = form.fixed_schedules && form.fixed_schedules.length > 0 
+      ? form.fixed_schedules[0].time 
+      : null;
+
     // Auto-determine type based on image presence
     const finalForm = {
       ...form,
       type: (previewUrl || imageFile ? 'image' : 'text') as MessageType,
-      scheduled_time: showSchedule ? form.scheduled_time : null,
+      scheduled_time: showSchedule ? (form.schedule_type === 'fixed' ? firstFixedTime : null) : null,
+      schedule_type: showSchedule ? form.schedule_type : null,
+      schedule_interval: showSchedule && form.schedule_type === 'interval' ? form.schedule_interval : null,
+      fixed_schedules: showSchedule && form.schedule_type === 'fixed' ? form.fixed_schedules : [],
     };
     const success = await onSave(finalForm, message?.id, imageFile || undefined);
     if (success) onClose();
@@ -356,42 +391,167 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
             </label>
           </div>
 
-
-          {/* 5. Toggle Hora de Envío */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-bold text-gray-500 uppercase tracking-widest">Hora de Envío</label>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSchedule(!showSchedule);
-                  if (showSchedule) {
-                    setForm({ ...form, scheduled_time: null });
-                  }
-                }}
-                className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
-                  showSchedule ? 'bg-[var(--accent)]' : 'bg-white/10'
-                }`}
-              >
-                <div
-                  className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-md transition-all duration-300 ${
-                    showSchedule ? 'left-6' : 'left-1'
+          {/* 5. Programación de Envío (solo para mensajes individuales / fuera de secuencia) */}
+          {!form.is_sequence && (
+            <div className="space-y-4 p-4 rounded-2xl bg-white/5 border border-white/10 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-bold text-gray-300 uppercase tracking-widest">Programar Envío</label>
+                  <p className="text-[10px] text-gray-500">Configura cuándo se publicará este mensaje automáticamente</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSchedule(!showSchedule);
+                  }}
+                  className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
+                    showSchedule ? 'bg-[var(--accent)]' : 'bg-white/10'
                   }`}
-                />
-              </button>
-            </div>
-            {showSchedule && (
-              <div className="animate-in slide-in-from-top-2 duration-200">
-                <Input
-                  type="time"
-                  value={form.scheduled_time || ''}
-                  onChange={(e) => setForm({ ...form, scheduled_time: e.target.value })}
-                  icon={Clock}
-                  helperText="A qué hora debe enviarse este mensaje"
-                />
+                >
+                  <div
+                    className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-md transition-all duration-300 ${
+                      showSchedule ? 'left-6' : 'left-1'
+                    }`}
+                  />
+                </button>
               </div>
-            )}
-          </div>
+
+              {showSchedule && (
+                <div className="space-y-4 pt-2 border-t border-white/5 animate-in slide-in-from-top-2 duration-200">
+                  {/* Selector de Tipo de Programación */}
+                  <div className="flex p-1 bg-black/30 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, schedule_type: 'fixed' })}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                        form.schedule_type === 'fixed'
+                          ? 'bg-[var(--accent)] text-black shadow-md'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Horarios Fijos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, schedule_type: 'interval' })}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
+                        form.schedule_type === 'interval'
+                          ? 'bg-[var(--accent)] text-black shadow-md'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Intervalo
+                    </button>
+                  </div>
+
+                  {/* Renderizado según el tipo de programación */}
+                  {form.schedule_type === 'fixed' ? (
+                    <div className="space-y-3">
+                      {/* Lista de horarios configurados */}
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Horarios Seleccionados</label>
+                      {form.fixed_schedules && form.fixed_schedules.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {form.fixed_schedules.map((sched, idx) => (
+                            <div key={idx} className="flex items-center gap-1.5 py-1 px-2.5 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-white transition-all hover:border-red-500/30 group/tag">
+                              <span className="tabular-nums">{sched.time}</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = form.fixed_schedules?.filter((_, i) => i !== idx) || [];
+                                  setForm({ ...form, fixed_schedules: updated });
+                                }}
+                                className="text-gray-500 hover:text-red-500 transition-colors"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-gray-500 italic">No has agregado ningún horario todavía.</p>
+                      )}
+
+                      {/* Input para agregar nuevo horario */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="flex-1">
+                          <Input
+                            type="time"
+                            value={newTime}
+                            onChange={(e) => setNewTime(e.target.value)}
+                            icon={Clock}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newTime) return;
+                            const exists = form.fixed_schedules?.some(s => s.time === newTime);
+                            if (exists) {
+                              toast.error('Este horario ya ha sido agregado.');
+                              return;
+                            }
+                            const updated = [...(form.fixed_schedules || []), { time: newTime }].sort((a, b) => a.time.localeCompare(b.time));
+                            setForm({ ...form, fixed_schedules: updated });
+                            setNewTime('');
+                          }}
+                          className="py-2.5 px-4 rounded-xl bg-white/10 hover:bg-[var(--accent)] hover:text-black font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1 border border-white/5 cursor-pointer active:scale-95"
+                        >
+                          <Plus size={14} />
+                          <span>Agregar</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Publicar cada (minutos)</label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[15, 30, 60, 120, 240].map((mins) => (
+                          <button
+                            type="button"
+                            key={mins}
+                            onClick={() => setForm({ ...form, schedule_interval: mins })}
+                            className={`py-2 rounded-xl text-[10px] font-bold tracking-wider transition-all border ${
+                              form.schedule_interval === mins
+                                ? 'bg-[var(--accent)] text-black border-[var(--accent)] shadow-lg shadow-[var(--accent)]/15'
+                                : 'bg-white/5 text-gray-400 border-white/5 hover:border-white/10 hover:text-white'
+                            }`}
+                          >
+                            {mins >= 60 ? `${mins / 60} ${mins / 60 === 1 ? 'Hora' : 'Horas'}` : `${mins} Min`}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const val = prompt('Ingresa el intervalo en minutos:');
+                            if (val) {
+                              const mins = parseInt(val, 10);
+                              if (!isNaN(mins) && mins > 0) {
+                                setForm({ ...form, schedule_interval: mins });
+                              } else {
+                                toast.error('Ingresa un número válido');
+                              }
+                            }
+                          }}
+                          className={`py-2 rounded-xl text-[10px] font-bold tracking-wider transition-all border ${
+                            ![15, 30, 60, 120, 240].includes(form.schedule_interval || 0)
+                              ? 'bg-[var(--accent)] text-black border-[var(--accent)] shadow-lg'
+                              : 'bg-white/5 text-gray-400 border-white/5 hover:border-white/10'
+                          }`}
+                        >
+                          {![15, 30, 60, 120, 240].includes(form.schedule_interval || 0) && form.schedule_interval
+                            ? `Pers. (${form.schedule_interval}m)`
+                            : 'Otro...'}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-500 leading-relaxed italic pt-2 border-t border-white/5">
+                        El mensaje se publicará en los grupos de manera cíclica cada {form.schedule_interval || 30} minutos.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </form>
     </Modal>

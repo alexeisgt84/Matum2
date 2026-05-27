@@ -229,27 +229,95 @@ Deno.serve(async (req) => {
           .select('*')
           .eq('catalog_id', catalog.id)
           .eq('is_sequence', false)
-          .eq('is_individual', true)
-          .not('scheduled_time', 'is', null);
+          .eq('is_individual', true);
 
         if (individualMsgs && individualMsgs.length > 0) {
           for (const item of individualMsgs) {
-            const itemTime = item.scheduled_time.substring(0, 5);
-            const alreadySentToday = isSameDayLocal(item.last_sent_at);
+            let shouldSend = false;
+            let updatedFixedSchedules = null;
 
-            if (!alreadySentToday && currentTimeStr >= itemTime) {
-              logInfo(`[Individual] Generando mensaje programado ID ${item.id} (Hora p.: ${itemTime}).`);
+            const scheduleType = item.schedule_type || 'fixed';
+
+            if (scheduleType === 'interval') {
+              // Programación por Intervalo
+              const interval = item.schedule_interval;
+              if (interval && interval > 0) {
+                if (!item.last_sent_at) {
+                  // Si nunca se ha enviado, toca enviar
+                  shouldSend = true;
+                } else {
+                  // Calcular diferencia en minutos
+                  const lastSent = new Date(item.last_sent_at);
+                  const diffMs = now.getTime() - lastSent.getTime();
+                  const diffMins = diffMs / (1000 * 60);
+                  if (diffMins >= interval) {
+                    shouldSend = true;
+                  }
+                }
+              }
+            } else {
+              // Programación por Horarios Fijos ('fixed')
+              let schedules = item.fixed_schedules || [];
               
-              // 1. Marcar mensaje individual como enviado hoy (antes del loop) de forma atómica
-              const { data: indLockResult } = await supabase
+              // Compatibilidad hacia atrás
+              if (schedules.length === 0 && item.scheduled_time) {
+                schedules = [{ 
+                  time: item.scheduled_time, 
+                  last_sent_at: item.last_sent_at 
+                }];
+              }
+
+              let fixedScheduleUpdated = false;
+              const nextSchedules = [...schedules];
+
+              for (let idx = 0; idx < nextSchedules.length; idx++) {
+                const sched = nextSchedules[idx];
+                const schedTime = sched.time.substring(0, 5);
+                const alreadySentToday = isSameDayLocal(sched.last_sent_at);
+
+                if (!alreadySentToday && currentTimeStr >= schedTime) {
+                  shouldSend = true;
+                  nextSchedules[idx] = { 
+                    ...sched, 
+                    last_sent_at: now.toISOString() 
+                  };
+                  fixedScheduleUpdated = true;
+                  logInfo(`[Individual] Horario ${idx+1} (${schedTime}) del mensaje "${item.name}" califica para envío.`);
+                }
+              }
+
+              if (fixedScheduleUpdated) {
+                updatedFixedSchedules = nextSchedules;
+              }
+            }
+
+            if (shouldSend) {
+              logInfo(`[Individual] Generando mensaje programado "${item.name}" (ID: ${item.id}, tipo: ${scheduleType}).`);
+              
+              // 1. Marcar mensaje individual como enviado (antes de encolar) de forma atómica
+              let updatePayload: any = { last_sent_at: now.toISOString() };
+              let lockQuery = supabase
                 .from('whatsapp_messages')
-                .update({ last_sent_at: now.toISOString() })
-                .eq('id', item.id)
-                .or(`last_sent_at.is.null,last_sent_at.lt.${currentLocalDayStr}T00:00:00Z`)
-                .select();
+                .update(updatePayload)
+                .eq('id', item.id);
+
+              if (scheduleType === 'interval') {
+                const thirtySecsAgo = new Date(Date.now() - 30 * 1000).toISOString();
+                lockQuery = lockQuery.or(`last_sent_at.is.null,last_sent_at.lt.${thirtySecsAgo}`);
+              } else {
+                if (updatedFixedSchedules) {
+                  updatePayload.fixed_schedules = updatedFixedSchedules;
+                  lockQuery = supabase
+                    .from('whatsapp_messages')
+                    .update(updatePayload)
+                    .eq('id', item.id);
+                }
+              }
+
+              const { data: indLockResult } = await lockQuery.select();
 
               if (!indLockResult || indLockResult.length === 0) {
-                logInfo(`[Individual] Mensaje ${item.id} ya fue procesado por otra instancia.`);
+                logInfo(`[Individual] Mensaje ${item.id} ya fue procesado por otra instancia o está bloqueado.`);
                 continue;
               }
 

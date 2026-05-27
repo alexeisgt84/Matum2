@@ -224,6 +224,9 @@ export const CatalogDetailPage = () => {
   const [queueStats, setQueueStats] = useState({ pending: 0, sent: 0, error: 0 });
   const [tempTime, setTempTime] = useState('');
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isQueueModalOpen, setIsQueueModalOpen] = useState(false);
+  const [queueItems, setQueueItems] = useState<any[]>([]);
+  const [isQueueLoading, setIsQueueLoading] = useState(false);
 
   
   // Estados de Selección
@@ -320,6 +323,11 @@ export const CatalogDetailPage = () => {
           onClick: () => navigate(`/catalogs/${catalogId}/templates`) 
         },
         { 
+          label: 'Ver cola de envío', 
+          icon: Clock, 
+          onClick: () => setIsQueueModalOpen(true) 
+        },
+        { 
           label: 'Limpiar cola de envío', 
           icon: Trash2, 
           onClick: () => setIsClearQueueConfirmOpen(true),
@@ -351,8 +359,12 @@ export const CatalogDetailPage = () => {
         });
       }
 
-      const StatBadge = ({ icon: Icon, value, color }: { icon: any, value: number, color: string }) => (
-        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/5">
+      const StatBadge = ({ icon: Icon, value, color, onClick, title }: { icon: any, value: number, color: string, onClick?: () => void, title?: string }) => (
+        <div 
+          onClick={onClick}
+          title={title}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/5 ${onClick ? 'cursor-pointer hover:bg-white/10 active:scale-95 transition-all' : ''}`}
+        >
           <Icon size={12} className={color} />
           <span className="text-[10px] font-bold text-gray-300 tabular-nums">{value}</span>
         </div>
@@ -367,10 +379,22 @@ export const CatalogDetailPage = () => {
             <StatBadge icon={Package} value={products.length} color="text-purple-400" />
             <StatBadge icon={Users} value={linkedGroups.filter(g => g.is_active).length} color="text-[var(--accent)]" />
             {queueStats.pending > 0 && (
-              <StatBadge icon={Clock} value={queueStats.pending} color="text-orange-400 animate-pulse" />
+              <StatBadge 
+                icon={Clock} 
+                value={queueStats.pending} 
+                color="text-orange-400 animate-pulse" 
+                onClick={() => setIsQueueModalOpen(true)}
+                title="Ver cola de envío"
+              />
             )}
             {queueStats.error > 0 && (
-              <StatBadge icon={AlertCircle} value={queueStats.error} color="text-red-400" />
+              <StatBadge 
+                icon={AlertCircle} 
+                value={queueStats.error} 
+                color="text-red-400" 
+                onClick={() => setIsQueueModalOpen(true)}
+                title="Ver cola de envío"
+              />
             )}
           </div>
 
@@ -392,7 +416,7 @@ export const CatalogDetailPage = () => {
       setSubtitle(null);
       setRightAction(null);
     };
-  }, [catalog, catalogId, navigate, setTitle, setSubtitle, setRightAction, instance?.status, messages.length, products.length, linkedGroups, queueStats]);
+  }, [catalog, catalogId, navigate, setTitle, setSubtitle, setRightAction, instance?.status, messages.length, products.length, linkedGroups, queueStats, setIsQueueModalOpen]);
 
   const loadCatalog = async () => {
     setCatLoading(true);
@@ -515,7 +539,7 @@ export const CatalogDetailPage = () => {
         .from('wa_message_queue')
         .delete()
         .eq('catalog_id', catalogId)
-        .eq('status', 'pending');
+        .in('status', ['pending', 'error']);
       
       if (error) throw error;
       toast.success('Cola de envío limpiada', { id: toastId });
@@ -527,6 +551,33 @@ export const CatalogDetailPage = () => {
       setIsClearingQueue(false);
     }
   };
+
+  const fetchQueueItems = async () => {
+    if (!catalogId) return;
+    setIsQueueLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('wa_message_queue')
+        .select('*')
+        .eq('catalog_id', catalogId)
+        .in('status', ['pending', 'error'])
+        .order('scheduled_at', { ascending: true })
+        .limit(50);
+      
+      if (error) throw error;
+      setQueueItems(data || []);
+    } catch (err: any) {
+      toast.error('Error al cargar la cola: ' + err.message);
+    } finally {
+      setIsQueueLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isQueueModalOpen) {
+      fetchQueueItems();
+    }
+  }, [isQueueModalOpen, catalogId]);
 
   const onDragEnd = (result: any) => {
     if (!result.destination) return;
@@ -1791,6 +1842,108 @@ export const CatalogDetailPage = () => {
         loading={isClearingQueue}
         variant="danger"
       />
+
+      {/* Modal de Cola de Envío */}
+      <Modal
+        isOpen={isQueueModalOpen}
+        onClose={() => setIsQueueModalOpen(false)}
+        title="Cola de Envío Pendiente"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Próximos Envíos Programados</p>
+            <button 
+              onClick={fetchQueueItems}
+              className="text-[10px] font-bold text-[var(--accent)] hover:underline uppercase tracking-wider cursor-pointer"
+              disabled={isQueueLoading}
+            >
+              {isQueueLoading ? 'Actualizando...' : 'Actualizar'}
+            </button>
+          </div>
+
+          {isQueueLoading ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-3">
+              <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+              <span className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">Cargando cola...</span>
+            </div>
+          ) : queueItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+              <Clock size={36} className="text-gray-600 animate-pulse" />
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">No hay mensajes en cola</span>
+              <p className="text-[10px] text-gray-500 max-w-[280px]">
+                Cuando se cumpla el horario o intervalo de tus mensajes programados, aparecerán aquí antes de ser enviados.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-1">
+              {queueItems.map((item) => {
+                const date = new Date(item.scheduled_at);
+                const localTime = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const payload = item.payload || {};
+                const contentText = payload.text || payload.caption || 'Sin contenido';
+                const isError = item.status === 'error';
+
+                return (
+                  <div 
+                    key={item.id} 
+                    className={`p-3 rounded-2xl bg-white/5 border flex flex-col gap-1.5 transition-all ${
+                      isError ? 'border-red-500/20 bg-red-500/5' : 'border-white/5 hover:border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-[var(--accent)] bg-[var(--accent)]/10 px-2 py-0.5 rounded-full">
+                        {localTime}
+                      </span>
+                      <span className={`text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${
+                        isError ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/10 text-orange-400'
+                      }`}>
+                        {isError ? 'Error' : 'Pendiente'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-primary font-medium line-clamp-2 leading-relaxed">
+                      {contentText}
+                    </p>
+
+                    <div className="flex items-center gap-1.5 text-[9px] text-secondary mt-1 font-semibold">
+                      <span className="text-gray-400">Grupo ID:</span>
+                      <span className="truncate max-w-[150px]">{item.group_id}</span>
+                    </div>
+
+                    {isError && item.error_message && (
+                      <p className="text-[9px] text-red-400/80 italic mt-1 leading-relaxed bg-red-500/10 p-1.5 rounded-xl border border-red-500/10">
+                        Error: {item.error_message}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="pt-3 border-t border-white/5 flex gap-2">
+            {queueItems.length > 0 && (
+              <button
+                onClick={async () => {
+                  if (confirm('¿Estás seguro de que deseas vaciar toda la cola de envío pendiente de este catálogo?')) {
+                    await handleClearQueue();
+                    setIsQueueModalOpen(false);
+                  }
+                }}
+                className="flex-1 py-2 px-3 rounded-xl border border-red-500/20 hover:bg-red-500/10 text-red-400 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+              >
+                Vaciar cola
+              </button>
+            )}
+            <button
+              onClick={() => setIsQueueModalOpen(false)}
+              className="flex-1 py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
