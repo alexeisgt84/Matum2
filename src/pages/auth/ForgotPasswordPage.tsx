@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { generateCode, sendVerificationCode } from '../../lib/authHelpers';
+import { generateCode } from '../../lib/authHelpers';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -29,13 +29,13 @@ export const ForgotPasswordPage = () => {
 
       if (dbError) throw dbError;
       
-      await sendVerificationCode(
-        phone,
-        vCode,
-        import.meta.env.VITE_EVOLUTION_DEFAULT_URL || '',
-        import.meta.env.VITE_EVOLUTION_API_KEY || '',
-        import.meta.env.VITE_EVOLUTION_INSTANCE || ''
-      );
+      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('send-verification-otp', {
+        body: { phone }
+      });
+
+      if (edgeError || (edgeData && edgeData.error)) {
+        throw new Error(edgeError?.message || edgeData?.error || 'Error al enviar el código de verificación por WhatsApp');
+      }
       setStep(2);
     } catch (err: any) {
       setError(err.message);

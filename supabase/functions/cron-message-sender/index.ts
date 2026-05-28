@@ -65,6 +65,23 @@ Deno.serve(async (req) => {
 
       const item = queueItems[i];
 
+      // 1. Validar la caducidad (antigüedad máxima de 30 minutos desde created_at)
+      const createdTime = new Date(item.created_at);
+      const ageMins = (now.getTime() - createdTime.getTime()) / (1000 * 60);
+
+      if (ageMins > 30) {
+        logInfo(`Cancelando mensaje ${item.id} por antigüedad (${Math.round(ageMins)} min transcurridos, límite 30 min).`);
+        await supabase.from('wa_message_queue')
+          .update({ 
+            status: 'cancelled', 
+            error_message: `Expiró por retraso de envío acumulado (${Math.round(ageMins)} min desde creación)`,
+            updated_at: new Date().toISOString() 
+          })
+          .eq('id', item.id);
+        cancelled++;
+        continue;
+      }
+
       // Verificar si el catálogo está activo
       const isCatalogActive = item.catalogs?.is_active ?? true;
       if (!isCatalogActive) {
@@ -76,29 +93,48 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Verificar si la programación sigue activa
-      // Si AMBOS switches (secuencia e individual) están desactivados, cancelar el mensaje
-      const isSeqScheduled = item.catalogs?.is_sequence_scheduled ?? false;
-      const isIndScheduled = item.catalogs?.is_individual_scheduled ?? false;
-      if (!isSeqScheduled && !isIndScheduled) {
-        logInfo(`Cancelando mensaje ${item.id} porque la programación del catálogo ${item.catalog_id} está desactivada.`);
-        await supabase.from('wa_message_queue')
-          .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-          .eq('id', item.id);
-        cancelled++;
-        continue;
+      // Verificar si la programación sigue activa (solo para mensajes automatizados)
+      // Si es un mensaje manual, se envía independientemente de la programación
+      const isManual = item.is_manual ?? false;
+      if (!isManual) {
+        const isSeqScheduled = item.catalogs?.is_sequence_scheduled ?? false;
+        const isIndScheduled = item.catalogs?.is_individual_scheduled ?? false;
+        if (!isSeqScheduled && !isIndScheduled) {
+          logInfo(`Cancelando mensaje ${item.id} porque la programación del catálogo ${item.catalog_id} está desactivada.`);
+          await supabase.from('wa_message_queue')
+            .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+            .eq('id', item.id);
+          cancelled++;
+          continue;
+        }
       }
       
       try {
-        // 2. Buscar servidor de la instancia
+        // 2. Buscar servidor de la instancia y su estado de conexión
         const { data: instData, error: instError } = await supabase
           .from('evolution_instances')
-          .select('server_id, evolution_servers(url, api_key)')
+          .select('status, server_id, evolution_servers(url, api_key)')
           .eq('name', item.instance_name)
           .single();
 
         if (instError || !instData) {
           logError(`No se encontró configuración para la instancia ${item.instance_name}`);
+        }
+
+        // Validar el estado de conexión de la instancia
+        const instanceStatus = instData?.status || 'disconnected';
+        if (instanceStatus !== 'connected') {
+          logInfo(`Pospone el mensaje ${item.id} porque la instancia ${item.instance_name} no está conectada (status: ${instanceStatus}).`);
+          const retryTime = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+          await supabase.from('wa_message_queue')
+            .update({ 
+              status: 'pending', 
+              scheduled_at: retryTime, 
+              updated_at: new Date().toISOString(),
+              error_message: `Instancia desconectada (status: ${instanceStatus}). Reintento programado.`
+            })
+            .eq('id', item.id);
+          continue;
         }
 
         const evoUrl = instData?.evolution_servers?.url || GLOBAL_EVO_URL;

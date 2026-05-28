@@ -64,13 +64,13 @@ export const useMessages = (catalogId?: string) => {
       if (id) {
         const { error } = await supabase
           .from('whatsapp_messages')
-          .update({ ...form, image_url })
+          .update({ ...form, image_url, updated_at: new Date().toISOString() })
           .eq('id', id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('whatsapp_messages')
-          .insert([{ ...form, catalog_id: catalogId, image_url }]);
+          .insert([{ ...form, catalog_id: catalogId, image_url, updated_at: new Date().toISOString() }]);
         if (error) throw error;
       }
 

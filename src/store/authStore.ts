@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { AuthUser, LoginForm, RegisterForm } from '../types/auth';
-import { phoneToEmail, generateCode, sendVerificationCode } from '../lib/authHelpers';
+import { phoneToEmail, generateCode } from '../lib/authHelpers';
 
 interface AuthState {
   user: AuthUser | null;
@@ -72,14 +72,14 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (dbError) throw dbError;
 
-      // Enviar por WhatsApp
-      await sendVerificationCode(
-        phone,
-        code,
-        import.meta.env.VITE_EVOLUTION_DEFAULT_URL || '',
-        import.meta.env.VITE_EVOLUTION_API_KEY || '',
-        import.meta.env.VITE_EVOLUTION_INSTANCE || ''
-      );
+      // Enviar por WhatsApp llamando a la Edge Function pública
+      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('send-verification-otp', {
+        body: { phone }
+      });
+
+      if (edgeError || (edgeData && edgeData.error)) {
+        throw new Error(edgeError?.message || edgeData?.error || 'Error al enviar el código de verificación por WhatsApp');
+      }
 
       set({ loading: false });
     } catch (err: any) {
@@ -148,14 +148,28 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   loadUser: async () => {
+    console.log('[AuthStore] loadUser iniciado');
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[AuthStore] Obteniendo sesión de Supabase...');
+      const { data: { session }, error } = await supabase.auth.getSession();
+      console.log('[AuthStore] Sesión obtenida:', { hasSession: !!session, error });
+      
+      if (error) {
+        console.warn('Supabase session load error (possibly invalid refresh token), signing out:', error);
+        await supabase.auth.signOut();
+        set({ user: null });
+        return;
+      }
+
       if (session?.user) {
+        console.log('[AuthStore] Usuario con sesión activa:', session.user.id, 'Obteniendo perfil...');
         const { data: profile } = await supabase
           .from('users')
           .select('*')
           .eq('id', session.user.id)
           .single();
+        
+        console.log('[AuthStore] Perfil obtenido de la base de datos:', profile);
 
         set({
           user: {
@@ -167,10 +181,19 @@ export const useAuthStore = create<AuthState>((set) => ({
             role: profile?.role || 'user',
           },
         });
+        console.log('[AuthStore] Estado del usuario actualizado en el store');
+      } else {
+        console.log('[AuthStore] No hay sesión activa de usuario');
+        set({ user: null });
       }
     } catch (err) {
-      console.error('Error loading user:', err);
+      console.error('[AuthStore] Error loading user:', err);
+      try {
+        await supabase.auth.signOut();
+      } catch (_) {}
+      set({ user: null });
     } finally {
+      console.log('[AuthStore] loadUser finalizado (finally). Estableciendo isInitialized a true');
       set({ loading: false, isInitialized: true });
     }
   },
@@ -190,3 +213,64 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 }));
+
+// Suscribirse a cambios de estado de autenticación de Supabase de forma global
+supabase.auth.onAuthStateChange(async (event, session) => {
+  console.log('[AuthStore] onAuthStateChange disparado. Evento:', event, 'Sesión activa:', !!session);
+  if (event === 'SIGNED_OUT') {
+    console.log('[AuthStore] Evento SIGNED_OUT recibido. Limpiando usuario.');
+    useAuthStore.setState({ user: null, loading: false, isInitialized: true });
+  } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    if (session?.user) {
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser && currentUser.id === session.user.id) {
+        console.log('[AuthStore] El usuario ya está cargado en el store. Omitiendo fetch en onAuthStateChange.');
+        return;
+      }
+
+      console.log('[AuthStore] Evento SIGNED_IN/TOKEN_REFRESHED. Programando obtención de perfil para:', session.user.id);
+      
+      // Ejecutamos de forma asíncrona fuera del ciclo de onAuthStateChange para evitar deadlocks de Supabase
+      setTimeout(async () => {
+        const freshUser = useAuthStore.getState().user;
+        if (freshUser && freshUser.id === session.user.id) {
+          console.log('[AuthStore] El usuario ya fue cargado por loadUser. Omitiendo query redundante en onAuthStateChange.');
+          // Nos aseguramos de que esté inicializado
+          useAuthStore.setState({ isInitialized: true });
+          return;
+        }
+        
+        try {
+          console.log('[AuthStore] Ejecutando query de perfil en onAuthStateChange...');
+          const { data: profile } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          console.log('[AuthStore] Perfil obtenido en onAuthStateChange:', profile);
+
+          useAuthStore.setState({
+            user: {
+              id: session.user.id,
+              phone: profile?.phone || session.user.email?.split('@')[0] || '',
+              nombre: profile?.full_name || '',
+              avatar_url: profile?.avatar_url || null,
+              plan: profile?.plan || 'free',
+              role: profile?.role || 'user',
+            },
+            loading: false,
+            isInitialized: true
+          });
+          console.log('[AuthStore] Estado inicializado en onAuthStateChange (isInitialized = true)');
+        } catch (err) {
+          console.error('[AuthStore] Error fetching user profile on auth change:', err);
+        }
+      }, 0);
+    } else {
+      console.log('[AuthStore] Evento SIGNED_IN/TOKEN_REFRESHED sin usuario en sesión.');
+    }
+  } else {
+    console.log('[AuthStore] Evento no manejado en onAuthStateChange:', event);
+  }
+});

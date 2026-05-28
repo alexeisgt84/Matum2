@@ -19,6 +19,7 @@ interface TemplateSectionProps {
   helperText: string;
   tagPrefix: string;
   sectionRef: React.RefObject<RichTextareaHandle | null>;
+  tags?: string[];
 }
 
 const TemplateSection = ({ 
@@ -30,7 +31,8 @@ const TemplateSection = ({
   info, 
   helperText,
   tagPrefix,
-  sectionRef
+  sectionRef,
+  tags
 }: TemplateSectionProps) => (
   <div id={`template-${id}`} className={`card !p-4 sm:!p-6 space-y-4 w-full sm:min-w-[400px] snap-center shrink-0 border-border/40 ${classes.border}`}>
     <div className="flex items-center justify-between border-b border-border pb-3">
@@ -52,13 +54,13 @@ const TemplateSection = ({
     />
 
     <div className="flex flex-wrap gap-2 mt-2">
-      {[
+      {(tags || [
         '{product_name}',
         '{product_description}',
         '{product_price}',
         '{product_currency}',
         '{catalog_name}'
-      ].map(tag => (
+      ]).map(tag => (
         <button
           key={tag + tagPrefix}
           type="button"
@@ -110,10 +112,10 @@ export const CatalogTemplatesPage = () => {
       setCatalogName(data.name);
       setForm({
         plantilla: data.template || '',
-        share_template: data.share_template || '*{product_name}*\n\n{product_description}\n\nPrecio: {product_price}',
-        out_of_stock_template: data.out_of_stock_template || '*AGOTADO*\n{product_name}',
-        new_product_template: data.new_product_template || '*NUEVO PRODUCTO*\n{product_name}\n{product_description}\nPrecio: {product_price}\n\nCatálogo: {catalog_name}',
-        available_template: data.available_template || '*ESTÁ DE VUELTA*\n{product_name}\n{product_description}\nPrecio: {product_price}\n\n¡Pide el tuyo ahora!',
+        share_template: data.share_template || '✨ *¡Mira este producto!* ✨\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n💬 Escríbenos para ordenarlo o ver más detalles en el catálogo: *{catalog_name}*',
+        out_of_stock_template: data.out_of_stock_template || '⚠️ *¡Se agotó!* ⚠️\n\nEl artículo *{product_name}* ha volado y no nos queda stock por el momento.\n\n👉 Mira otros productos similares en nuestro catálogo: *{catalog_name}*',
+        new_product_template: data.new_product_template || '🔥 *¡NUEVO INGRESO!* 🔥\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n🚀 ¡Pide el tuyo ahora escribiéndonos antes de que se agote!',
+        available_template: data.available_template || '🎉 *¡DE VUELTA EN STOCK!* 🎉\n\nLo estabas esperando y ya está disponible nuevamente:\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n⚡ Las unidades son muy limitadas. ¡Escríbenos para asegurar el tuyo ahora mismo!',
       });
     }
   };
@@ -184,6 +186,7 @@ export const CatalogTemplatesPage = () => {
             helperText="Se envía cuando muestras los productos del catálogo."
             tagPrefix="_p"
             sectionRef={plantillaRef}
+            tags={['{product_name}', '{product_description}', '{product_price}', '{product_currency}', '{catalog_name}', '{products_list}']}
           />
 
           <TemplateSection 

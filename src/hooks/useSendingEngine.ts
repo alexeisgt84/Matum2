@@ -165,6 +165,10 @@ export const useSendingEngine = (catalogId?: string) => {
       let totalToWait = 0;
       const now = new Date();
 
+      const productsListText = products && products.length > 0
+        ? products.map(p => `- ${p.name.trim()} (${p.price ? `${p.price} ${p.currency || '$'}` : 'Consultar'})`).join('\n')
+        : 'Sin productos';
+
       for (const group of groups) {
         for (const item of messages) {
           if (item.type === 'catalog_products') {
@@ -177,7 +181,9 @@ export const useSendingEngine = (catalogId?: string) => {
                   .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
                   .replace(/{product_currency}/g, (product.currency || '$').trim())
                   .replace(/{catalog_name}/g, (catalog.name || '').trim())
-                  .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+                  .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
+                  .replace(/{products_list}/g, productsListText)
+                  .replace(/{product_list}/g, productsListText);
 
                 const scheduledDate = new Date(now.getTime() + totalToWait);
                 queueItems.push({
@@ -196,7 +202,8 @@ export const useSendingEngine = (catalogId?: string) => {
                     text: productCaption
                   },
                   scheduled_at: scheduledDate.toISOString(),
-                  status: 'pending'
+                  status: 'pending',
+                  is_manual: true
                 });
                 
                 // Añadir un pequeño retraso entre mensajes en la cola para no saturar
@@ -207,7 +214,9 @@ export const useSendingEngine = (catalogId?: string) => {
             const processedContent = (item.content || '')
               .replace(/\\n/g, '\n')
               .replace(/{catalog_name}/g, (catalog.name || '').trim())
-              .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+              .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
+              .replace(/{products_list}/g, productsListText)
+              .replace(/{product_list}/g, productsListText);
 
             const scheduledDate = new Date(now.getTime() + totalToWait);
             queueItems.push({
@@ -226,7 +235,8 @@ export const useSendingEngine = (catalogId?: string) => {
                 text: processedContent
               },
               scheduled_at: scheduledDate.toISOString(),
-              status: 'pending'
+              status: 'pending',
+              is_manual: true
             });
             
             totalToWait += 5000 + Math.random() * 5000;
@@ -296,20 +306,24 @@ export const useSendingEngine = (catalogId?: string) => {
         throw new Error('No hay grupos vinculados o activos');
       }
 
+      const { data: products } = await supabase
+        .from('products')
+        .select('*')
+        .eq('catalog_id', catalogId)
+        .eq('is_active', true)
+        .neq('is_out_of_stock', true)
+        .order('position', { ascending: true });
+
       const queueItems: any[] = [];
       let totalToWait = 0;
       const now = new Date();
 
+      const productsListText = products && products.length > 0
+        ? products.map(p => `- ${p.name.trim()} (${p.price ? `${p.price} ${p.currency || '$'}` : 'Consultar'})`).join('\n')
+        : 'Sin productos';
+
       for (const group of groups) {
         if (message.type === 'catalog_products') {
-          const { data: products } = await supabase
-            .from('products')
-            .select('*')
-            .eq('catalog_id', catalogId)
-            .eq('is_active', true)
-            .neq('is_out_of_stock', true)
-            .order('position', { ascending: true });
-
           if (products && products.length > 0) {
             for (const product of products) {
               const productCaption = (catalog.template || '')
@@ -319,7 +333,9 @@ export const useSendingEngine = (catalogId?: string) => {
                 .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
                 .replace(/{product_currency}/g, (product.currency || '$').trim())
                 .replace(/{catalog_name}/g, (catalog.name || '').trim())
-                .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+                .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
+                .replace(/{products_list}/g, productsListText)
+                .replace(/{product_list}/g, productsListText);
 
               const scheduledDate = new Date(now.getTime() + totalToWait);
               queueItems.push({
@@ -338,7 +354,8 @@ export const useSendingEngine = (catalogId?: string) => {
                   text: productCaption
                 },
                 scheduled_at: scheduledDate.toISOString(),
-                status: 'pending'
+                status: 'pending',
+                is_manual: true
               });
               totalToWait += 5000 + Math.random() * 5000;
             }
@@ -347,7 +364,9 @@ export const useSendingEngine = (catalogId?: string) => {
           const processedContent = (message.content || '')
             .replace(/\\n/g, '\n')
             .replace(/{catalog_name}/g, (catalog.name || '').trim())
-            .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+            .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
+            .replace(/{products_list}/g, productsListText)
+            .replace(/{product_list}/g, productsListText);
 
           const scheduledDate = new Date(now.getTime() + totalToWait);
           queueItems.push({
@@ -366,7 +385,8 @@ export const useSendingEngine = (catalogId?: string) => {
               text: processedContent
             },
             scheduled_at: scheduledDate.toISOString(),
-            status: 'pending'
+            status: 'pending',
+            is_manual: true
           });
           totalToWait += 5000 + Math.random() * 5000;
         }
@@ -414,6 +434,18 @@ export const useSendingEngine = (catalogId?: string) => {
       
       if (!catalog) throw new Error('Catálogo no encontrado');
 
+      const { data: products } = await supabase
+        .from('products')
+        .select('*')
+        .eq('catalog_id', catalogId)
+        .eq('is_active', true)
+        .neq('is_out_of_stock', true)
+        .order('position', { ascending: true });
+
+      const productsListText = products && products.length > 0
+        ? products.map(p => `- ${p.name.trim()} (${p.price ? `${p.price} ${p.currency || '$'}` : 'Consultar'})`).join('\n')
+        : 'Sin productos';
+
       const { data: groups } = await supabase
         .from('whatsapp_groups')
         .select('*')
@@ -436,7 +468,9 @@ export const useSendingEngine = (catalogId?: string) => {
           .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
           .replace(/{product_currency}/g, (product.currency || '$').trim())
           .replace(/{catalog_name}/g, (catalog.name || '').trim())
-          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
+          .replace(/{products_list}/g, productsListText)
+          .replace(/{product_list}/g, productsListText);
 
         const scheduledDate = new Date(now.getTime() + totalToWait);
         queueItems.push({
@@ -455,7 +489,8 @@ export const useSendingEngine = (catalogId?: string) => {
             text: productCaption
           },
           scheduled_at: scheduledDate.toISOString(),
-          status: 'pending'
+          status: 'pending',
+          is_manual: true
         });
         totalToWait += 5000 + Math.random() * 5000;
       }
@@ -522,6 +557,8 @@ export const useSendingEngine = (catalogId?: string) => {
           .replace(/\\n/g, '\n')
           .replace(/{product_name}/g, (product.name || '').trim())
           .replace(/{product_description}/g, (product.description || '').trim())
+          .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
+          .replace(/{product_currency}/g, (product.currency || '$').trim())
           .replace(/{catalog_name}/g, (catalog.name || '').trim())
           .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
 
@@ -542,7 +579,8 @@ export const useSendingEngine = (catalogId?: string) => {
             text: productCaption
           },
           scheduled_at: scheduledDate.toISOString(),
-          status: 'pending'
+          status: 'pending',
+          is_manual: true
         });
         totalToWait += 5000 + Math.random() * 5000;
       }
@@ -631,7 +669,8 @@ export const useSendingEngine = (catalogId?: string) => {
             text: productCaption
           },
           scheduled_at: scheduledDate.toISOString(),
-          status: 'pending'
+          status: 'pending',
+          is_manual: true
         });
         totalToWait += 5000 + Math.random() * 5000;
       }

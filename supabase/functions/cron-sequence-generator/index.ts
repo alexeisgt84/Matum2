@@ -135,6 +135,10 @@ Deno.serve(async (req) => {
               // Actualizamos la variable local por si hay más horarios que procesar
               schedules = updatedSchedules;
 
+              const productsListText = products && products.length > 0
+                ? products.map((p: any) => `- ${p.name.trim()} (${p.price ? `${p.price} ${p.currency || '$'}` : 'Consultar'})`).join('\n')
+                : 'Sin productos';
+
               logInfo(`[Secuencia] Procesando ${messages.length} mensajes y ${products?.length || 0} productos para ${groups.length} grupos.`);
 
               // Loop: mensajes → (productos → grupos) para distribuir equitativamente
@@ -153,7 +157,9 @@ Deno.serve(async (req) => {
                           .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
                           .replace(/{product_currency}/g, (product.currency || '$').trim())
                           .replace(/{catalog_name}/g, (catalog.name || '').trim())
-                          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+                          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
+                          .replace(/{products_list}/g, productsListText)
+                          .replace(/{product_list}/g, productsListText);
 
                         const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
                         queueItems.push({
@@ -182,7 +188,9 @@ Deno.serve(async (req) => {
                     const processedContent = (item.content || '')
                       .replace(/\\n/g, '\n')
                       .replace(/{catalog_name}/g, (catalog.name || '').trim())
-                      .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+                      .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
+                      .replace(/{products_list}/g, productsListText)
+                      .replace(/{product_list}/g, productsListText);
 
                     const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
                     queueItems.push({
@@ -302,8 +310,11 @@ Deno.serve(async (req) => {
                 .eq('id', item.id);
 
               if (scheduleType === 'interval') {
-                const thirtySecsAgo = new Date(Date.now() - 30 * 1000).toISOString();
-                lockQuery = lockQuery.or(`last_sent_at.is.null,last_sent_at.lt.${thirtySecsAgo}`);
+                if (item.last_sent_at) {
+                  lockQuery = lockQuery.eq('last_sent_at', item.last_sent_at);
+                } else {
+                  lockQuery = lockQuery.is('last_sent_at', null);
+                }
               } else {
                 if (updatedFixedSchedules) {
                   updatePayload.fixed_schedules = updatedFixedSchedules;
