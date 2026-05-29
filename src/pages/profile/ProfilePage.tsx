@@ -338,7 +338,7 @@ export const ProfilePage = () => {
 
 
       <p className="text-center text-secondary text-[10px] mt-12 uppercase tracking-widest">
-        WA Catalog v1.0.0
+        Matum v1.0.0
       </p>
 
       <ChangePasswordModal 

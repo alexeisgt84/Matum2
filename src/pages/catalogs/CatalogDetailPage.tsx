@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { 
   Package, 
@@ -30,7 +31,8 @@ import {
   ShoppingBag,
   Layout,
   X,
-  ZapOff
+  ZapOff,
+  Globe
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { shareContent } from '../../lib/share';
@@ -70,6 +72,7 @@ export const CatalogDetailPage = () => {
   const { catalogId } = useParams();
   const navigate = useNavigate();
   const { setTitle, setSubtitle, setRightAction } = useHeader();
+  const { user } = useAuthStore();
   
   const [searchParams, setSearchParams] = useSearchParams();
   const currentView = (searchParams.get('view') as View) || 'individual';
@@ -311,53 +314,54 @@ export const CatalogDetailPage = () => {
       setTitle(catalog.name);
       setSubtitle('Gestión de Contenido');
       
-      const optionsItems: DropdownItem[] = [
+      const optionsItems: DropdownItem[] = [];
+
+      if (catalog.is_public && catalog.slug) {
+        optionsItems.push({ 
+          label: 'Ver Catálogo Web', 
+          icon: Globe, 
+          onClick: () => window.open(`/${catalog.slug}`, '_blank') 
+        });
+      } else {
+        optionsItems.push({ 
+          label: 'Publicar en la Web', 
+          icon: Globe, 
+          onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=store`) 
+        });
+      }
+
+      optionsItems.push(
         { 
-          label: 'Configurar catálogo', 
+          label: 'Ajustes de Tienda', 
           icon: Settings, 
-          onClick: () => navigate(`/catalogs/${catalogId}/edit`) 
+          onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=store`) 
         },
         { 
-          label: 'Configurar plantillas', 
+          label: 'Configurar Plantillas', 
           icon: Layout, 
-          onClick: () => navigate(`/catalogs/${catalogId}/templates`) 
-        },
-        { 
-          label: 'Ver cola de envío', 
-          icon: Clock, 
-          onClick: () => setIsQueueModalOpen(true) 
-        },
-        { 
-          label: 'Limpiar cola de envío', 
-          icon: Trash2, 
-          onClick: () => setIsClearQueueConfirmOpen(true),
-          variant: 'danger'
+          onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=templates`) 
         },
         { 
           label: 'Conectar WhatsApp', 
           icon: Smartphone, 
-          onClick: () => setIsEvolutionOpen(true) 
+          onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=whatsapp`) 
         },
         { 
-          label: 'Restaurar mensajes', 
-          icon: RotateCcw, 
-          onClick: () => setIsRestoreOpen(true) 
+          label: 'Grupos Vinculados', 
+          icon: Users, 
+          onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=groups`) 
+        },
+        { 
+          label: 'Automatización y Colas', 
+          icon: Zap, 
+          onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=automation`) 
         },
         { 
           label: 'Vincular con Nemu', 
           icon: ShoppingBag, 
           onClick: () => setIsNemuImportOpen(true) 
-        },
-      ];
-
-      // Solo mostrar "Grupos" si hay una instancia conectada
-      if (instance?.status === 'connected') {
-        optionsItems.push({ 
-          label: 'Grupos', 
-          icon: Users, 
-          onClick: () => setView('groups') 
-        });
-      }
+        }
+      );
 
       const StatBadge = ({ icon: Icon, value, color, onClick, title }: { icon: any, value: number, color: string, onClick?: () => void, title?: string }) => (
         <div 
@@ -1194,6 +1198,8 @@ export const CatalogDetailPage = () => {
                                     dragHandleProps={sortField === 'position' ? provided.dragHandleProps : undefined}
                                     shareTemplate={catalog?.share_template}
                                     catalogName={catalog?.name}
+                                    catalogSlug={catalog?.slug}
+                                    contactNumber={user?.phone}
                                     onEdit={(p) => {
                                       setEditingProduct(p);
                                       setIsProdFormOpen(true);

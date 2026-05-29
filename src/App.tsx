@@ -8,7 +8,18 @@ import { useStore } from './store/useStore';
 function App() {
   const location = useLocation();
   const { theme } = useStore();
+  
   const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
+  
+  const isPublicStorePage = () => {
+    const path = location.pathname;
+    const knownPrefixes = ['/login', '/register', '/forgot-password', '/catalogs', '/history', '/profile', '/admin'];
+    if (path === '/') return false;
+    return !knownPrefixes.some(prefix => path.startsWith(prefix));
+  };
+
+  const isPublicStore = isPublicStorePage();
+  const showLayout = !isAuthPage && !isPublicStore;
 
   useEffect(() => {
     if (theme === 'light') {
@@ -21,13 +32,13 @@ function App() {
   return (
     <HeaderProvider>
       <div className="min-h-screen bg-background text-primary flex flex-col transition-colors duration-300">
-        {!isAuthPage && location.pathname !== '/' && <AppHeader />}
+        {showLayout && location.pathname !== '/' && <AppHeader />}
         
-        <main className={`flex-1 ${!isAuthPage ? 'pb-24' : ''}`}>
+        <main className={`flex-1 ${showLayout ? 'pb-24' : ''}`}>
           <Outlet />
         </main>
 
-        {!isAuthPage && <BottomNav />}
+        {showLayout && <BottomNav />}
       </div>
     </HeaderProvider>
   );

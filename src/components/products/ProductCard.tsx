@@ -19,6 +19,8 @@ interface ProductCardProps {
   onSelect?: (id: string) => void;
   shareTemplate?: string | null;
   catalogName?: string | null;
+  contactNumber?: string | null;
+  catalogSlug?: string | null;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -33,17 +35,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isSelected,
   onSelect,
   shareTemplate,
-  catalogName
+  catalogName,
+  contactNumber,
+  catalogSlug
 }) => {
   const handleShare = async () => {
     let text = '';
     if (shareTemplate) {
+      const contactPhone = contactNumber || '';
+      const storeUrl = catalogSlug ? `https://matum.com/${catalogSlug}` : '';
       text = shareTemplate
         .replace(/{product_name}/g, (product.name || '').trim())
         .replace(/{product_description}/g, (product.description || '').trim())
         .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
         .replace(/{product_currency}/g, (product.currency || '').trim())
-        .replace(/{catalog_name}/g, (catalogName || '').trim());
+        .replace(/{catalog_name}/g, (catalogName || '').trim())
+        .replace(/{contact_number}/g, contactPhone)
+        .replace(/{store_url}/g, storeUrl);
     } else {
       const priceText = product.price ? `${product.price} ${product.currency}` : 'S/P';
       text = `*${product.name}*\n\nPrecio: ${priceText}\n\n${product.description || ''}`.trim();

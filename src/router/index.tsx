@@ -8,6 +8,7 @@ import { CatalogsPage } from '../pages/catalogs/CatalogsPage';
 import { CatalogFormPage } from '../pages/catalogs/CatalogFormPage';
 import { CatalogDetailPage } from '../pages/catalogs/CatalogDetailPage';
 import { CatalogTemplatesPage } from '../pages/catalogs/CatalogTemplatesPage';
+import { CatalogSettingsPage } from '../pages/settings/CatalogSettingsPage';
 import { HistoryPage } from '../pages/history/HistoryPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
@@ -16,6 +17,7 @@ import { PlansPage } from '../pages/admin/PlansPage';
 import { UsersPage } from '../pages/admin/UsersPage';
 import { useAuthStore } from '../store/authStore';
 import { ErrorPage } from '../pages/ErrorPage';
+import { PublicCatalogPage } from '../pages/catalogs/PublicCatalogPage';
 
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
@@ -81,6 +83,10 @@ export const router = createBrowserRouter([
         element: <PrivateRoute><CatalogTemplatesPage /></PrivateRoute>,
       },
       {
+        path: 'catalogs/:catalogId/settings',
+        element: <PrivateRoute><CatalogSettingsPage /></PrivateRoute>,
+      },
+      {
         path: 'history',
         element: <PrivateRoute><HistoryPage /></PrivateRoute>,
       },
@@ -99,6 +105,10 @@ export const router = createBrowserRouter([
       {
         path: 'admin/users',
         element: <AdminRoute><UsersPage /></AdminRoute>,
+      },
+      {
+        path: ':slug',
+        element: <PublicCatalogPage />,
       },
     ],
   },

@@ -12,8 +12,9 @@ export const AppHeader = () => {
     if (path === '/catalogs') return 'Tus Catálogos';
     if (path === '/history') return 'Historial';
     if (path === '/profile') return 'Mi Perfil';
+    if (path.includes('/settings')) return 'Configuración';
     if (path.includes('/catalogs/')) return 'Detalle Catálogo';
-    return 'WA Catalog';
+    return 'Matum';
   };
 
   const isHome = ['/', '/profile'].includes(location.pathname);

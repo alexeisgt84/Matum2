@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import type { Catalog, CatalogForm } from '../types/catalog';
 import { toast } from 'react-hot-toast';
+import { optimizeImage, blobToFile } from '../lib/imageOptimizer';
 
 export const useCatalogs = () => {
   const { user } = useAuthStore();
@@ -38,10 +39,59 @@ export const useCatalogs = () => {
     }
   }, [user]);
 
-  const createCatalog = async (form: CatalogForm) => {
+  const createCatalog = async (form: CatalogForm, logoFile?: File, coverFile?: File) => {
     if (!user) return;
     setLoading(true);
     try {
+      let logo_url = form.logo_url || null;
+      let cover_url = form.cover_url || null;
+
+      if (logoFile) {
+        const isPng = logoFile.type === 'image/png';
+        const extension = isPng ? 'png' : 'jpg';
+        const format = isPng ? 'image/png' : 'image/jpeg';
+        const optimizedBlob = await optimizeImage(logoFile, {
+          maxWidth: 300,
+          maxHeight: 300,
+          quality: 0.8,
+          format
+        });
+        const fileName = `catalogs/logo_${Date.now()}.${extension}`;
+        const optimizedFile = blobToFile(optimizedBlob, fileName);
+        const { error: uploadError } = await supabase.storage
+          .from('products')
+          .upload(fileName, optimizedFile, {
+            contentType: format,
+            upsert: true
+          });
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
+        logo_url = publicUrl;
+      }
+
+      if (coverFile) {
+        const isPng = coverFile.type === 'image/png';
+        const extension = isPng ? 'png' : 'jpg';
+        const format = isPng ? 'image/png' : 'image/jpeg';
+        const optimizedBlob = await optimizeImage(coverFile, {
+          maxWidth: 1920,
+          maxHeight: 768,
+          quality: 0.92,
+          format
+        });
+        const fileName = `catalogs/cover_${Date.now()}.${extension}`;
+        const optimizedFile = blobToFile(optimizedBlob, fileName);
+        const { error: uploadError } = await supabase.storage
+          .from('products')
+          .upload(fileName, optimizedFile, {
+            contentType: format,
+            upsert: true
+          });
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
+        cover_url = publicUrl;
+      }
+
       const { data, error } = await supabase
         .from('catalogs')
         .insert([{ 
@@ -54,6 +104,13 @@ export const useCatalogs = () => {
           new_product_template: form.new_product_template || '🔥 *¡NUEVO INGRESO!* 🔥\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n🚀 ¡Pide el tuyo ahora escribiéndonos antes de que se agote!',
           available_template: form.available_template || '🎉 *¡DE VUELTA EN STOCK!* 🎉\n\nLo estabas esperando y ya está disponible nuevamente:\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n⚡ Las unidades son muy limitadas. ¡Escríbenos para asegurar el tuyo ahora mismo!',
           is_active: form.is_active,
+          is_public: form.is_public || false,
+          slug: form.slug || null,
+          logo_url,
+          cover_url,
+          primary_color: form.primary_color || '#ff782e',
+          background_color: form.background_color || '#0a0a0a',
+          surface_color: form.surface_color || '#1a1a1a',
           is_sequence_scheduled: form.is_sequence_scheduled,
           is_individual_scheduled: form.is_individual_scheduled,
           sequence_start_time: form.sequence_start_time,
@@ -75,9 +132,58 @@ export const useCatalogs = () => {
     }
   };
 
-  const updateCatalog = async (id: string, form: Partial<CatalogForm>) => {
+  const updateCatalog = async (id: string, form: Partial<CatalogForm>, logoFile?: File, coverFile?: File) => {
     setLoading(true);
     try {
+      let logo_url = form.logo_url;
+      let cover_url = form.cover_url;
+
+      if (logoFile) {
+        const isPng = logoFile.type === 'image/png';
+        const extension = isPng ? 'png' : 'jpg';
+        const format = isPng ? 'image/png' : 'image/jpeg';
+        const optimizedBlob = await optimizeImage(logoFile, {
+          maxWidth: 300,
+          maxHeight: 300,
+          quality: 0.8,
+          format
+        });
+        const fileName = `catalogs/logo_${Date.now()}.${extension}`;
+        const optimizedFile = blobToFile(optimizedBlob, fileName);
+        const { error: uploadError } = await supabase.storage
+          .from('products')
+          .upload(fileName, optimizedFile, {
+            contentType: format,
+            upsert: true
+          });
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
+        logo_url = publicUrl;
+      }
+
+      if (coverFile) {
+        const isPng = coverFile.type === 'image/png';
+        const extension = isPng ? 'png' : 'jpg';
+        const format = isPng ? 'image/png' : 'image/jpeg';
+        const optimizedBlob = await optimizeImage(coverFile, {
+          maxWidth: 1920,
+          maxHeight: 768,
+          quality: 0.92,
+          format
+        });
+        const fileName = `catalogs/cover_${Date.now()}.${extension}`;
+        const optimizedFile = blobToFile(optimizedBlob, fileName);
+        const { error: uploadError } = await supabase.storage
+          .from('products')
+          .upload(fileName, optimizedFile, {
+            contentType: format,
+            upsert: true
+          });
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
+        cover_url = publicUrl;
+      }
+
       const updateData: any = {};
       
       if (form.nombre !== undefined) updateData.name = form.nombre;
@@ -88,6 +194,13 @@ export const useCatalogs = () => {
       if (form.new_product_template !== undefined) updateData.new_product_template = form.new_product_template;
       if (form.available_template !== undefined) updateData.available_template = form.available_template;
       if (form.is_active !== undefined) updateData.is_active = form.is_active;
+      if (form.is_public !== undefined) updateData.is_public = form.is_public;
+      if (form.slug !== undefined) updateData.slug = form.slug;
+      if (logo_url !== undefined) updateData.logo_url = logo_url;
+      if (cover_url !== undefined) updateData.cover_url = cover_url;
+      if (form.primary_color !== undefined) updateData.primary_color = form.primary_color;
+      if (form.background_color !== undefined) updateData.background_color = form.background_color;
+      if (form.surface_color !== undefined) updateData.surface_color = form.surface_color;
       if (form.is_sequence_scheduled !== undefined) updateData.is_sequence_scheduled = form.is_sequence_scheduled;
       if (form.is_individual_scheduled !== undefined) updateData.is_individual_scheduled = form.is_individual_scheduled;
       if (form.sequence_start_time !== undefined) updateData.sequence_start_time = form.sequence_start_time;

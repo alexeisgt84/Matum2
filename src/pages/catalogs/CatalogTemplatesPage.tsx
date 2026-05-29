@@ -59,7 +59,9 @@ const TemplateSection = ({
         '{product_description}',
         '{product_price}',
         '{product_currency}',
-        '{catalog_name}'
+        '{catalog_name}',
+        '{contact_number}',
+        '{store_url}'
       ]).map(tag => (
         <button
           key={tag + tagPrefix}
@@ -186,7 +188,7 @@ export const CatalogTemplatesPage = () => {
             helperText="Se envía cuando muestras los productos del catálogo."
             tagPrefix="_p"
             sectionRef={plantillaRef}
-            tags={['{product_name}', '{product_description}', '{product_price}', '{product_currency}', '{catalog_name}', '{products_list}']}
+            tags={['{product_name}', '{product_description}', '{product_price}', '{product_currency}', '{catalog_name}', '{products_list}', '{contact_number}', '{store_url}']}
           />
 
           <TemplateSection 

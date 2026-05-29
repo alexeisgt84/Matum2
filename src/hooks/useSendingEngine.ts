@@ -129,6 +129,14 @@ export const useSendingEngine = (catalogId?: string) => {
       
       if (!catalog) throw new Error('Catálogo no encontrado');
 
+      const { data: userData } = await supabase
+        .from('users')
+        .select('phone')
+        .eq('id', catalog.user_id)
+        .single();
+      const contactNumber = userData?.phone || '';
+      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
+
       // 2. Obtener Productos
       const { data: products } = await supabase
         .from('products')
@@ -183,7 +191,9 @@ export const useSendingEngine = (catalogId?: string) => {
                   .replace(/{catalog_name}/g, (catalog.name || '').trim())
                   .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
                   .replace(/{products_list}/g, productsListText)
-                  .replace(/{product_list}/g, productsListText);
+                  .replace(/{product_list}/g, productsListText)
+                  .replace(/{contact_number}/g, contactNumber)
+                  .replace(/{store_url}/g, storeUrl);
 
                 const scheduledDate = new Date(now.getTime() + totalToWait);
                 queueItems.push({
@@ -216,7 +226,9 @@ export const useSendingEngine = (catalogId?: string) => {
               .replace(/{catalog_name}/g, (catalog.name || '').trim())
               .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
               .replace(/{products_list}/g, productsListText)
-              .replace(/{product_list}/g, productsListText);
+              .replace(/{product_list}/g, productsListText)
+              .replace(/{contact_number}/g, contactNumber)
+              .replace(/{store_url}/g, storeUrl);
 
             const scheduledDate = new Date(now.getTime() + totalToWait);
             queueItems.push({
@@ -296,6 +308,14 @@ export const useSendingEngine = (catalogId?: string) => {
       
       if (!catalog) throw new Error('Catálogo no encontrado');
 
+      const { data: userData } = await supabase
+        .from('users')
+        .select('phone')
+        .eq('id', catalog.user_id)
+        .single();
+      const contactNumber = userData?.phone || '';
+      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
+
       const { data: groups } = await supabase
         .from('whatsapp_groups')
         .select('*')
@@ -335,7 +355,9 @@ export const useSendingEngine = (catalogId?: string) => {
                 .replace(/{catalog_name}/g, (catalog.name || '').trim())
                 .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
                 .replace(/{products_list}/g, productsListText)
-                .replace(/{product_list}/g, productsListText);
+                .replace(/{product_list}/g, productsListText)
+                .replace(/{contact_number}/g, contactNumber)
+                .replace(/{store_url}/g, storeUrl);
 
               const scheduledDate = new Date(now.getTime() + totalToWait);
               queueItems.push({
@@ -366,7 +388,9 @@ export const useSendingEngine = (catalogId?: string) => {
             .replace(/{catalog_name}/g, (catalog.name || '').trim())
             .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
             .replace(/{products_list}/g, productsListText)
-            .replace(/{product_list}/g, productsListText);
+            .replace(/{product_list}/g, productsListText)
+            .replace(/{contact_number}/g, contactNumber)
+            .replace(/{store_url}/g, storeUrl);
 
           const scheduledDate = new Date(now.getTime() + totalToWait);
           queueItems.push({
@@ -434,6 +458,14 @@ export const useSendingEngine = (catalogId?: string) => {
       
       if (!catalog) throw new Error('Catálogo no encontrado');
 
+      const { data: userData } = await supabase
+        .from('users')
+        .select('phone')
+        .eq('id', catalog.user_id)
+        .single();
+      const contactNumber = userData?.phone || '';
+      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
+
       const { data: products } = await supabase
         .from('products')
         .select('*')
@@ -470,7 +502,9 @@ export const useSendingEngine = (catalogId?: string) => {
           .replace(/{catalog_name}/g, (catalog.name || '').trim())
           .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
           .replace(/{products_list}/g, productsListText)
-          .replace(/{product_list}/g, productsListText);
+          .replace(/{product_list}/g, productsListText)
+          .replace(/{contact_number}/g, contactNumber)
+          .replace(/{store_url}/g, storeUrl);
 
         const scheduledDate = new Date(now.getTime() + totalToWait);
         queueItems.push({
@@ -537,6 +571,14 @@ export const useSendingEngine = (catalogId?: string) => {
       
       if (!catalog) throw new Error('Catálogo no encontrado');
 
+      const { data: userData } = await supabase
+        .from('users')
+        .select('phone')
+        .eq('id', catalog.user_id)
+        .single();
+      const contactNumber = userData?.phone || '';
+      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
+
       const { data: groups } = await supabase
         .from('whatsapp_groups')
         .select('*')
@@ -560,7 +602,9 @@ export const useSendingEngine = (catalogId?: string) => {
           .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
           .replace(/{product_currency}/g, (product.currency || '$').trim())
           .replace(/{catalog_name}/g, (catalog.name || '').trim())
-          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
+          .replace(/{contact_number}/g, contactNumber)
+          .replace(/{store_url}/g, storeUrl);
 
         const scheduledDate = new Date(now.getTime() + totalToWait);
         queueItems.push({
@@ -627,6 +671,14 @@ export const useSendingEngine = (catalogId?: string) => {
       
       if (!catalog) throw new Error('Catálogo no encontrado');
 
+      const { data: userData } = await supabase
+        .from('users')
+        .select('phone')
+        .eq('id', catalog.user_id)
+        .single();
+      const contactNumber = userData?.phone || '';
+      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
+
       const { data: groups } = await supabase
         .from('whatsapp_groups')
         .select('*')
@@ -650,7 +702,9 @@ export const useSendingEngine = (catalogId?: string) => {
           .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
           .replace(/{product_currency}/g, (product.currency || '$').trim())
           .replace(/{catalog_name}/g, (catalog.name || '').trim())
-          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+          .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
+          .replace(/{contact_number}/g, contactNumber)
+          .replace(/{store_url}/g, storeUrl);
 
         const scheduledDate = new Date(now.getTime() + totalToWait);
         queueItems.push({

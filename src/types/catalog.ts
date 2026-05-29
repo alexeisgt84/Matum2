@@ -17,6 +17,13 @@ export interface Catalog {
   price_update_template: string | null;
   product_edit_template: string | null;
   is_active: boolean;
+  is_public: boolean;
+  slug: string | null;
+  logo_url: string | null;
+  cover_url: string | null;
+  primary_color: string | null;
+  background_color: string | null;
+  surface_color: string | null;
   nemu_store_id: string | null;
   sequence_start_time: string | null;
   sequence_schedules?: SequenceSchedule[] | null;
@@ -40,6 +47,13 @@ export interface CatalogForm {
   sequence_start_time: string;
   sequence_schedules?: SequenceSchedule[];
   is_active: boolean;
+  is_public: boolean;
+  slug?: string | null;
+  logo_url?: string | null;
+  cover_url?: string | null;
+  primary_color?: string | null;
+  background_color?: string | null;
+  surface_color?: string | null;
   is_sequence_scheduled: boolean;
   is_individual_scheduled: boolean;
   nemu_store_id?: string | null;

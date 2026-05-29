@@ -61,6 +61,14 @@ Deno.serve(async (req) => {
         logInfo(`Catálogo ${catalog.id} no tiene instancia vinculada, se omite.`);
         continue;
       }
+      
+      const { data: userData } = await supabase
+        .from('users')
+        .select('phone')
+        .eq('id', catalog.user_id)
+        .single();
+      const contactNumber = userData?.phone || '';
+      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
 
       // Obtener todos los grupos vinculados
       const { data: groups } = await supabase
@@ -159,7 +167,9 @@ Deno.serve(async (req) => {
                           .replace(/{catalog_name}/g, (catalog.name || '').trim())
                           .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
                           .replace(/{products_list}/g, productsListText)
-                          .replace(/{product_list}/g, productsListText);
+                          .replace(/{product_list}/g, productsListText)
+                          .replace(/{contact_number}/g, contactNumber)
+                          .replace(/{store_url}/g, storeUrl);
 
                         const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
                         queueItems.push({
@@ -190,7 +200,9 @@ Deno.serve(async (req) => {
                       .replace(/{catalog_name}/g, (catalog.name || '').trim())
                       .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
                       .replace(/{products_list}/g, productsListText)
-                      .replace(/{product_list}/g, productsListText);
+                      .replace(/{product_list}/g, productsListText)
+                      .replace(/{contact_number}/g, contactNumber)
+                      .replace(/{store_url}/g, storeUrl);
 
                     const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
                     queueItems.push({
@@ -337,7 +349,9 @@ Deno.serve(async (req) => {
                 const processedContent = (item.content || '')
                   .replace(/\\n/g, '\n')
                   .replace(/{catalog_name}/g, (catalog.name || '').trim())
-                  .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim());
+                  .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
+                  .replace(/{contact_number}/g, contactNumber)
+                  .replace(/{store_url}/g, storeUrl);
 
                 const scheduleDate = new Date(now.getTime() + cumulativeDelayMs);
                 queueItems.push({
