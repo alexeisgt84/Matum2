@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { Input } from '../../components/ui/Input';
 import { supabase } from '../../lib/supabase';
 import { 
   ShoppingBag, 
@@ -13,10 +14,52 @@ import {
   X,
   Check,
   Globe,
-  ArrowUpDown
+  ArrowUpDown,
+  MapPin,
+  Clock,
+  Phone,
+  Mail
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { DropdownMenu } from '../../components/ui/DropdownMenu';
+
+const InstagramIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+  </svg>
+);
+
+const FacebookIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+  </svg>
+);
 
 interface PublicCatalog {
   id: string;
@@ -28,6 +71,12 @@ interface PublicCatalog {
   primary_color: string | null;
   background_color: string | null;
   surface_color: string | null;
+  footer_address?: string | null;
+  footer_phone?: string | null;
+  footer_email?: string | null;
+  footer_schedule?: string | null;
+  footer_instagram?: string | null;
+  footer_facebook?: string | null;
 }
 
 interface PublicProduct {
@@ -96,7 +145,7 @@ export const PublicCatalogPage = () => {
       // 1. Obtener catálogo público y activo por su slug
       const { data: catData, error: catError } = await supabase
         .from('catalogs')
-        .select('id, name, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color')
+        .select('id, name, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook')
         .eq('slug', slug)
         .single();
 
@@ -295,28 +344,42 @@ export const PublicCatalogPage = () => {
     ? filteredProducts.slice(0, visibleCount)
     : filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // Intersection Observer para scroll infinito en móviles
+  // Referencia para guardar el Intersection Observer actual y evitar fugas de memoria
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // Callback ref para el elemento de scroll infinito en móviles
+  const lastElementRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (!isMobile) return;
+
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+
+      if (!node) return;
+
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting) {
+            setVisibleCount((prev) => Math.min(prev + 10, filteredProducts.length));
+          }
+        },
+        { threshold: 0.1, rootMargin: '100px' }
+      );
+
+      observerRef.current.observe(node);
+    },
+    [isMobile, filteredProducts.length]
+  );
+
+  // Desconectar el observer al desmontar el componente
   useEffect(() => {
-    if (!isMobile) return;
-
-    const trigger = document.getElementById('infinite-scroll-trigger');
-    if (!trigger) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount(prev => Math.min(prev + 10, filteredProducts.length));
-        }
-      },
-      { threshold: 0.1, rootMargin: '100px' }
-    );
-
-    observer.observe(trigger);
-
     return () => {
-      observer.disconnect();
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
     };
-  }, [isMobile, filteredProducts.length, visibleCount]);
+  }, []);
 
   // Enviar pedido por WhatsApp
   const handleSendOrder = () => {
@@ -336,9 +399,9 @@ export const PublicCatalogPage = () => {
       const currency = item.product.currency || 'CUP';
       const subtotal = price * item.quantity;
       messageText += `${idx + 1}. *${item.product.name}*\n`;
-      messageText += `   👉 Cantidad: *${item.quantity}*\n`;
-      messageText += `   👉 Precio: ${price} ${currency}\n`;
-      messageText += `   👉 Subtotal: *${subtotal} ${currency}*\n\n`;
+      messageText += `   - Cantidad: *${item.quantity}*\n`;
+      messageText += `   - Precio: ${price} ${currency}\n`;
+      messageText += `   - Subtotal: *${subtotal} ${currency}*\n\n`;
     });
 
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
@@ -477,11 +540,24 @@ export const PublicCatalogPage = () => {
 
             {/* Nombre y Descripción */}
             <div className="pb-1 min-w-0 flex-1">
-              <h1 className="text-lg sm:text-2xl font-black text-primary uppercase tracking-tight break-words">
-                {catalog.name}
-              </h1>
+              <div className="flex items-center justify-between gap-2 sm:justify-start sm:gap-4">
+                <h1 className="text-sm sm:text-2xl font-black text-primary uppercase tracking-tight break-words">
+                  {catalog.name}
+                </h1>
+                {/* Botón Contactar Vendedor (Móvil) */}
+                {vendorPhone && (
+                  <a 
+                    href={`https://wa.me/${vendorPhone.replace(/\D/g, '')}`} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="sm:hidden inline-flex flex-shrink-0 items-center justify-center gap-1 px-2 py-0.5 bg-green-600 hover:bg-green-500 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all border border-green-600/20 active:scale-95 shadow-sm cursor-pointer"
+                  >
+                    <Smartphone size={10} /> Contactar
+                  </a>
+                )}
+              </div>
               {catalog.description && (
-                <p className="text-secondary text-xs sm:text-sm mt-1.5 max-w-2xl leading-relaxed whitespace-pre-line">
+                <p className="text-secondary text-[10px] sm:text-sm mt-1.5 max-w-2xl leading-relaxed whitespace-pre-line">
                   {catalog.description}
                 </p>
               )}
@@ -490,40 +566,28 @@ export const PublicCatalogPage = () => {
 
           {/* Botón Contactar Vendedor */}
           {vendorPhone && (
-            <div className="flex-shrink-0 self-start sm:self-center mt-2 sm:mt-0">
+            <div className="hidden sm:block flex-shrink-0 self-start sm:self-center mt-2 sm:mt-0">
               <a 
                 href={`https://wa.me/${vendorPhone.replace(/\D/g, '')}`} 
                 target="_blank" 
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all border border-green-600/20 active:scale-95 shadow-md shadow-green-600/10 cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border border-green-600/20 active:scale-95 shadow-sm shadow-green-600/5 cursor-pointer"
               >
-                <Smartphone size={14} /> Contactar Vendedor
+                <Smartphone size={11} /> Contactar Vendedor
               </a>
             </div>
           )}
         </div>
 
         {/* Buscador y Ordenador de productos */}
-        <div className="mt-6 flex items-center gap-2 w-full">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-            <input
-              type="text"
-              placeholder="Buscar en la tienda..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[var(--surface-hover)] border border-border focus:border-[var(--accent)] focus:outline-none text-xs text-primary transition-colors"
-            />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary hover:text-primary"
-                type="button"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
+        <div className="mt-6 flex items-center gap-2 w-full flex-1">
+          <Input
+            type="text"
+            placeholder="Buscar en la tienda..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            icon={Search}
+          />
 
           <DropdownMenu
             trigger={
@@ -655,7 +719,11 @@ export const PublicCatalogPage = () => {
 
             {/* Trigger de Scroll Infinito para Móviles */}
             {isMobile && visibleCount < filteredProducts.length && (
-              <div id="infinite-scroll-trigger" className="h-20 flex items-center justify-center mt-6">
+              <div 
+                ref={lastElementRef}
+                id="infinite-scroll-trigger" 
+                className="h-20 flex items-center justify-center mt-6"
+              >
                 <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
               </div>
             )}
@@ -697,6 +765,108 @@ export const PublicCatalogPage = () => {
           </>
         )}
       </main>
+
+      {/* Footer Premium de la Tienda */}
+      {catalog && (
+        <footer className="w-full bg-[var(--surface)] border-t border-border mt-16 py-12 px-4 sm:px-6">
+          <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between gap-8">
+            {/* Info principal de la tienda */}
+            <div className="space-y-4 max-w-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[var(--accent)] text-[var(--accent-text)] flex items-center justify-center font-black text-sm uppercase">
+                  {catalog.name.charAt(0)}
+                </div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-primary">{catalog.name}</h4>
+              </div>
+              {catalog.description && (
+                <p className="text-[10px] text-secondary leading-relaxed">
+                  {catalog.description.length > 100 ? `${catalog.description.slice(0, 100)}...` : catalog.description}
+                </p>
+              )}
+              <p className="text-[9px] text-secondary/65 uppercase tracking-widest font-medium">
+                © {new Date().getFullYear()} {catalog.name}. Todos los derechos reservados.
+              </p>
+            </div>
+
+            {/* Datos de contacto y ubicación */}
+            <div className="flex flex-col sm:flex-row gap-8 md:gap-16">
+              {/* Ubicación y Horarios */}
+              {(catalog.footer_address || catalog.footer_schedule) && (
+                <div className="space-y-3">
+                  <h5 className="text-[10px] font-bold text-secondary uppercase tracking-widest">Ubicación y Horarios</h5>
+                  <ul className="space-y-2 text-[11px]">
+                    {catalog.footer_address && (
+                      <li className="flex items-start gap-2 text-secondary">
+                        <MapPin size={14} className="text-[var(--accent)] flex-shrink-0 mt-0.5" />
+                        <span>{catalog.footer_address}</span>
+                      </li>
+                    )}
+                    {catalog.footer_schedule && (
+                      <li className="flex items-start gap-2 text-secondary">
+                        <Clock size={14} className="text-[var(--accent)] flex-shrink-0 mt-0.5" />
+                        <span>{catalog.footer_schedule}</span>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {/* Canales de Contacto */}
+              {(catalog.footer_phone || catalog.footer_email || catalog.footer_instagram || catalog.footer_facebook) && (
+                <div className="space-y-3">
+                  <h5 className="text-[10px] font-bold text-secondary uppercase tracking-widest">Contacto</h5>
+                  <ul className="space-y-2 text-[11px]">
+                    {catalog.footer_phone && (
+                      <li className="flex items-center gap-2 text-secondary">
+                        <Phone size={14} className="text-[var(--accent)] flex-shrink-0" />
+                        <a href={`https://wa.me/${catalog.footer_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:underline">
+                          {catalog.footer_phone}
+                        </a>
+                      </li>
+                    )}
+                    {catalog.footer_email && (
+                      <li className="flex items-center gap-2 text-secondary">
+                        <Mail size={14} className="text-[var(--accent)] flex-shrink-0" />
+                        <a href={`mailto:${catalog.footer_email}`} className="hover:underline">
+                          {catalog.footer_email}
+                        </a>
+                      </li>
+                    )}
+                  </ul>
+                  
+                  {/* Redes Sociales */}
+                  {(catalog.footer_instagram || catalog.footer_facebook) && (
+                    <div className="flex items-center gap-3 pt-2">
+                      {catalog.footer_instagram && (
+                        <a 
+                          href={`https://instagram.com/${catalog.footer_instagram}`} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="w-7 h-7 rounded-lg bg-[var(--surface-hover)] border border-border flex items-center justify-center text-secondary hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all"
+                          title="Instagram"
+                        >
+                          <InstagramIcon size={14} />
+                        </a>
+                      )}
+                      {catalog.footer_facebook && (
+                        <a 
+                          href={`https://facebook.com/${catalog.footer_facebook}`} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="w-7 h-7 rounded-lg bg-[var(--surface-hover)] border border-border flex items-center justify-center text-secondary hover:text-[var(--accent)] hover:border-[var(--accent)]/30 transition-all"
+                          title="Facebook"
+                        >
+                          <FacebookIcon size={14} />
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </footer>
+      )}
 
       {/* Notificación de Pedido Exitoso */}
       {showOrderSuccess && (
@@ -763,9 +933,12 @@ export const PublicCatalogPage = () => {
             onClick={() => setIsCartOpen(false)}
           />
 
-          <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-            <div className="w-screen max-w-md bg-background border-l border-border flex flex-col justify-between shadow-2xl animate-in slide-in-from-right duration-300">
+          <div className="absolute bottom-0 inset-x-0 md:inset-y-0 md:right-0 md:left-auto md:max-w-full flex md:pl-10">
+            <div className="w-full md:w-screen md:max-w-md h-[80vh] md:h-full bg-background border-t md:border-t-0 md:border-l border-border rounded-t-2xl md:rounded-t-none flex flex-col justify-between shadow-2xl animate-in slide-in-from-bottom md:slide-in-from-right duration-300">
               
+              {/* Grab handle para móviles */}
+              <div className="w-12 h-1 bg-border rounded-full mx-auto my-2.5 md:hidden flex-shrink-0" />
+
               {/* Header Carrito */}
               <div className="p-4 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -867,7 +1040,7 @@ export const PublicCatalogPage = () => {
 
       {/* Modal de Detalle de Producto */}
       {selectedProduct && (
-        <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 overflow-hidden flex flex-col justify-end md:items-center md:justify-center p-0 md:p-6 animate-in fade-in duration-200">
           {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
@@ -875,7 +1048,11 @@ export const PublicCatalogPage = () => {
           />
 
           {/* Caja del Modal */}
-          <div className="relative w-full max-w-lg bg-background border border-border rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+          <div className="relative w-full md:max-w-lg bg-background border-t md:border border-border rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom md:zoom-in-95 duration-300 md:duration-200">
+            
+            {/* Grab handle para móviles */}
+            <div className="w-12 h-1 bg-border rounded-full mx-auto my-2.5 md:hidden flex-shrink-0" />
+
             {/* Header / Botón Cerrar */}
             <button 
               onClick={() => setSelectedProduct(null)}

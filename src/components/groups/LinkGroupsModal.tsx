@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import type { EvolutionGroup } from '../../types/whatsappGroup';
 import { Users, Search, Plus, RefreshCw } from 'lucide-react';
 
@@ -52,16 +53,13 @@ export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
       }
     >
       <div className="space-y-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-          <input
-            type="text"
-            placeholder="Buscar grupo..."
-            className="w-full pl-10 pr-4 py-3 bg-[var(--surface-hover)] border border-[var(--border)] rounded-xl text-[var(--text-primary)] placeholder:text-[var(--text-secondary)]/50 focus:border-[var(--accent)]/50 focus:ring-1 focus:ring-[var(--accent)]/50 transition-all"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <Input
+          type="text"
+          placeholder="Buscar grupo..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          icon={Search}
+        />
 
         <div className="max-h-[350px] overflow-y-auto space-y-2 pr-2">
           {loading && availableGroups.length === 0 ? (

@@ -116,7 +116,13 @@ export const useCatalogs = () => {
           sequence_start_time: form.sequence_start_time,
           price_update_template: form.price_update_template,
           product_edit_template: form.product_edit_template,
-          nemu_store_id: form.nemu_store_id
+          nemu_store_id: form.nemu_store_id,
+          footer_address: form.footer_address || null,
+          footer_phone: form.footer_phone || null,
+          footer_email: form.footer_email || null,
+          footer_schedule: form.footer_schedule || null,
+          footer_instagram: form.footer_instagram || null,
+          footer_facebook: form.footer_facebook || null
         }])
         .select()
         .single();
@@ -208,6 +214,12 @@ export const useCatalogs = () => {
       if (form.product_edit_template !== undefined) updateData.product_edit_template = form.product_edit_template;
       if (form.nemu_store_id !== undefined) updateData.nemu_store_id = form.nemu_store_id;
       if (form.sequence_schedules !== undefined) updateData.sequence_schedules = form.sequence_schedules;
+      if (form.footer_address !== undefined) updateData.footer_address = form.footer_address;
+      if (form.footer_phone !== undefined) updateData.footer_phone = form.footer_phone;
+      if (form.footer_email !== undefined) updateData.footer_email = form.footer_email;
+      if (form.footer_schedule !== undefined) updateData.footer_schedule = form.footer_schedule;
+      if (form.footer_instagram !== undefined) updateData.footer_instagram = form.footer_instagram;
+      if (form.footer_facebook !== undefined) updateData.footer_facebook = form.footer_facebook;
 
       const { error } = await supabase
         .from('catalogs')

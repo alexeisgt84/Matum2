@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { Select } from '../ui/Select';
 import type { Product, ProductForm } from '../../types/product';
 import { Camera, Save, Tag, Send, ImagePlus, Sparkles, Crown } from 'lucide-react';
 import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
@@ -357,19 +358,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               />
             </div>
             <div>
-              <div className="w-full space-y-2">
-                <label className="text-sm font-medium text-gray-400 ml-1">Moneda</label>
-                <select
-                  className="w-full h-[58px] bg-[#1a1a1a] border border-white/5 rounded-xl px-4 text-white outline-none focus:border-[var(--accent)] appearance-none cursor-pointer disabled:opacity-50"
-                  value={form.currency}
-                  onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                  disabled={isAnalyzing}
-                >
-                  <option value="USD">USD</option>
-                  <option value="CUP">CUP</option>
-                  <option value="MLC">MLC</option>
-                </select>
-              </div>
+              <Select
+                label="Moneda"
+                value={form.currency}
+                onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                disabled={isAnalyzing}
+              >
+                <option value="USD" className="bg-surface text-primary">USD</option>
+                <option value="CUP" className="bg-surface text-primary">CUP</option>
+                <option value="MLC" className="bg-surface text-primary">MLC</option>
+              </Select>
             </div>
           </div>
 

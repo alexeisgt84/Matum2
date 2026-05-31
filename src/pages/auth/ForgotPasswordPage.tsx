@@ -119,7 +119,7 @@ export const ForgotPasswordPage = () => {
               <input
                 type="text"
                 maxLength={6}
-                className="w-full bg-[#1a1a1a] border-2 border-white/5 rounded-2xl p-4 text-3xl font-bold tracking-[1em] text-center text-[var(--accent)] focus:border-[var(--accent)] outline-none transition-all"
+                className="w-full bg-surface-hover border-2 border-border rounded-2xl p-4 text-3xl font-bold tracking-[1em] text-center text-accent focus:border-accent focus:bg-surface outline-none transition-all"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                 required

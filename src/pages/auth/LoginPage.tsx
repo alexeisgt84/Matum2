@@ -3,18 +3,23 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { LogIn, Phone, Lock } from 'lucide-react';
+import { COUNTRIES } from '../../constants/countries';
 
 export const LoginPage = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // Argentina por defecto
   const { login, loading, error } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await login({ phone, password });
+      const cleanPhone = phone.replace(/\D/g, '');
+      const fullPhone = `${selectedCountry.code}${cleanPhone}`;
+      await login({ phone: fullPhone, password });
       navigate('/catalogs');
     } catch (err) {}
   };
@@ -31,14 +36,37 @@ export const LoginPage = () => {
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Teléfono"
-            placeholder="Ej: 54911..."
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            required
-            autoFocus
-          />
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-secondary ml-1 block">Teléfono WhatsApp</label>
+            <div className="flex gap-3">
+              <div className="w-[110px]">
+                <Select
+                  value={selectedCountry.name}
+                  onChange={(e) => {
+                    const country = COUNTRIES.find(c => c.name === e.target.value);
+                    if (country) setSelectedCountry(country);
+                  }}
+                >
+                  {COUNTRIES.map((c) => (
+                    <option key={c.name} value={c.name} className="bg-surface text-primary">
+                      {c.flag} +{c.code}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              
+              <div className="flex-1">
+                <Input
+                  placeholder={selectedCountry.placeholder}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  required
+                  autoFocus
+                  icon={Phone}
+                />
+              </div>
+            </div>
+          </div>
 
           <Input
             label="Contraseña"
@@ -46,6 +74,7 @@ export const LoginPage = () => {
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            icon={Lock}
             required
           />
 
@@ -88,3 +117,4 @@ export const LoginPage = () => {
     </div>
   );
 };
+

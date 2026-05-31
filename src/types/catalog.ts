@@ -30,6 +30,12 @@ export interface Catalog {
   is_sequence_scheduled: boolean;
   is_individual_scheduled: boolean;
   last_sequence_sent_at: string | null;
+  footer_address?: string | null;
+  footer_phone?: string | null;
+  footer_email?: string | null;
+  footer_schedule?: string | null;
+  footer_instagram?: string | null;
+  footer_facebook?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -57,4 +63,10 @@ export interface CatalogForm {
   is_sequence_scheduled: boolean;
   is_individual_scheduled: boolean;
   nemu_store_id?: string | null;
+  footer_address?: string | null;
+  footer_phone?: string | null;
+  footer_email?: string | null;
+  footer_schedule?: string | null;
+  footer_instagram?: string | null;
+  footer_facebook?: string | null;
 }

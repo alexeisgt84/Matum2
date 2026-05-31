@@ -9,13 +9,14 @@ import {
   MoreVertical,
   CheckCircle2,
   AlertCircle,
-  ChevronDown,
   Key,
   Trash2,
   Lock
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { toast } from 'react-hot-toast';
 
 export const UsersPage = () => {
@@ -98,16 +99,13 @@ export const UsersPage = () => {
 
       {/* Filtros y Búsqueda */}
       <div className="flex flex-col gap-4">
-        <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary group-focus-within:text-accent transition-colors" size={18} />
-          <input
-            type="text"
-            placeholder="Buscar por nombre o teléfono..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-surface border border-border rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:border-accent/50 focus:ring-4 focus:ring-accent/5 transition-all"
-          />
-        </div>
+        <Input
+          type="text"
+          placeholder="Buscar por nombre o teléfono..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          icon={Search}
+        />
 
         <div className="flex gap-2 p-1 bg-surface/50 border border-border rounded-xl w-fit">
           <button
@@ -203,21 +201,17 @@ export const UsersPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-border/50">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-secondary uppercase tracking-widest pl-1">Plan de Suscripción</label>
-                  <div className="relative group/select">
-                    <CreditCard className="absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary group-focus-within/select:text-accent transition-colors" size={14} />
-                    <select
-                      value={user.plan}
-                      onChange={(e) => handlePlanChange(user.id, e.target.value)}
-                      className="w-full bg-surface-hover/50 border border-border rounded-xl py-2 pl-10 pr-8 text-xs font-bold text-primary appearance-none focus:outline-none focus:border-accent/40 focus:bg-surface-hover transition-all cursor-pointer"
-                    >
-                      {plans.map(plan => (
-                        <option key={plan.id} value={plan.id}>
-                          Plan {plan.name}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-secondary pointer-events-none group-hover/select:text-primary transition-colors" size={12} />
-                  </div>
+                  <Select
+                    value={user.plan}
+                    onChange={(e) => handlePlanChange(user.id, e.target.value)}
+                    icon={CreditCard}
+                  >
+                    {plans.map(plan => (
+                      <option key={plan.id} value={plan.id} className="bg-surface text-primary">
+                        Plan {plan.name}
+                      </option>
+                    ))}
+                  </Select>
                 </div>
 
                 <div className="flex items-end pb-1 px-1">

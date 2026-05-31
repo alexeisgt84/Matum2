@@ -3,11 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { MessageSquare, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Select } from '../../components/ui/Select';
+import { MessageSquare, ShieldCheck, ArrowRight, Phone, Lock, User } from 'lucide-react';
+import { COUNTRIES } from '../../constants/countries';
 
 export const RegisterPage = () => {
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState({ nombre: '', phone: '', password: '' });
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // Argentina por defecto
   const [code, setCode] = useState('');
   const { sendRegisterCode, verifyAndRegister, loading, error, setError } = useAuthStore();
   const navigate = useNavigate();
@@ -15,7 +18,9 @@ export const RegisterPage = () => {
   const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await sendRegisterCode(form);
+      const cleanPhone = form.phone.replace(/\D/g, '');
+      const fullPhone = `${selectedCountry.code}${cleanPhone}`;
+      await sendRegisterCode({ ...form, phone: fullPhone });
       setStep(2);
     } catch (err) {}
   };
@@ -23,7 +28,9 @@ export const RegisterPage = () => {
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await verifyAndRegister(code, form);
+      const cleanPhone = form.phone.replace(/\D/g, '');
+      const fullPhone = `${selectedCountry.code}${cleanPhone}`;
+      await verifyAndRegister(code, { ...form, phone: fullPhone });
       navigate('/catalogs');
     } catch (err) {}
   };
@@ -41,7 +48,7 @@ export const RegisterPage = () => {
           <p className="text-gray-400 mt-2">
             {step === 1 
               ? 'Únete a la mejor plataforma de catálogos' 
-              : `Ingresa el código enviado al ${form.phone}`}
+              : `Ingresa el código enviado al +${selectedCountry.code} ${form.phone}`}
           </p>
         </div>
 
@@ -52,22 +59,48 @@ export const RegisterPage = () => {
               placeholder="Juan Pérez"
               value={form.nombre}
               onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+              icon={User}
               required
             />
-            <Input
-              label="Teléfono WhatsApp"
-              placeholder="Ej: 54911..."
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              required
-              helperText="Enviaremos un código por WhatsApp"
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-secondary ml-1 block">Teléfono WhatsApp</label>
+              <div className="flex gap-3">
+                <div className="w-[110px]">
+                  <Select
+                    value={selectedCountry.name}
+                    onChange={(e) => {
+                      const country = COUNTRIES.find(c => c.name === e.target.value);
+                      if (country) setSelectedCountry(country);
+                    }}
+                  >
+                    {COUNTRIES.map((c) => (
+                      <option key={c.name} value={c.name} className="bg-surface text-primary">
+                        {c.flag} +{c.code}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                  
+                <div className="flex-1">
+                  <Input
+                    placeholder={selectedCountry.placeholder}
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '') })}
+                    required
+                    icon={Phone}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-secondary ml-1">Enviaremos un código por WhatsApp</p>
+            </div>
+
             <Input
               label="Contraseña"
               type="password"
               placeholder="••••••••"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
+              icon={Lock}
               required
             />
 
@@ -91,7 +124,7 @@ export const RegisterPage = () => {
               <input
                 type="text"
                 maxLength={6}
-                className="w-full bg-[#1a1a1a] border-2 border-white/5 rounded-2xl p-4 text-3xl font-bold tracking-[1em] text-center text-[var(--accent)] focus:border-[var(--accent)] outline-none transition-all"
+                className="w-full bg-surface-hover border-2 border-border rounded-2xl p-4 text-3xl font-bold tracking-[1em] text-center text-accent focus:border-accent focus:bg-surface outline-none transition-all"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                 required
@@ -133,3 +166,4 @@ export const RegisterPage = () => {
     </div>
   );
 };
+

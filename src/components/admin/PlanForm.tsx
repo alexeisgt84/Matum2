@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePlanStore } from '../../store/planStore';
 import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import { 
   Save, 
   X, 
@@ -60,22 +61,20 @@ export const PlanForm = ({ plan, onSuccess, onCancel }: PlanFormProps) => {
           <label className="text-[10px] font-black uppercase tracking-widest text-secondary flex items-center gap-2 px-1">
             <Info size={12} /> Información General
           </label>
-          <div className="space-y-3">
-            <input
+            <Input
               type="text"
               placeholder="Nombre del Plan (ej: Gold)"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full bg-surface-hover border border-border rounded-2xl px-4 py-3 placeholder:text-secondary text-primary font-bold focus:border-accent transition-colors"
               required
             />
-            <textarea
+            <Input
               placeholder="Descripción"
+              multiline
+              rows={2}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full bg-surface-hover border border-border rounded-2xl px-4 py-3 placeholder:text-secondary text-primary text-sm focus:border-accent transition-colors min-h-[80px]"
             />
-          </div>
         </section>
 
         {/* Precios */}
@@ -84,28 +83,22 @@ export const PlanForm = ({ plan, onSuccess, onCancel }: PlanFormProps) => {
             <DollarSign size={12} /> Precios
           </label>
           <div className="grid grid-cols-2 gap-3">
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary font-bold">$</span>
-              <input
-                type="number"
-                placeholder="CUP"
-                value={formData.price_cup}
-                onChange={(e) => setFormData({ ...formData, price_cup: Number(e.target.value) })}
-                className="w-full bg-surface-hover border border-border rounded-2xl pl-8 pr-4 py-3 text-primary font-bold focus:border-accent transition-colors"
-                required
-              />
-            </div>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-secondary font-bold">$</span>
-              <input
-                type="number"
-                placeholder="USD"
-                value={formData.price_usd}
-                onChange={(e) => setFormData({ ...formData, price_usd: Number(e.target.value) })}
-                className="w-full bg-surface-hover border border-border rounded-2xl pl-8 pr-4 py-3 text-primary font-bold focus:border-accent transition-colors"
-                required
-              />
-            </div>
+            <Input
+              type="number"
+              placeholder="CUP"
+              value={formData.price_cup}
+              onChange={(e) => setFormData({ ...formData, price_cup: Number(e.target.value) })}
+              icon={DollarSign}
+              required
+            />
+            <Input
+              type="number"
+              placeholder="USD"
+              value={formData.price_usd}
+              onChange={(e) => setFormData({ ...formData, price_usd: Number(e.target.value) })}
+              icon={DollarSign}
+              required
+            />
           </div>
         </section>
 

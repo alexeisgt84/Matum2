@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { 
   Package, 
   Users, 
@@ -1099,17 +1100,14 @@ export const CatalogDetailPage = () => {
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             
             {/* Buscador y Ordenación */}
-            <div className="flex items-center gap-2 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" size={18} />
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre, descripción o precio…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-surface-hover border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all"
-                />
-              </div>
+            <div className="flex items-center gap-2 mb-6 flex-1">
+              <Input
+                type="text"
+                placeholder="Buscar por nombre, descripción o precio…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                icon={Search}
+              />
               
               <DropdownMenu
                 trigger={

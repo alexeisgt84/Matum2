@@ -3,11 +3,49 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Save, Info, Zap, Globe, AlertCircle, Camera } from 'lucide-react';
+import { Save, Info, Zap, Globe, AlertCircle, Camera, MapPin, Clock, Phone, Mail } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Switch } from '../../components/ui/Switch';
 import { toast } from 'react-hot-toast';
+
+const InstagramIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+  </svg>
+);
+
+const FacebookIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+  </svg>
+);
 
 export const CatalogFormPage = () => {
   const { catalogId } = useParams();
@@ -22,7 +60,13 @@ export const CatalogFormPage = () => {
     slug: '',
     is_sequence_scheduled: false,
     is_individual_scheduled: false,
-    sequence_start_time: '09:00'
+    sequence_start_time: '09:00',
+    footer_address: '',
+    footer_phone: '',
+    footer_email: '',
+    footer_schedule: '',
+    footer_instagram: '',
+    footer_facebook: ''
   });
 
   const [slugError, setSlugError] = useState('');
@@ -61,7 +105,13 @@ export const CatalogFormPage = () => {
         slug: data.slug || '',
         is_sequence_scheduled: data.is_sequence_scheduled ?? false,
         is_individual_scheduled: data.is_individual_scheduled ?? false,
-        sequence_start_time: data.sequence_start_time || '09:00'
+        sequence_start_time: data.sequence_start_time || '09:00',
+        footer_address: data.footer_address || '',
+        footer_phone: data.footer_phone || '',
+        footer_email: data.footer_email || '',
+        footer_schedule: data.footer_schedule || '',
+        footer_instagram: data.footer_instagram || '',
+        footer_facebook: data.footer_facebook || ''
       });
       setLogoPreview(data.logo_url);
       setCoverPreview(data.cover_url);
@@ -332,6 +382,71 @@ export const CatalogFormPage = () => {
                 )}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Sección: Pie de Página y Contacto */}
+        <div className="card space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-primary uppercase tracking-wider flex items-center gap-2">
+              <MapPin size={16} className="text-[var(--accent)]" /> Pie de Página y Contacto
+            </h3>
+            <p className="text-[10px] text-secondary uppercase tracking-widest mt-1">Datos de contacto y ubicación para mostrar al final de tu tienda</p>
+          </div>
+
+          <div className="space-y-4 border-t border-border pt-4">
+            <Input
+              label="Dirección Física de la Tienda"
+              placeholder="Ej: Calle Principal #123, Ciudad"
+              value={form.footer_address}
+              onChange={(e) => setForm({ ...form, footer_address: e.target.value })}
+              icon={MapPin}
+            />
+
+            <Input
+              label="Horario de Atención"
+              placeholder="Ej: Lunes a Sábado: 9:00 AM - 6:00 PM"
+              value={form.footer_schedule}
+              onChange={(e) => setForm({ ...form, footer_schedule: e.target.value })}
+              icon={Clock}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Teléfono de Contacto"
+                placeholder="Ej: +53 51234567"
+                value={form.footer_phone}
+                onChange={(e) => setForm({ ...form, footer_phone: e.target.value })}
+                icon={Phone}
+              />
+
+              <Input
+                label="Correo Electrónico"
+                placeholder="Ej: contacto@tienda.com"
+                type="email"
+                value={form.footer_email}
+                onChange={(e) => setForm({ ...form, footer_email: e.target.value })}
+                icon={Mail}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Usuario de Instagram"
+                placeholder="Ej: mi_tienda"
+                value={form.footer_instagram}
+                onChange={(e) => setForm({ ...form, footer_instagram: e.target.value })}
+                icon={InstagramIcon}
+              />
+
+              <Input
+                label="Usuario de Facebook"
+                placeholder="Ej: mitienda.facebook"
+                value={form.footer_facebook}
+                onChange={(e) => setForm({ ...form, footer_facebook: e.target.value })}
+                icon={FacebookIcon}
+              />
+            </div>
           </div>
         </div>
 

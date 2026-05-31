@@ -4,6 +4,7 @@ import { useProfile } from '../../hooks/useProfile';
 import { Avatar } from '../../components/ui/Avatar';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { LogOut, Save, Camera, CreditCard, Sun, Moon, ShieldCheck, Key, Sparkles, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -216,29 +217,21 @@ export const ProfilePage = () => {
                     </button>
                   </div>
                   
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-secondary ml-1">Modelo de IA (Gemini)</label>
-                    <div className="relative">
-                      <select
-                        value={geminiModel}
-                        onChange={(e) => setGeminiModel(e.target.value)}
-                        className="w-full bg-surface border border-border rounded-xl p-4 pr-10 text-primary outline-none transition-all duration-200 focus:border-accent focus:bg-surface-hover appearance-none cursor-pointer"
-                      >
-                        {/* Gemini 3 Series */}
-                        <option value="gemini-3-flash-preview" className="bg-surface text-primary">Gemini 3 Flash (Última generación - Ultra rápido y potente)</option>
-                        <option value="gemini-3.1-pro-preview" className="bg-surface text-primary">Gemini 3.1 Pro (Razonamiento y agentes avanzados)</option>
-                        <option value="gemini-3.1-flash-lite" className="bg-surface text-primary">Gemini 3.1 Flash-Lite (Eficiencia a gran escala)</option>
-                        
-                        {/* Gemini 2.5 Series */}
-                        <option value="gemini-2.5-flash" className="bg-surface text-primary">Gemini 2.5 Flash (Equilibrado y veloz)</option>
-                        <option value="gemini-2.5-pro" className="bg-surface text-primary">Gemini 2.5 Pro (Precisión y desarrollo)</option>
-                        <option value="gemini-2.5-flash-lite" className="bg-surface text-primary">Gemini 2.5 Flash-Lite (Bajo consumo)</option>
-                      </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-secondary">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-chevron-down"><path d="m6 9 6 6 6-6"/></svg>
-                      </div>
-                    </div>
-                  </div>
+                  <Select
+                    label="Modelo de IA (Gemini)"
+                    value={geminiModel}
+                    onChange={(e) => setGeminiModel(e.target.value)}
+                  >
+                    {/* Gemini 3 Series */}
+                    <option value="gemini-3-flash-preview" className="bg-surface text-primary">Gemini 3 Flash (Última generación - Ultra rápido y potente)</option>
+                    <option value="gemini-3.1-pro-preview" className="bg-surface text-primary">Gemini 3.1 Pro (Razonamiento y agentes avanzados)</option>
+                    <option value="gemini-3.1-flash-lite" className="bg-surface text-primary">Gemini 3.1 Flash-Lite (Eficiencia a gran escala)</option>
+                    
+                    {/* Gemini 2.5 Series */}
+                    <option value="gemini-2.5-flash" className="bg-surface text-primary">Gemini 2.5 Flash (Equilibrado y veloz)</option>
+                    <option value="gemini-2.5-pro" className="bg-surface text-primary">Gemini 2.5 Pro (Precisión y desarrollo)</option>
+                    <option value="gemini-2.5-flash-lite" className="bg-surface text-primary">Gemini 2.5 Flash-Lite (Bajo consumo)</option>
+                  </Select>
 
                   <button
                     type="button"
