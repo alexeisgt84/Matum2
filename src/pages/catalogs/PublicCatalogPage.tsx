@@ -18,10 +18,12 @@ import {
   MapPin,
   Clock,
   Phone,
-  Mail
+  Mail,
+  Settings
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { DropdownMenu } from '../../components/ui/DropdownMenu';
+import { useAuthStore } from '../../store/authStore';
 
 const InstagramIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
   <svg
@@ -97,6 +99,7 @@ interface CartItem {
 
 export const PublicCatalogPage = () => {
   const { slug } = useParams<{ slug: string }>();
+  const { user } = useAuthStore();
   const [catalog, setCatalog] = useState<PublicCatalog | null>(null);
   const [products, setProducts] = useState<PublicProduct[]>([]);
   const [vendorPhone, setVendorPhone] = useState<string>('');
@@ -500,8 +503,10 @@ export const PublicCatalogPage = () => {
     '--accent-text': accentText,
   } as React.CSSProperties;
 
+  const hasCatalogRole = !!user && (user.id === catalog?.user_id || user.role === 'admin');
+
   return (
-    <div style={themeStyles} className="min-h-screen bg-[var(--background)] text-[var(--text-primary)] pb-28">
+    <div style={themeStyles} className={`min-h-screen bg-[var(--background)] text-[var(--text-primary)] ${totalItemsCount > 0 ? 'pb-28' : ''}`}>
       {/* Banner de Portada */}
       <div className="relative h-28 sm:h-40 w-full bg-cover bg-center overflow-hidden border-b border-border">
         {catalog.cover_url ? (
@@ -864,6 +869,29 @@ export const PublicCatalogPage = () => {
                 </div>
               )}
             </div>
+
+            {/* Acceso de Administración */}
+            {hasCatalogRole && (
+              <div className="space-y-3 min-w-[160px]">
+                <h5 className="text-[10px] font-bold text-secondary uppercase tracking-widest">Administración</h5>
+                <div className="flex flex-col gap-2">
+                  <Link 
+                    to="/" 
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--surface-hover)] border border-border text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--background)] hover:border-[var(--accent)]/40 hover:text-[var(--accent)] transition-all w-full sm:w-fit cursor-pointer group"
+                  >
+                    <ArrowLeft size={14} className="text-secondary group-hover:text-[var(--accent)] transition-colors" />
+                    <span>Regresar al Home</span>
+                  </Link>
+                  <Link 
+                    to={`/catalogs/${catalog.id}`} 
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--surface-hover)] border border-border text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--background)] hover:border-[var(--accent)]/40 hover:text-[var(--accent)] transition-all w-full sm:w-fit cursor-pointer group"
+                  >
+                    <Settings size={14} className="text-secondary group-hover:text-[var(--accent)] transition-colors" />
+                    <span>Configurar Tienda</span>
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </footer>
       )}
