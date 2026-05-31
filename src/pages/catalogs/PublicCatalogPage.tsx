@@ -19,9 +19,11 @@ import {
   Clock,
   Phone,
   Mail,
-  Settings
+  Settings,
+  Copy
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { toast } from 'react-hot-toast';
 import { DropdownMenu } from '../../components/ui/DropdownMenu';
 import { useAuthStore } from '../../store/authStore';
 
@@ -73,6 +75,7 @@ interface PublicCatalog {
   primary_color: string | null;
   background_color: string | null;
   surface_color: string | null;
+  follow_code?: string | null;
   footer_address?: string | null;
   footer_phone?: string | null;
   footer_email?: string | null;
@@ -148,7 +151,7 @@ export const PublicCatalogPage = () => {
       // 1. Obtener catálogo público y activo por su slug
       const { data: catData, error: catError } = await supabase
         .from('catalogs')
-        .select('id, name, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook')
+        .select('id, name, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook')
         .eq('slug', slug)
         .single();
 
@@ -788,6 +791,22 @@ export const PublicCatalogPage = () => {
                   {catalog.description.length > 100 ? `${catalog.description.slice(0, 100)}...` : catalog.description}
                 </p>
               )}
+              {catalog.follow_code && (
+                <div className="flex items-center gap-1.5 text-[10px] text-secondary font-medium tracking-wide">
+                  <span>Código:</span>
+                  <span className="font-mono bg-[var(--surface-hover)] border border-border px-1.5 py-0.5 rounded text-[var(--accent)] font-extrabold tracking-wider">{catalog.follow_code}</span>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(catalog.follow_code || '');
+                      toast.success('¡Código copiado al portapapeles!');
+                    }}
+                    className="p-1 hover:bg-[var(--surface-hover)] rounded transition-colors text-secondary hover:text-primary cursor-pointer active:scale-90"
+                    title="Copiar código de seguimiento"
+                  >
+                    <Copy size={11} />
+                  </button>
+                </div>
+              )}
               <p className="text-[9px] text-secondary/65 uppercase tracking-widest font-medium">
                 © {new Date().getFullYear()} {catalog.name}. Todos los derechos reservados.
               </p>
@@ -893,6 +912,8 @@ export const PublicCatalogPage = () => {
               </div>
             )}
           </div>
+
+
         </footer>
       )}
 

@@ -1,12 +1,12 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, LayoutGrid, Calendar, History, User } from 'lucide-react';
+import { Home, LayoutGrid, Calendar, Bookmark, User } from 'lucide-react';
 
 export const BottomNav = () => {
   const tabs = [
     { name: 'Inicio', icon: Home, path: '/' },
     { name: 'Catálogos', icon: LayoutGrid, path: '/catalogs' },
-    { name: 'Historial', icon: History, path: '/history' },
+    { name: 'Seguidos', icon: Bookmark, path: '/followed-catalogs' },
     { name: 'Perfil', icon: User, path: '/profile' },
   ];
 

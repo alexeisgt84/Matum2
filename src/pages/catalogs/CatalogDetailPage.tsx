@@ -220,6 +220,58 @@ export const CatalogDetailPage = () => {
     }
   };
 
+  // Estados y refs para compartir catálogo (Discreto)
+  const shareTimeoutRef = useRef<any>(null);
+  const isShareLongPressRef = useRef(false);
+
+  const handleShareCatalog = async () => {
+    if (!catalog?.follow_code) return;
+    const shareText = `Código de enlace al catálogo "${catalog.name}": ${catalog.follow_code}`;
+    await shareContent({
+      text: shareText
+    });
+  };
+
+  const handleSharePointerDown = (e: React.PointerEvent) => {
+    isShareLongPressRef.current = false;
+    if (shareTimeoutRef.current) {
+      clearTimeout(shareTimeoutRef.current);
+    }
+    shareTimeoutRef.current = setTimeout(() => {
+      isShareLongPressRef.current = true;
+      if (catalog?.follow_code) {
+        navigator.clipboard.writeText(catalog.follow_code)
+          .then(() => {
+            toast.success('¡Código copiado al portapapeles!');
+            if (navigator.vibrate) {
+              navigator.vibrate(80);
+            }
+          })
+          .catch((err) => {
+            console.error('Error al copiar:', err);
+          });
+      }
+      shareTimeoutRef.current = null;
+    }, 800);
+  };
+
+  const handleSharePointerUp = (e: React.PointerEvent) => {
+    if (shareTimeoutRef.current) {
+      clearTimeout(shareTimeoutRef.current);
+      shareTimeoutRef.current = null;
+    }
+    if (!isShareLongPressRef.current) {
+      handleShareCatalog();
+    }
+  };
+
+  const handleSharePointerCancel = () => {
+    if (shareTimeoutRef.current) {
+      clearTimeout(shareTimeoutRef.current);
+      shareTimeoutRef.current = null;
+    }
+  };
+
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [isRestoreOpen, setIsRestoreOpen] = useState(false);
   const [isNemuImportOpen, setIsNemuImportOpen] = useState(false);
@@ -789,6 +841,46 @@ export const CatalogDetailPage = () => {
     }
   };
 
+  const handleUnlinkProduct = async (p: Product) => {
+    const confirm = window.confirm(`¿Estás seguro de que deseas desvincular el producto "${p.name}" de su catálogo origen? Ya no se sincronizará automáticamente.`);
+    if (!confirm) return;
+
+    const toastId = toast.loading('Desvinculando producto…');
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          parent_product_id: null,
+          base_price: null,
+          is_discontinued: false
+        })
+        .eq('id', p.id);
+
+      if (error) throw error;
+      toast.success('Producto desvinculado con éxito', { id: toastId });
+      getProducts(true);
+    } catch (err: any) {
+      toast.error('Error al desvincular: ' + err.message, { id: toastId });
+    }
+  };
+
+  const handleToggleProductActive = async (p: Product) => {
+    const nextState = !p.is_active;
+    const toastId = toast.loading(nextState ? 'Mostrando producto…' : 'Ocultando producto…');
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_active: nextState })
+        .eq('id', p.id);
+
+      if (error) throw error;
+      toast.success(nextState ? 'Producto visible al público' : 'Producto oculto al público', { id: toastId });
+      getProducts(true);
+    } catch (err: any) {
+      toast.error('Error al cambiar visibilidad: ' + err.message, { id: toastId });
+    }
+  };
+
   // Acciones Masivas
   const handleBulkDeleteInitiate = () => {
     const total = selectedProductIds.length + selectedMessageIds.length;
@@ -961,6 +1053,27 @@ export const CatalogDetailPage = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-9rem)] max-w-lg mx-auto w-full">
+      {/* Barra de compartir catálogo (Ancho completo debajo del header) */}
+      {catalog?.follow_code && (
+        <div 
+          onPointerDown={handleSharePointerDown}
+          onPointerUp={handleSharePointerUp}
+          onPointerCancel={handleSharePointerCancel}
+          className="w-full flex items-center justify-between px-4 py-2.5 bg-surface/50 border-b border-border/80 text-[11px] text-secondary select-none active:bg-surface-hover/50 cursor-pointer transition-colors"
+          title="Click para compartir, mantener presionado para copiar"
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-accent/60 flex-shrink-0 animate-pulse" />
+            <span>Compartir catálogo:</span>
+            <span className="font-mono font-bold text-primary tracking-wider">{catalog.follow_code}</span>
+          </div>
+          <div className="flex items-center gap-1 text-[10px] font-bold text-accent uppercase tracking-wider">
+            <Share2 size={12} className="text-accent/80" />
+            <span className="hidden sm:inline">Compartir</span>
+          </div>
+        </div>
+      )}
+
       {/* Selector de Vistas / Barra de Selección */}
       <div className="px-4 py-6 bg-gradient-to-b from-surface to-background border-b border-border w-full">
         {(selectedProductIds.length > 0 || selectedMessageIds.length > 0) ? (
@@ -1207,6 +1320,8 @@ export const CatalogDetailPage = () => {
                                     isSending={sendingIds.has(`prod_${product.id}`)}
                                     onOutOfStock={(p) => setProductToAgotado(p)}
                                     onAvailable={(p) => setProductToAvailable(p)}
+                                    onToggleActive={handleToggleProductActive}
+                                    onUnlink={handleUnlinkProduct}
                                   />
                             </div>
                           )}

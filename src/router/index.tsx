@@ -9,7 +9,7 @@ import { CatalogFormPage } from '../pages/catalogs/CatalogFormPage';
 import { CatalogDetailPage } from '../pages/catalogs/CatalogDetailPage';
 import { CatalogTemplatesPage } from '../pages/catalogs/CatalogTemplatesPage';
 import { CatalogSettingsPage } from '../pages/settings/CatalogSettingsPage';
-import { HistoryPage } from '../pages/history/HistoryPage';
+import { FollowedCatalogsPage } from '../pages/catalogs/FollowedCatalogsPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { AdminDashboard } from '../pages/admin/AdminDashboard';
@@ -87,8 +87,8 @@ export const router = createBrowserRouter([
         element: <PrivateRoute><CatalogSettingsPage /></PrivateRoute>,
       },
       {
-        path: 'history',
-        element: <PrivateRoute><HistoryPage /></PrivateRoute>,
+        path: 'followed-catalogs',
+        element: <PrivateRoute><FollowedCatalogsPage /></PrivateRoute>,
       },
       {
         path: 'profile',

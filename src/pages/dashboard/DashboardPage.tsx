@@ -11,7 +11,7 @@ import {
   ChevronRight, 
   Rocket,
   Settings,
-  History,
+  Bookmark,
   MessageCircle,
   Sun,
   Moon,
@@ -40,7 +40,7 @@ export const DashboardPage = () => {
 
   const quickActions = [
     { label: 'Nuevo Catálogo', icon: Plus, path: '/catalogs/new', color: 'bg-accent' },
-    { label: 'Ver Historial', icon: History, path: '/history', color: 'bg-surface-hover' },
+    { label: 'Catálogos Seguidos', icon: Bookmark, path: '/followed-catalogs', color: 'bg-surface-hover' },
     ...(user?.role === 'admin' ? [{ label: 'Panel Admin', icon: ShieldCheck, path: '/admin', color: 'bg-surface-hover' }] : []),
     { label: 'Mi Perfil', icon: Settings, path: '/profile', color: 'bg-surface-hover' },
   ];

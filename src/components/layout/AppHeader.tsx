@@ -10,7 +10,7 @@ export const AppHeader = () => {
 
   const getTitle = (path: string) => {
     if (path === '/catalogs') return 'Tus Catálogos';
-    if (path === '/history') return 'Historial';
+    if (path === '/followed-catalogs') return 'Catálogos Seguidos';
     if (path === '/profile') return 'Mi Perfil';
     if (path.includes('/settings')) return 'Configuración';
     if (path.includes('/catalogs/')) return 'Detalle Catálogo';

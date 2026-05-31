@@ -13,7 +13,7 @@ function App() {
   
   const isPublicStorePage = () => {
     const path = location.pathname;
-    const knownPrefixes = ['/login', '/register', '/forgot-password', '/catalogs', '/history', '/profile', '/admin'];
+    const knownPrefixes = ['/login', '/register', '/forgot-password', '/catalogs', '/followed-catalogs', '/profile', '/admin'];
     if (path === '/') return false;
     return !knownPrefixes.some(prefix => path.startsWith(prefix));
   };

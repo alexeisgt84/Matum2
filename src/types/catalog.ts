@@ -19,6 +19,7 @@ export interface Catalog {
   is_active: boolean;
   is_public: boolean;
   slug: string | null;
+  follow_code?: string | null;
   logo_url: string | null;
   cover_url: string | null;
   primary_color: string | null;

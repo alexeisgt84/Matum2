@@ -12,6 +12,9 @@ export interface Product {
   stock_status: 'available' | 'out_of_stock';
   created_at: string;
   nemu_product_id: string | null;
+  parent_product_id?: string | null;
+  base_price?: number | null;
+  is_discontinued?: boolean;
 }
 
 export interface ProductForm {
