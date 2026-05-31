@@ -10,7 +10,7 @@ import { COUNTRIES } from '../../constants/countries';
 export const RegisterPage = () => {
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState({ nombre: '', phone: '', password: '' });
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // Argentina por defecto
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES.find(c => c.code === '53') || COUNTRIES[0]); // Cuba por defecto
   const [code, setCode] = useState('');
   const { sendRegisterCode, verifyAndRegister, loading, error, setError } = useAuthStore();
   const navigate = useNavigate();

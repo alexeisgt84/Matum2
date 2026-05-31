@@ -10,7 +10,7 @@ import { COUNTRIES } from '../../constants/countries';
 export const LoginPage = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]); // Argentina por defecto
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES.find(c => c.code === '53') || COUNTRIES[0]); // Cuba por defecto
   const { login, loading, error } = useAuthStore();
   const navigate = useNavigate();
 
