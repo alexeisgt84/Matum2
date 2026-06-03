@@ -11,7 +11,7 @@ export const BottomNav = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background border-t border-border pb-safe pt-2 px-6 transition-colors duration-300">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border pb-safe pt-2 px-6 transition-colors duration-300">
       <div className="flex justify-between items-center max-w-lg mx-auto h-16">
         {tabs.map((tab) => (
           <NavLink

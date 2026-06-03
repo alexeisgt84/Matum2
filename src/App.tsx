@@ -4,11 +4,17 @@ import { AppHeader } from './components/layout/AppHeader';
 import { BottomNav } from './components/layout/BottomNav';
 import { HeaderProvider } from './lib/HeaderContext';
 import { useStore } from './store/useStore';
+import { useShareStore } from './store/shareStore';
 
 function App() {
   const location = useLocation();
   const { theme } = useStore();
+  const initListener = useShareStore((state) => state.initListener);
   
+  useEffect(() => {
+    initListener();
+  }, [initListener]);
+
   const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
   
   const isPublicStorePage = () => {

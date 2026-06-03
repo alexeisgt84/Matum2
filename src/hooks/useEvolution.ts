@@ -1,31 +1,41 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
-import type { EvolutionInstance } from '../types/evolution';
+import { useEvolutionStore } from '../store/evolutionStore';
 import { toast } from 'react-hot-toast';
 
 import { callEvolutionProxy } from '../lib/api';
 
 export const useEvolution = (catalogId?: string) => {
   const { user } = useAuthStore();
-  const [instance, setInstance] = useState<EvolutionInstance & { server_id?: string } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [availableServers, setAvailableServers] = useState<any[]>([]);
+  const { 
+    instances, 
+    loading, 
+    availableServers, 
+    setInstance, 
+    setLoading, 
+    setAvailableServers 
+  } = useEvolutionStore();
   
+  const key = catalogId || 'global';
+  const instance = instances[key] || null;
+
   // Ref para evitar ciclos de renderizado con checkStatus
   const isCheckingStatus = useRef(false);
 
-  const fetchServers = useCallback(async () => {
+  const fetchServers = useCallback(async (force = false) => {
+    if (availableServers.length > 0 && !force) return;
     try {
       const { data } = await supabase.from('available_evolution_servers').select('*');
       if (data) setAvailableServers(data);
     } catch (err) {
       console.error('Error fetching servers:', err);
     }
-  }, []);
+  }, [availableServers.length, setAvailableServers]);
 
-  const fetchLocalInstance = useCallback(async () => {
+  const fetchLocalInstance = useCallback(async (force = false) => {
     if (!user?.id) return;
+    if (instance && !force) return;
     
     try {
       let query = supabase
@@ -42,11 +52,11 @@ export const useEvolution = (catalogId?: string) => {
       const { data, error } = await query.maybeSingle();
       if (error && error.code !== 'PGRST116') throw error;
       
-      setInstance(data || null);
+      setInstance(key, data || null);
     } catch (err) {
       console.error('Error fetching local instance:', err);
     }
-  }, [user?.id, catalogId]);
+  }, [user?.id, catalogId, key, instance, setInstance]);
 
   const callProxy = useCallback(async (serverId: string, endpoint: string, method: string = 'GET', body: any = null, instanceName: string | null = null) => {
     return callEvolutionProxy(serverId, endpoint, method, body, instanceName);
@@ -99,7 +109,7 @@ export const useEvolution = (catalogId?: string) => {
         .single();
 
       if (dbError) throw dbError;
-      setInstance(dbData);
+      setInstance(key, dbData);
       toast.success('Instancia lista');
     } catch (err: any) {
       toast.error(`Error: ${err.message}`);
@@ -113,7 +123,7 @@ export const useEvolution = (catalogId?: string) => {
     try {
       const data = await callProxy(instance.server_id, '/instance/connect', 'GET', null, instance.name);
       if (data.base64) {
-        setInstance(prev => prev ? { ...prev, qrcode: data.base64 } : null);
+        setInstance(key, { ...instance, qrcode: data.base64 });
       }
     } catch (err) {
       console.error('QR Error:', err);
@@ -131,7 +141,7 @@ export const useEvolution = (catalogId?: string) => {
       const data = await callProxy(instance.server_id, `/instance/connect`, 'GET', null, `${instance.name}?number=${cleanPhone}`);
       const code = data.pairingCode || data.code;
       if (code) {
-        setInstance(prev => prev ? { ...prev, pairing_code: code, qrcode: null } : null);
+        setInstance(key, { ...instance, pairing_code: code, qrcode: null });
         toast.success('Código generado');
       }
     } catch (err: any) {
@@ -148,7 +158,7 @@ export const useEvolution = (catalogId?: string) => {
       await callProxy(instance.server_id, `/instance/logout`, 'DELETE', null, instance.name).catch(() => {});
       await callProxy(instance.server_id, `/instance/delete`, 'DELETE', null, instance.name).catch(() => {});
       await supabase.from('evolution_instances').delete().eq('id', instance.id);
-      setInstance(null);
+      setInstance(key, null);
       toast.success('Desconectado');
     } catch (err: any) {
       toast.error(err.message);
@@ -166,19 +176,29 @@ export const useEvolution = (catalogId?: string) => {
       
       if (newStatus !== instance.status) {
         await supabase.from('evolution_instances').update({ status: newStatus }).eq('id', instance.id);
-        setInstance(prev => prev ? { ...prev, status: newStatus as any } : null);
+        setInstance(key, { ...instance, status: newStatus as any });
       }
     } catch (err) {
       console.error('Status Error:', err);
     } finally {
       isCheckingStatus.current = false;
     }
-  }, [instance?.id, instance?.status, instance?.server_id, instance?.name, callProxy]);
+  }, [instance, key, callProxy, setInstance]);
 
   useEffect(() => {
     fetchLocalInstance();
     fetchServers();
   }, [fetchLocalInstance, fetchServers]);
 
-  return { instance, loading, availableServers, createInstance, getQR, getPairingCode, disconnectInstance, checkStatus, refresh: fetchLocalInstance };
+  return { 
+    instance, 
+    loading, 
+    availableServers, 
+    createInstance, 
+    getQR, 
+    getPairingCode, 
+    disconnectInstance, 
+    checkStatus, 
+    refresh: () => fetchLocalInstance(true) 
+  };
 };

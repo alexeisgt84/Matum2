@@ -15,17 +15,23 @@ import {
   MessageCircle,
   Sun,
   Moon,
-  ShieldCheck
+  ShieldCheck,
+  Sparkles,
+  X,
+  MessageSquare
 } from 'lucide-react';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Button } from '../../components/ui/Button';
 import { useStore } from '../../store/useStore';
+import { useShareStore } from '../../store/shareStore';
+import { SwipeableShareBanner } from '../../components/products/SwipeableShareBanner';
 
 export const DashboardPage = () => {
   const { user } = useAuthStore();
   const { theme, toggleTheme } = useStore();
   const { catalogs, loading, getCatalogs } = useCatalogs();
   const { counts, loading: limitsLoading } = usePlanLimits();
+  const { sharedContentList, removeSharedContent } = useShareStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -80,6 +86,23 @@ export const DashboardPage = () => {
           />
         </div>
       </header>
+
+      {sharedContentList.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-secondary px-1 mb-1 flex justify-between items-center">
+            <span>Productos en espera ({sharedContentList.length})</span>
+            <span className="text-[8px] lowercase opacity-60">Arraste a la izquierda para borrar</span>
+          </p>
+          {sharedContentList.map((item, index) => (
+            <SwipeableShareBanner
+              key={index}
+              item={item}
+              onRegister={() => navigate('/catalogs')}
+              onDelete={() => removeSharedContent(index)}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Stats Grid - NOW FIRST */}
       <div className="grid grid-cols-3 gap-3">

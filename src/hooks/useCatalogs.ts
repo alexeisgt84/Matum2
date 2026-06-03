@@ -8,6 +8,7 @@ import { optimizeImage, blobToFile } from '../lib/imageOptimizer';
 export const useCatalogs = () => {
   const { user } = useAuthStore();
   const [catalogs, setCatalogs] = useState<Catalog[]>([]);
+  const [sharedCatalogs, setSharedCatalogs] = useState<Catalog[]>([]);
   const [loading, setLoading] = useState(false);
 
   const getCatalogs = useCallback(async () => {
@@ -34,6 +35,40 @@ export const useCatalogs = () => {
       setCatalogs(formattedCatalogs);
     } catch (err: any) {
       toast.error('Error al cargar catálogos: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  const getSharedCatalogs = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('catalog_members')
+        .select(`
+          catalog:catalogs (
+            *,
+            products:products(count)
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'accepted');
+
+      if (error) throw error;
+
+      const formatted = (data || [])
+        .map((item: any) => item.catalog)
+        .filter(Boolean)
+        .map((cat: any) => ({
+          ...cat,
+          productCount: cat.products?.[0]?.count || 0,
+          isCollaboration: true
+        }));
+
+      setSharedCatalogs(formatted);
+    } catch (err: any) {
+      toast.error('Error al cargar colaboraciones: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -257,5 +292,5 @@ export const useCatalogs = () => {
     }
   };
 
-  return { catalogs, loading, getCatalogs, createCatalog, updateCatalog, deleteCatalog };
+  return { catalogs, sharedCatalogs, loading, getCatalogs, getSharedCatalogs, createCatalog, updateCatalog, deleteCatalog };
 };

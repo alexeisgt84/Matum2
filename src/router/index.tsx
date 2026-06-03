@@ -11,10 +11,12 @@ import { CatalogTemplatesPage } from '../pages/catalogs/CatalogTemplatesPage';
 import { CatalogSettingsPage } from '../pages/settings/CatalogSettingsPage';
 import { FollowedCatalogsPage } from '../pages/catalogs/FollowedCatalogsPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
+import { SubscriptionPage } from '../pages/profile/SubscriptionPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { AdminDashboard } from '../pages/admin/AdminDashboard';
 import { PlansPage } from '../pages/admin/PlansPage';
 import { UsersPage } from '../pages/admin/UsersPage';
+import { PaymentsPage } from '../pages/admin/PaymentsPage';
 import { useAuthStore } from '../store/authStore';
 import { ErrorPage } from '../pages/ErrorPage';
 import { PublicCatalogPage } from '../pages/catalogs/PublicCatalogPage';
@@ -95,6 +97,10 @@ export const router = createBrowserRouter([
         element: <PrivateRoute><ProfilePage /></PrivateRoute>,
       },
       {
+        path: 'profile/subscription',
+        element: <PrivateRoute><SubscriptionPage /></PrivateRoute>,
+      },
+      {
         path: 'admin',
         element: <AdminRoute><AdminDashboard /></AdminRoute>,
       },
@@ -105,6 +111,10 @@ export const router = createBrowserRouter([
       {
         path: 'admin/users',
         element: <AdminRoute><UsersPage /></AdminRoute>,
+      },
+      {
+        path: 'admin/payments',
+        element: <AdminRoute><PaymentsPage /></AdminRoute>,
       },
       {
         path: ':slug',

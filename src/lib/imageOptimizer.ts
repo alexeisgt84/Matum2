@@ -70,7 +70,7 @@ const getImageDimensions = async (file: Blob): Promise<{width: number, height: n
       }
 
       // Fallback a método tradicional solo si es pequeño, para evitar crash
-      if (file.size < 2 * 1024 * 1024) {
+      if (file.size < 20 * 1024 * 1024) {
         const img = new Image();
         const url = URL.createObjectURL(file);
         img.onload = () => {
@@ -88,7 +88,7 @@ const getImageDimensions = async (file: Blob): Promise<{width: number, height: n
       }
     };
     reader.onerror = () => reject(new Error('Error al leer archivo'));
-    reader.readAsArrayBuffer(file.slice(0, 65536));
+    reader.readAsArrayBuffer(file);
   });
 };
 

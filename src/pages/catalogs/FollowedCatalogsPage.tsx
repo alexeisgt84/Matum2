@@ -22,8 +22,13 @@ import {
   DollarSign,
   CheckCircle,
   Package,
-  Layers
+  Layers,
+  Search,
+  ArrowUpDown,
+  Sparkles,
+  UserPlus
 } from 'lucide-react';
+import { useCollaboration } from '../../hooks/useCollaboration';
 import type { Catalog } from '../../types/catalog';
 import type { Product } from '../../types/product';
 
@@ -34,10 +39,17 @@ interface FollowedCatalogItem {
   catalogs: Catalog & { productCount?: number };
 }
 
+interface EnrichedProduct extends Product {
+  catalog_name: string;
+  catalog_logo_url: string;
+}
+
 export const FollowedCatalogsPage = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   
+  const { pendingFollowRequests, getPendingFollowRequests, respondToFollowRequest } = useCollaboration();
+
   // Catálogos propios del usuario para el selector de importación
   const { catalogs: myCatalogs, getCatalogs: getMyCatalogs } = useCatalogs();
 
@@ -66,9 +78,20 @@ export const FollowedCatalogsPage = () => {
   const [individualPrices, setIndividualPrices] = useState<Record<string, string>>({});
   const [isImporting, setIsImporting] = useState(false);
 
+  // Estados para búsqueda y ordenamiento de catálogos (Vista A)
+  const [searchQueryCatalog, setSearchQueryCatalog] = useState('');
+  const [sortCatalogBy, setSortCatalogBy] = useState<'date' | 'name_asc' | 'name_desc' | 'products_desc' | 'price_asc' | 'price_desc'>('date');
+  const [isFollowModalOpen, setIsFollowModalOpen] = useState(false);
+  const [allProducts, setAllProducts] = useState<EnrichedProduct[]>([]);
+
+  // Estados para búsqueda y ordenamiento de productos (Vista B)
+  const [searchQueryProduct, setSearchQueryProduct] = useState('');
+  const [sortProductBy, setSortProductBy] = useState<'position' | 'name_asc' | 'name_desc' | 'price_asc' | 'price_desc'>('position');
+
   useEffect(() => {
     fetchFollowedCatalogs();
     getMyCatalogs();
+    getPendingFollowRequests();
   }, []);
 
   // Cargar catálogos seguidos
@@ -85,6 +108,7 @@ export const FollowedCatalogsPage = () => {
           created_at,
           catalogs:catalogs(*)
         `)
+        .eq('status', 'accepted')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -113,6 +137,30 @@ export const FollowedCatalogsPage = () => {
       }
 
       setFollowed(formattedData);
+
+      // 3. Cargar productos de todos los catálogos seguidos para búsqueda global
+      if (data && data.length > 0) {
+        const catalogIds = data.map(item => item.catalog_id);
+        const { data: productsData, error: productsError } = await supabase
+          .from('products')
+          .select('*')
+          .in('catalog_id', catalogIds)
+          .eq('is_active', true);
+
+        if (productsError) throw productsError;
+
+        const enrichedProducts = (productsData || []).map(prod => {
+          const matchedCatalog = formattedData.find(item => item.catalog_id === prod.catalog_id)?.catalogs;
+          return {
+            ...prod,
+            catalog_name: matchedCatalog?.name || '',
+            catalog_logo_url: matchedCatalog?.logo_url || ''
+          };
+        });
+        setAllProducts(enrichedProducts);
+      } else {
+        setAllProducts([]);
+      }
     } catch (err: any) {
       toast.error('Error al cargar catálogos seguidos: ' + err.message);
     } finally {
@@ -178,6 +226,7 @@ export const FollowedCatalogsPage = () => {
 
       toast.success(`Ahora sigues el catálogo "${targetCatalog.name}"`);
       setFollowCode('');
+      setIsFollowModalOpen(false); // Cerrar el modal
       fetchFollowedCatalogs();
     } catch (err: any) {
       toast.error('Error al seguir catálogo: ' + err.message);
@@ -217,6 +266,8 @@ export const FollowedCatalogsPage = () => {
     setActiveCatalog(catalog);
     setProductsLoading(true);
     setSelectedProductIds([]);
+    setSearchQueryProduct(''); // Limpiar búsqueda de productos al entrar
+    setSortProductBy('position'); // Restablecer orden al entrar
     try {
       const { data, error } = await supabase
         .from('products')
@@ -243,12 +294,23 @@ export const FollowedCatalogsPage = () => {
     );
   };
 
-  // Seleccionar o deseleccionar todos los productos
+  // Seleccionar o deseleccionar todos los productos (considera filtrado)
   const handleSelectAll = () => {
-    if (selectedProductIds.length === catalogProducts.length) {
-      setSelectedProductIds([]);
+    const visibleIds = filteredAndSortedProducts.map(p => p.id);
+    const areAllVisibleSelected = visibleIds.every(id => selectedProductIds.includes(id));
+    
+    if (areAllVisibleSelected) {
+      setSelectedProductIds(prev => prev.filter(id => !visibleIds.includes(id)));
     } else {
-      setSelectedProductIds(catalogProducts.map(p => p.id));
+      setSelectedProductIds(prev => {
+        const newSelection = [...prev];
+        visibleIds.forEach(id => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id);
+          }
+        });
+        return newSelection;
+      });
     }
   };
 
@@ -333,7 +395,7 @@ export const FollowedCatalogsPage = () => {
           currency: sourceProd.currency,
           parent_product_id: sourceProd.id,
           base_price: sourceProd.price,
-          is_active: true,
+          is_active: sourceProd.is_active,
           is_out_of_stock: sourceProd.is_out_of_stock,
           stock_status: sourceProd.stock_status,
           position: index + 1000 // Colocarlos al final provisionalmente
@@ -358,6 +420,91 @@ export const FollowedCatalogsPage = () => {
     }
   };
 
+  // Catálogos filtrados y ordenados
+  const filteredAndSortedFollowed = followed
+    .filter(item => {
+      if (!searchQueryCatalog) return true;
+      const query = searchQueryCatalog.toLowerCase();
+      const catalogName = item.catalogs?.name?.toLowerCase() || '';
+      const catalogDesc = item.catalogs?.description?.toLowerCase() || '';
+      const catalogCode = item.catalogs?.follow_code?.toLowerCase() || '';
+      return catalogName.includes(query) || catalogDesc.includes(query) || catalogCode.includes(query);
+    })
+    .sort((a, b) => {
+      if (sortCatalogBy === 'name_asc') {
+        return (a.catalogs?.name || '').localeCompare(b.catalogs?.name || '');
+      }
+      if (sortCatalogBy === 'name_desc') {
+        return (b.catalogs?.name || '').localeCompare(a.catalogs?.name || '');
+      }
+      if (sortCatalogBy === 'products_desc') {
+        return (b.catalogs?.productCount || 0) - (a.catalogs?.productCount || 0);
+      }
+      // 'date' -> por fecha de creación de seguimiento (orden descendente)
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+  // Productos de búsqueda global filtrados y ordenados
+  const filteredAndSortedGlobalProducts = allProducts
+    .filter(product => {
+      if (!searchQueryCatalog) return false;
+      const query = searchQueryCatalog.toLowerCase();
+      const prodName = product.name?.toLowerCase() || '';
+      const prodDesc = product.description?.toLowerCase() || '';
+      return prodName.includes(query) || prodDesc.includes(query);
+    })
+    .sort((a, b) => {
+      if (sortCatalogBy === 'name_asc') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (sortCatalogBy === 'name_desc') {
+        return (b.name || '').localeCompare(a.name || '');
+      }
+      if (sortCatalogBy === 'price_asc') {
+        return (a.price || 0) - (b.price || 0);
+      }
+      if (sortCatalogBy === 'price_desc') {
+        return (b.price || 0) - (a.price || 0);
+      }
+      // Por defecto al buscar, ordenar por precio menor a mayor para comparar
+      return (a.price || 0) - (b.price || 0);
+    });
+
+  // Productos filtrados y ordenados
+  const filteredAndSortedProducts = catalogProducts
+    .filter(product => {
+      if (!searchQueryProduct) return true;
+      const query = searchQueryProduct.toLowerCase();
+      const prodName = product.name?.toLowerCase() || '';
+      const prodDesc = product.description?.toLowerCase() || '';
+      return prodName.includes(query) || prodDesc.includes(query);
+    })
+    .sort((a, b) => {
+      if (sortProductBy === 'name_asc') {
+        return (a.name || '').localeCompare(b.name || '');
+      }
+      if (sortProductBy === 'name_desc') {
+        return (b.name || '').localeCompare(a.name || '');
+      }
+      if (sortProductBy === 'price_asc') {
+        return (a.price || 0) - (b.price || 0);
+      }
+      if (sortProductBy === 'price_desc') {
+        return (b.price || 0) - (a.price || 0);
+      }
+      // 'position' (default)
+      return (a.position || 0) - (b.position || 0);
+    });
+
+  const handleCatalogSearchChange = (value: string) => {
+    setSearchQueryCatalog(value);
+    if (value && !searchQueryCatalog) {
+      setSortCatalogBy('price_asc');
+    } else if (!value) {
+      setSortCatalogBy('date');
+    }
+  };
+
   return (
     <div className="p-4 max-w-lg mx-auto pb-24 space-y-6 w-full">
       
@@ -367,28 +514,66 @@ export const FollowedCatalogsPage = () => {
           <PageHeader 
             title="Catálogos Seguidos" 
             subtitle="Monitorea e Importa Tiendas"
+            rightAction={
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={Plus}
+                onClick={() => setIsFollowModalOpen(true)}
+                className="!p-2 h-9 w-9 rounded-xl flex items-center justify-center border-border/80 text-primary hover:bg-surface-hover"
+                title="Seguir catálogo"
+              />
+            }
           />
 
-          {/* Formulario de Seguimiento */}
-          <form onSubmit={handleFollowSubmit} className="card p-4 flex gap-2 items-end border-border bg-surface w-full">
-            <div className="flex-1">
-              <label className="text-[10px] font-bold text-secondary uppercase tracking-widest block mb-2">Seguir nuevo catálogo</label>
-              <Input
-                placeholder="Código de seguimiento (ej: MAT-7X9B2)"
-                value={followCode}
-                onChange={(e) => setFollowCode(e.target.value)}
-                className="uppercase font-mono"
-              />
+          {/* Solicitudes de Seguimiento Pendientes */}
+          {pendingFollowRequests.length > 0 && (
+            <div className="space-y-3 bg-accent/5 border border-accent/15 p-4 rounded-2xl animate-in slide-in-from-top duration-300">
+              <h4 className="text-[10px] font-black uppercase tracking-wider text-accent flex items-center gap-1.5">
+                <Sparkles size={12} />
+                Solicitudes de Seguimiento ({pendingFollowRequests.length})
+              </h4>
+              <div className="space-y-2">
+                {pendingFollowRequests.map((req: any) => (
+                  <div key={req.id} className="flex justify-between items-center bg-surface p-3 rounded-xl border border-border">
+                    <div className="min-w-0 flex-1 pr-3">
+                      <p className="font-bold text-primary text-[10px] uppercase tracking-wider">
+                        Invitación para seguir:
+                      </p>
+                      <p className="text-accent text-xs font-bold truncate mt-0.5">
+                        {req.catalog?.name}
+                      </p>
+                      <p className="text-secondary text-[10px] truncate mt-0.5">
+                        {req.catalog?.description || 'Sin descripción'}
+                      </p>
+                    </div>
+                    <div className="flex gap-1.5 flex-shrink-0">
+                      <Button 
+                        size="sm" 
+                        className="!py-1 px-3 text-[10px] h-7"
+                        onClick={async () => {
+                          const success = await respondToFollowRequest(req.id, 'accepted');
+                          if (success) {
+                            fetchFollowedCatalogs();
+                          }
+                        }}
+                      >
+                        Aceptar
+                      </Button>
+                      <Button 
+                        variant="secondary" 
+                        size="sm" 
+                        className="!py-1 px-3 text-[10px] h-7 border-border hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20"
+                        onClick={() => respondToFollowRequest(req.id, 'rejected')}
+                      >
+                        Rechazar
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <Button 
-              type="submit" 
-              loading={isSubmitting} 
-              icon={Plus}
-              className="h-11 px-4 shadow-lg shadow-accent/15"
-            >
-              Seguir
-            </Button>
-          </form>
+          )}
 
           {/* Listado */}
           {loading ? (
@@ -411,54 +596,243 @@ export const FollowedCatalogsPage = () => {
               description="Ingresa el código de seguimiento de otro catálogo para poder seguirlo e importar sus productos."
             />
           ) : (
-            <div className="space-y-3">
-              <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-secondary px-1">Catálogos que sigo ({followed.length})</h2>
-              {followed.map((item) => (
-                <div 
-                  key={item.id}
-                  onClick={() => handleViewCatalogProducts(item.catalogs)}
-                  className="card p-4 group hover:bg-surface-hover cursor-pointer transition-all border-border flex items-center justify-between active:scale-[0.99] relative overflow-hidden w-full"
-                >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-accent/10 transition-colors" />
+            <div className="space-y-4">
+              {/* Buscador y Ordenamiento */}
+              <div className="flex gap-2 items-center w-full bg-surface border border-border p-2 rounded-2xl">
+                <div className="relative flex-1">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" />
+                  <Input
+                    placeholder="Buscar catálogo o productos..."
+                    value={searchQueryCatalog}
+                    onChange={(e) => handleCatalogSearchChange(e.target.value)}
+                    className="pl-9 pr-14 w-full bg-transparent border-0 focus:ring-0 !h-9 text-xs"
+                  />
+                  {searchQueryCatalog && (
+                    <button 
+                      onClick={() => handleCatalogSearchChange('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] uppercase font-bold text-accent hover:text-accent-hover transition-colors"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+                <div className="relative flex-shrink-0">
+                  <select
+                    value={sortCatalogBy}
+                    onChange={(e) => setSortCatalogBy(e.target.value as any)}
+                    className="appearance-none bg-background border border-border rounded-xl h-9 pl-3 pr-8 text-[11px] font-bold text-secondary focus:border-accent focus:outline-none transition-colors cursor-pointer"
+                  >
+                    {searchQueryCatalog ? (
+                      <>
+                        <option value="price_asc">Precio (Menor a Mayor)</option>
+                        <option value="price_desc">Precio (Mayor a Menor)</option>
+                        <option value="name_asc">Nombre (A-Z)</option>
+                        <option value="name_desc">Nombre (Z-A)</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="date">Más recientes</option>
+                        <option value="name_asc">Nombre (A-Z)</option>
+                        <option value="name_desc">Nombre (Z-A)</option>
+                        <option value="products_desc">Más productos</option>
+                      </>
+                    )}
+                  </select>
+                  <ArrowUpDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-secondary pointer-events-none" />
+                </div>
+              </div>
 
-                  <div className="flex items-center gap-4 flex-1 min-w-0 z-10">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-transparent flex items-center justify-center text-accent border border-accent/10 flex-shrink-0">
-                      {item.catalogs.logo_url ? (
-                        <img src={item.catalogs.logo_url} alt="logo" className="w-full h-full object-cover rounded-xl" />
-                      ) : (
-                        <ShoppingBag size={22} />
+              {searchQueryCatalog ? (
+                // BÚSQUEDA GLOBAL DE PRODUCTOS PARA COMPARACIÓN DE PRECIOS
+                filteredAndSortedGlobalProducts.length === 0 ? (
+                  <EmptyState
+                    icon={Package}
+                    title="No se encontraron productos"
+                    description="Prueba con otros términos (por ejemplo: 'Zapatos', 'Remera') o limpia la búsqueda."
+                  />
+                ) : (
+                  <div className="space-y-4 w-full animate-in fade-in duration-200">
+                    {/* Botón de importación masiva en búsqueda global */}
+                    {selectedProductIds.length > 0 && (
+                      <div className="flex justify-between items-center bg-accent/5 border border-accent/15 p-3 rounded-2xl animate-in slide-in-from-top duration-300">
+                        <span className="text-[10px] text-accent font-bold uppercase tracking-wider">
+                          {selectedProductIds.length} seleccionados para importar
+                        </span>
+                        <Button 
+                          size="sm" 
+                          onClick={handleOpenImportModal}
+                          className="px-4 shadow-lg shadow-accent/15"
+                        >
+                          Importar seleccionados
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between px-1">
+                      <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-secondary">
+                        Productos encontrados ({filteredAndSortedGlobalProducts.length})
+                      </h2>
+                      {filteredAndSortedGlobalProducts.length > 0 && (
+                        <button 
+                          onClick={() => {
+                            const visibleIds = filteredAndSortedGlobalProducts.map(p => p.id);
+                            const areAllVisibleSelected = visibleIds.every(id => selectedProductIds.includes(id));
+                            if (areAllVisibleSelected) {
+                              setSelectedProductIds(prev => prev.filter(id => !visibleIds.includes(id)));
+                            } else {
+                              setSelectedProductIds(prev => {
+                                const newSelection = [...prev];
+                                visibleIds.forEach(id => {
+                                  if (!newSelection.includes(id)) {
+                                    newSelection.push(id);
+                                  }
+                                });
+                                return newSelection;
+                              });
+                            }
+                          }}
+                          className="text-[10px] bg-surface-hover hover:bg-surface text-secondary hover:text-primary px-3 py-1.5 rounded-xl border border-border transition-all font-bold uppercase tracking-wider"
+                        >
+                          {filteredAndSortedGlobalProducts.every(p => selectedProductIds.includes(p.id)) ? 'Ninguno' : 'Todos'}
+                        </button>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-primary truncate group-hover:text-accent transition-colors">{item.catalogs.name}</h3>
-                      <p className="text-secondary text-xs truncate mb-1.5">{item.catalogs.description || 'Sin descripción'}</p>
-                      
-                      <div className="flex items-center gap-3 text-[10px] text-secondary font-bold uppercase tracking-wider">
-                        <span className="bg-surface border border-border px-2 py-0.5 rounded-lg text-primary tabular-nums">
-                          {item.catalogs.productCount || 0} Productos
-                        </span>
-                        <span className="font-mono text-accent">
-                          {item.catalogs.follow_code}
-                        </span>
-                      </div>
+
+                    <div className="grid grid-cols-1 gap-3 w-full">
+                      {filteredAndSortedGlobalProducts.map((product) => {
+                        const isSelected = selectedProductIds.includes(product.id);
+                        return (
+                          <div 
+                            key={product.id}
+                            onClick={() => toggleSelectProduct(product.id)}
+                            className={`card p-4 flex items-center gap-4 cursor-pointer transition-all border w-full relative overflow-hidden group ${
+                              isSelected 
+                                ? 'border-accent bg-accent/5' 
+                                : 'border-border hover:border-accent/20 bg-surface'
+                            }`}
+                          >
+                            <div className="flex items-center justify-center z-10">
+                              <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${
+                                isSelected ? 'border-accent bg-accent text-black' : 'border-border bg-transparent'
+                              }`}>
+                                {isSelected && <CheckCircle size={14} strokeWidth={3} />}
+                              </div>
+                            </div>
+
+                            <div className="w-16 h-16 rounded-xl bg-surface border border-border flex items-center justify-center overflow-hidden flex-shrink-0 z-10">
+                              {product.imagen_url ? (
+                                <img src={product.imagen_url} alt={product.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <Package size={22} className="text-secondary" />
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0 z-10">
+                              <h4 className="font-bold text-primary truncate leading-tight group-hover:text-accent transition-colors">{product.name}</h4>
+                              <p className="text-secondary text-[11px] truncate mt-1">{product.description || 'Sin descripción'}</p>
+                              
+                              <div className="flex items-center gap-2 mt-2">
+                                <span className="text-accent text-xs font-bold font-mono tabular-nums">
+                                  {product.price} {product.currency}
+                                </span>
+                                
+                                {/* Chip del catálogo origen */}
+                                <div 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const matchedCatalog = followed.find(item => item.catalog_id === product.catalog_id)?.catalogs;
+                                    if (matchedCatalog) {
+                                      handleViewCatalogProducts(matchedCatalog);
+                                    }
+                                  }}
+                                  className="flex items-center gap-1.5 bg-background border border-border/80 px-2 py-0.5 rounded-lg hover:border-accent/30 transition-colors"
+                                  title="Ver catálogo de origen"
+                                >
+                                  {product.catalog_logo_url ? (
+                                    <img src={product.catalog_logo_url} alt="store logo" className="w-3.5 h-3.5 object-cover rounded-full" />
+                                  ) : (
+                                    <ShoppingBag size={10} className="text-secondary" />
+                                  )}
+                                  <span className="text-[9px] text-secondary font-bold truncate max-w-[80px]">
+                                    {product.catalog_name}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {product.is_out_of_stock && (
+                              <span className="text-[8px] bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-0.5 rounded-lg font-black uppercase tracking-wider z-10">
+                                Agotado
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
+                )
+              ) : (
+                // LISTADO TRADICIONAL DE CATÁLOGOS SEGUIDOS (Búsqueda vacía)
+                filteredAndSortedFollowed.length === 0 ? (
+                  <EmptyState
+                    icon={Bookmark}
+                    title="No se encontraron resultados"
+                    description="Intenta buscar con otros términos o limpia el filtro de búsqueda."
+                  />
+                ) : (
+                  <div className="space-y-3">
+                    <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-secondary px-1">
+                      Catálogos que sigo ({filteredAndSortedFollowed.length})
+                    </h2>
+                    {filteredAndSortedFollowed.map((item) => (
+                      <div 
+                        key={item.id}
+                        onClick={() => handleViewCatalogProducts(item.catalogs)}
+                        className="card p-4 group hover:bg-surface-hover cursor-pointer transition-all border-border flex items-center justify-between active:scale-[0.99] relative overflow-hidden w-full"
+                      >
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-accent/10 transition-colors" />
 
-                  <div className="flex items-center gap-1 z-10 ml-3">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCatalogToUnfollow(item.catalog_id);
-                      }}
-                      className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                      title="Dejar de seguir"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                    <ChevronRight size={18} className="text-secondary group-hover:text-primary transition-colors" />
+                        <div className="flex items-center gap-4 flex-1 min-w-0 z-10">
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-transparent flex items-center justify-center text-accent border border-accent/10 flex-shrink-0">
+                            {item.catalogs.logo_url ? (
+                              <img src={item.catalogs.logo_url} alt="logo" className="w-full h-full object-cover rounded-xl" />
+                            ) : (
+                              <ShoppingBag size={22} />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-primary truncate group-hover:text-accent transition-colors">{item.catalogs.name}</h3>
+                            <p className="text-secondary text-xs truncate mb-1.5">{item.catalogs.description || 'Sin descripción'}</p>
+                            
+                            <div className="flex items-center gap-3 text-[10px] text-secondary font-bold uppercase tracking-wider">
+                              <span className="bg-surface border border-border px-2 py-0.5 rounded-lg text-primary tabular-nums">
+                                {item.catalogs.productCount || 0} Productos
+                              </span>
+                              <span className="font-mono text-accent">
+                                {item.catalogs.follow_code}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 z-10 ml-3">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCatalogToUnfollow(item.catalog_id);
+                            }}
+                            className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                            title="Dejar de seguir"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                          <ChevronRight size={18} className="text-secondary group-hover:text-primary transition-colors" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
           )}
         </>
@@ -469,7 +843,13 @@ export const FollowedCatalogsPage = () => {
           {/* Header de navegación interna */}
           <div className="flex items-center justify-between border-b border-border pb-4 bg-background">
             <button 
-              onClick={() => setActiveCatalog(null)}
+              onClick={() => {
+                setActiveCatalog(null);
+                setSearchQueryCatalog('');
+                setSortCatalogBy('date');
+                setSearchQueryProduct('');
+                setSortProductBy('position');
+              }}
               className="flex items-center gap-2 text-xs font-bold text-secondary hover:text-primary uppercase tracking-wider transition-colors"
             >
               <ArrowLeft size={16} />
@@ -499,11 +879,48 @@ export const FollowedCatalogsPage = () => {
 
           {/* Listado de Productos del Catálogo Seguido */}
           <div className="space-y-4">
+            {/* Buscador y Ordenamiento de Productos */}
+            {catalogProducts.length > 0 && (
+              <div className="flex gap-2 items-center w-full bg-surface border border-border p-2 rounded-2xl">
+                <div className="relative flex-1">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" />
+                  <Input
+                    placeholder="Buscar producto por título..."
+                    value={searchQueryProduct}
+                    onChange={(e) => setSearchQueryProduct(e.target.value)}
+                    className="pl-9 pr-14 w-full bg-transparent border-0 focus:ring-0 !h-9 text-xs"
+                  />
+                  {searchQueryProduct && (
+                    <button 
+                      onClick={() => setSearchQueryProduct('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] uppercase font-bold text-accent hover:text-accent-hover transition-colors"
+                    >
+                      Limpiar
+                    </button>
+                  )}
+                </div>
+                <div className="relative flex-shrink-0">
+                  <select
+                    value={sortProductBy}
+                    onChange={(e) => setSortProductBy(e.target.value as any)}
+                    className="appearance-none bg-background border border-border rounded-xl h-9 pl-3 pr-8 text-[11px] font-bold text-secondary focus:border-accent focus:outline-none transition-colors cursor-pointer"
+                  >
+                    <option value="position">Orden original</option>
+                    <option value="name_asc">Nombre (A-Z)</option>
+                    <option value="name_desc">Nombre (Z-A)</option>
+                    <option value="price_asc">Precio (Menor a Mayor)</option>
+                    <option value="price_desc">Precio (Mayor a Menor)</option>
+                  </select>
+                  <ArrowUpDown size={11} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-secondary pointer-events-none" />
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between px-1">
               <div className="flex flex-col">
                 <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-secondary">Productos del origen</h3>
                 <span className="text-[10px] text-secondary font-bold tabular-nums">
-                  {catalogProducts.length} disponibles · {selectedProductIds.length} seleccionados
+                  {filteredAndSortedProducts.length} de {catalogProducts.length} disponibles · {selectedProductIds.length} seleccionados
                 </span>
               </div>
               
@@ -513,7 +930,7 @@ export const FollowedCatalogsPage = () => {
                     onClick={handleSelectAll}
                     className="text-[10px] bg-surface-hover hover:bg-surface text-secondary hover:text-primary px-3 py-1.5 rounded-xl border border-border transition-all font-bold uppercase tracking-wider"
                   >
-                    {selectedProductIds.length === catalogProducts.length ? 'Ninguno' : 'Todos'}
+                    {filteredAndSortedProducts.every(p => selectedProductIds.includes(p.id)) ? 'Ninguno' : 'Todos'}
                   </button>
                   <Button 
                     size="sm" 
@@ -539,15 +956,15 @@ export const FollowedCatalogsPage = () => {
                   </div>
                 ))}
               </div>
-            ) : catalogProducts.length === 0 ? (
+            ) : filteredAndSortedProducts.length === 0 ? (
               <EmptyState
                 icon={Package}
-                title="Catálogo vacío"
-                description="Este catálogo seguido no tiene ningún producto público y activo en este momento."
+                title={searchQueryProduct ? "No se encontraron resultados" : "Catálogo vacío"}
+                description={searchQueryProduct ? "Intenta buscar con otros términos o limpia el filtro de búsqueda." : "Este catálogo seguido no tiene ningún producto público y activo en este momento."}
               />
             ) : (
               <div className="grid grid-cols-1 gap-3 w-full">
-                {catalogProducts.map((product) => {
+                {filteredAndSortedProducts.map((product) => {
                   const isSelected = selectedProductIds.includes(product.id);
                   return (
                     <div 
@@ -718,6 +1135,46 @@ export const FollowedCatalogsPage = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* MODAL PARA SEGUIR NUEVO CATÁLOGO */}
+      <Modal
+        isOpen={isFollowModalOpen}
+        onClose={() => !isSubmitting && setIsFollowModalOpen(false)}
+        title="Seguir nuevo catálogo"
+      >
+        <form onSubmit={handleFollowSubmit} className="space-y-4 py-2">
+          <p className="text-secondary text-xs leading-relaxed">
+            Ingresa el código de seguimiento provisto por el administrador de la tienda para vincularla a tu listado.
+          </p>
+          <div className="space-y-2">
+            <label className="text-[10px] font-bold text-secondary uppercase tracking-widest block">Código de seguimiento</label>
+            <Input
+              placeholder="Ej: MAT-7X9B2"
+              value={followCode}
+              onChange={(e) => setFollowCode(e.target.value)}
+              className="uppercase font-mono"
+              required
+            />
+          </div>
+          <div className="flex gap-3 pt-3 border-t border-border">
+            <Button
+              variant="secondary"
+              onClick={() => setIsFollowModalOpen(false)}
+              className="flex-1 py-3 font-bold"
+              disabled={isSubmitting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              loading={isSubmitting}
+              className="flex-1 py-3 font-bold shadow-lg shadow-accent/15"
+            >
+              Seguir
+            </Button>
+          </div>
+        </form>
       </Modal>
 
     </div>

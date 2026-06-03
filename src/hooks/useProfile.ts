@@ -1,16 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
+import { useProfileStore } from '../store/profileStore';
 import { optimizeImage, blobToFile } from '../lib/imageOptimizer';
 
 export const useProfile = () => {
   const { user } = useAuthStore();
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { profile, loading, error, setProfile, setLoading, setError } = useProfileStore();
 
-  const getProfile = async () => {
+  const getProfile = async (force = false) => {
     if (!user) return;
+    if (profile && !force) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const { data, error: fetchError } = await supabase
@@ -102,8 +105,10 @@ export const useProfile = () => {
   };
 
   useEffect(() => {
-    getProfile();
+    if (user?.id) {
+      getProfile();
+    }
   }, [user?.id]);
 
-  return { profile, loading, error, updateProfile, refresh: getProfile };
+  return { profile, loading, error, updateProfile, refresh: () => getProfile(true) };
 };

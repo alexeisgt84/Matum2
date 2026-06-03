@@ -19,6 +19,7 @@ interface ProductFormModalProps {
   onSave: (form: ProductForm, id?: string, file?: File, shouldSend?: boolean) => Promise<boolean>;
   product?: Product | null;
   loading?: boolean;
+  prefilledData?: { description?: string; file?: File; preview?: string } | null;
 }
 
 export const ProductFormModal: React.FC<ProductFormModalProps> = ({
@@ -27,6 +28,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   onSave,
   product,
   loading = false,
+  prefilledData = null,
 }) => {
   const { profile } = useProfile();
   const [form, setForm] = useState<ProductForm>({
@@ -120,12 +122,22 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         imagen_url: product.imagen_url,
       });
       setPreview(product.imagen_url);
+    } else if (prefilledData) {
+      setForm({
+        name: '',
+        description: prefilledData.description || '',
+        price: '',
+        currency: 'USD',
+        imagen_url: null,
+      });
+      setPreview(prefilledData.preview || null);
+      setFile(prefilledData.file);
     } else {
       setForm({ name: '', description: '', price: '', currency: 'USD', imagen_url: null });
       setPreview(null);
       setFile(undefined);
     }
-  }, [product, isOpen]);
+  }, [product, prefilledData, isOpen]);
 
   useEffect(() => {
     return () => {
@@ -278,7 +290,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           </div>
           
           {/* Banner de invitación o botón de IA */}
-          {preview && (
+          {preview && profile?.gemini_api_key && (
             <div className="mt-3">
               {isPremium ? (
                 <button
@@ -303,19 +315,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
           )}
 
-          {!preview && (
-            !profile?.gemini_api_key ? (
-              <div className="mt-3 py-1.5 px-4 rounded-full bg-purple-500/5 border border-purple-500/10 text-[10px] text-gray-400 font-medium flex items-center gap-1.5 justify-center hover:bg-purple-500/10 transition-colors cursor-pointer">
-                <Sparkles size={12} className="text-purple-400" />
-                <span>Añade una foto para autocompletar con IA</span>
-                <a href="/profile" className="text-purple-400 font-bold hover:underline ml-1">Configura tu API Key</a>
-              </div>
-            ) : (
-              <div className="mt-3 py-1.5 px-4 rounded-full bg-emerald-500/5 border border-emerald-500/10 text-[10px] text-emerald-400 font-medium flex items-center gap-1.5 justify-center">
-                <Sparkles size={12} className="text-emerald-400 animate-pulse" />
-                <span>Añade una foto para habilitar la IA ✨</span>
-              </div>
-            )
+          {!preview && profile?.gemini_api_key && (
+            <div className="mt-3 py-1.5 px-4 rounded-full bg-emerald-500/5 border border-emerald-500/10 text-[10px] text-emerald-400 font-medium flex items-center gap-1.5 justify-center">
+              <Sparkles size={12} className="text-emerald-400 animate-pulse" />
+              <span>Añade una foto para habilitar la IA ✨</span>
+            </div>
           )}
         </div>
 

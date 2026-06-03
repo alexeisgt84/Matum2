@@ -10,7 +10,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
   free: {
     catalogs: 1,
     products: 8,
-    groups: 1,
+    groups: 0,
   },
   basic: {
     catalogs: 2,

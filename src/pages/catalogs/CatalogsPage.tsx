@@ -1,19 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCatalogs } from '../../hooks/useCatalogs';
+import { useCollaboration } from '../../hooks/useCollaboration';
 import { usePlanLimits } from '../../hooks/usePlanLimits';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Button } from '../../components/ui/Button';
 import { LimitBadge } from '../../components/ui/LimitBadge';
 import { UpgradeModal } from '../../components/ui/UpgradeModal';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { LayoutGrid, Plus, ExternalLink, Trash2, Edit3 } from 'lucide-react';
+import { LayoutGrid, Plus, ExternalLink, Trash2, Edit3, Sparkles, X, MessageSquare } from 'lucide-react';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { useShareStore } from '../../store/shareStore';
+import { toast } from 'react-hot-toast';
+import { SwipeableShareBanner } from '../../components/products/SwipeableShareBanner';
 
 export const CatalogsPage = () => {
-  const { catalogs, loading, getCatalogs, deleteCatalog } = useCatalogs();
+  const { catalogs, sharedCatalogs, loading, getCatalogs, getSharedCatalogs, deleteCatalog } = useCatalogs();
+  const { pendingMemberInvitations, getPendingMemberInvitations, respondToMemberInvitation } = useCollaboration();
   const { limits, counts, canCreateCatalog } = usePlanLimits();
+  const { sharedContentList, removeSharedContent } = useShareStore();
   const navigate = useNavigate();
   
   const [showUpgrade, setShowUpgrade] = useState(false);
@@ -21,7 +27,9 @@ export const CatalogsPage = () => {
 
   useEffect(() => {
     getCatalogs();
-  }, [getCatalogs]);
+    getSharedCatalogs();
+    getPendingMemberInvitations();
+  }, [getCatalogs, getSharedCatalogs, getPendingMemberInvitations]);
 
   const handleCreateClick = () => {
     if (canCreateCatalog) {
@@ -93,6 +101,66 @@ export const CatalogsPage = () => {
         />
       </div>
 
+      {pendingMemberInvitations.length > 0 && (
+        <div className="mb-6 space-y-3 bg-accent/5 border border-accent/15 p-4 rounded-2xl animate-in slide-in-from-top duration-300">
+          <h4 className="text-[10px] font-black uppercase tracking-wider text-accent flex items-center gap-1.5">
+            <Sparkles size={12} />
+            Invitaciones a Colaborar ({pendingMemberInvitations.length})
+          </h4>
+          <div className="space-y-2">
+            {pendingMemberInvitations.map((inv: any) => (
+              <div key={inv.id} className="flex justify-between items-center bg-surface p-3 rounded-xl border border-border">
+                <div className="min-w-0 flex-1 pr-3">
+                  <p className="font-bold text-primary text-xs truncate">{inv.catalog?.name}</p>
+                  <p className="text-secondary text-[10px] truncate">{inv.catalog?.description || 'Sin descripción'}</p>
+                </div>
+                <div className="flex gap-1.5 flex-shrink-0">
+                  <Button 
+                    size="sm" 
+                    className="!py-1 px-3 text-[10px] h-7"
+                    onClick={async () => {
+                      const ok = await respondToMemberInvitation(inv.id, 'accepted');
+                      if (ok) {
+                        getSharedCatalogs();
+                      }
+                    }}
+                  >
+                    Aceptar
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    className="!py-1 px-3 text-[10px] h-7 border-border hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20"
+                    onClick={() => respondToMemberInvitation(inv.id, 'rejected')}
+                  >
+                    Rechazar
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sharedContentList.length > 0 && (
+        <div className="mb-6 space-y-1">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-secondary px-1 mb-1 flex justify-between items-center">
+            <span>Productos en espera ({sharedContentList.length})</span>
+            <span className="text-[8px] lowercase opacity-60">Arraste a la izquierda para borrar</span>
+          </p>
+          {sharedContentList.map((item, index) => (
+            <SwipeableShareBanner
+              key={index}
+              item={item}
+              onRegister={() => {
+                toast.success('Selecciona un catálogo abajo para registrar el producto', { id: 'select-catalog-toast' });
+              }}
+              onDelete={() => removeSharedContent(index)}
+            />
+          ))}
+        </div>
+      )}
+
       {catalogs.length === 0 ? (
         <EmptyState
           icon={LayoutGrid}
@@ -158,6 +226,52 @@ export const CatalogsPage = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {sharedCatalogs.length > 0 && (
+        <div className="mt-8 space-y-4">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-secondary px-1">
+            Catálogos en los que colaboras ({sharedCatalogs.length})
+          </h2>
+          <div className="grid gap-4">
+            {sharedCatalogs.map((catalog: any) => (
+              <div 
+                key={catalog.id} 
+                className="card group hover:border-accent/30 transition-all cursor-pointer relative overflow-hidden"
+                onClick={() => navigate(`/catalogs/${catalog.id}`)}
+              >
+                <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+                
+                <div className="relative flex justify-between items-start">
+                  <div className="space-y-1 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-primary group-hover:text-accent transition-colors">
+                        {catalog.name}
+                      </h3>
+                      <span className="text-[9px] bg-accent/10 text-accent px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                        Colaborador
+                      </span>
+                    </div>
+                    <p className="text-secondary text-sm line-clamp-2 pr-8 leading-relaxed">
+                      {catalog.description || 'Sin descripción'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-6 mt-4 border-t border-border flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-secondary">
+                  <div className="flex items-center gap-1.5">
+                    <LayoutGrid size={12} />
+                    <span className="tabular-nums">{catalog.productCount || 0} Productos</span>
+                  </div>
+                  <div className="flex items-center gap-1 group-hover:text-accent transition-colors">
+                    Abrir Catálogo
+                    <ExternalLink size={12} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

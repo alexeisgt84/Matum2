@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
+import { useShareStore } from '../../store/shareStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { 
@@ -33,7 +34,10 @@ import {
   Layout,
   X,
   ZapOff,
-  Globe
+  Globe,
+  Sparkles,
+  Shield,
+  UserMinus
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { shareContent } from '../../lib/share';
@@ -46,6 +50,7 @@ import { useSendingEngine } from '../../hooks/useSendingEngine';
 import { usePlanLimits } from '../../hooks/usePlanLimits';
 import { ProductCard } from '../../components/products/ProductCard';
 import { ProductFormModal } from '../../components/products/ProductFormModal';
+import { SwipeableShareBanner } from '../../components/products/SwipeableShareBanner';
 import { NemuImportModal } from '../../components/catalogs/NemuImportModal';
 import { MessageCard } from '../../components/messages/MessageCard';
 import { MessageFormModal } from '../../components/messages/MessageFormModal';
@@ -67,7 +72,9 @@ import { CatalogStatusBar } from '../../components/catalogs/CatalogStatusBar';
 import { ScheduleSequenceModal } from '../../components/catalogs/ScheduleSequenceModal';
 import type { SequenceSchedule } from '../../types/catalog';
 
-type View = 'individual' | 'sequences' | 'products' | 'groups';
+import { useCollaboration } from '../../hooks/useCollaboration';
+
+type View = 'individual' | 'sequences' | 'products' | 'groups' | 'members';
 
 export const CatalogDetailPage = () => {
   const { catalogId } = useParams();
@@ -75,6 +82,14 @@ export const CatalogDetailPage = () => {
   const { setTitle, setSubtitle, setRightAction } = useHeader();
   const { user } = useAuthStore();
   
+  const { 
+    members, 
+    getCatalogMembers, 
+    inviteMember, 
+    removeMember,
+    inviteFollower 
+  } = useCollaboration();
+
   const [searchParams, setSearchParams] = useSearchParams();
   const currentView = (searchParams.get('view') as View) || 'individual';
   
@@ -89,11 +104,35 @@ export const CatalogDetailPage = () => {
   const [catalog, setCatalog] = useState<any>(null);
   const [catLoading, setCatLoading] = useState(true);
 
+  const isOwner = catalog ? catalog.user_id === user?.id : false;
+
+  // Redirigir a colaboradores a la pestaña de productos por seguridad
+  useEffect(() => {
+    if (catalog && catalog.user_id !== user?.id && view !== 'products') {
+      setView('products');
+    }
+  }, [catalog, user?.id, view]);
+
+  // Cargar miembros colaboradores si es el propietario y está en la vista correspondiente
+  useEffect(() => {
+    if (view === 'members' && catalogId && isOwner) {
+      getCatalogMembers(catalogId);
+    }
+  }, [view, catalogId, isOwner, getCatalogMembers]);
+
   // Modales
   const [isEvolutionOpen, setIsEvolutionOpen] = useState(false);
 
   // Hooks de Evolución (para saber si está conectado)
   const { instance } = useEvolution(catalogId);
+  const hasInstance = instance?.status === 'connected';
+
+  // Redirigir si la vista activa es 'sequences' pero no hay conexión
+  useEffect(() => {
+    if (view === 'sequences' && !hasInstance) {
+      setView('individual');
+    }
+  }, [view, hasInstance]);
 
   // Estados de Búsqueda y Ordenación
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,6 +164,8 @@ export const CatalogDetailPage = () => {
   const { counts, limits, canAddProduct, refresh: refreshLimits } = usePlanLimits();
 
   // Estados de Modales
+  const { sharedContentList, removeSharedContent } = useShareStore();
+  const [prefillIndex, setPrefillIndex] = useState<number | null>(null);
   const [isProdFormOpen, setIsProdFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
@@ -375,7 +416,7 @@ export const CatalogDetailPage = () => {
           icon: Globe, 
           onClick: () => window.open(`/${catalog.slug}`, '_blank') 
         });
-      } else {
+      } else if (isOwner) {
         optionsItems.push({ 
           label: 'Publicar en la Web', 
           icon: Globe, 
@@ -383,44 +424,54 @@ export const CatalogDetailPage = () => {
         });
       }
 
-      optionsItems.push(
-        { 
-          label: 'Ajustes de Tienda', 
-          icon: Settings, 
-          onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=store`) 
-        },
-        { 
-          label: 'Configurar Plantillas', 
-          icon: Layout, 
-          onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=templates`) 
-        },
-        { 
-          label: 'Conectar WhatsApp', 
-          icon: Smartphone, 
-          onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=whatsapp`) 
-        },
-        { 
-          label: 'Grupos Vinculados', 
-          icon: Users, 
-          onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=groups`) 
-        },
-        { 
-          label: 'Automatización y Colas', 
-          icon: Zap, 
-          onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=automation`) 
-        },
-        { 
-          label: 'Vincular con Nemu', 
-          icon: ShoppingBag, 
-          onClick: () => setIsNemuImportOpen(true) 
+      if (isOwner) {
+        optionsItems.push(
+          { 
+            label: 'Ajustes de Tienda', 
+            icon: Settings, 
+            onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=store`) 
+          },
+          { 
+            label: 'Configurar Plantillas', 
+            icon: Layout, 
+            onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=templates`) 
+          },
+          { 
+            label: 'Conectar WhatsApp', 
+            icon: Smartphone, 
+            onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=whatsapp`) 
+          }
+        );
+
+        if (hasInstance) {
+          optionsItems.push(
+            { 
+              label: 'Grupos Vinculados', 
+              icon: Users, 
+              onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=groups`) 
+            },
+            { 
+              label: 'Automatización y Colas', 
+              icon: Zap, 
+              onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=automation`) 
+            }
+          );
         }
-      );
+
+        optionsItems.push(
+          { 
+            label: 'Vincular con Nemu', 
+            icon: ShoppingBag, 
+            onClick: () => setIsNemuImportOpen(true) 
+          }
+        );
+      }
 
       const StatBadge = ({ icon: Icon, value, color, onClick, title }: { icon: any, value: number, color: string, onClick?: () => void, title?: string }) => (
         <div 
           onClick={onClick}
           title={title}
-          className={`flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/5 ${onClick ? 'cursor-pointer hover:bg-white/10 active:scale-95 transition-all' : ''}`}
+          className={`flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/5 ${(onClick && isOwner) ? 'cursor-pointer hover:bg-white/10 active:scale-95 transition-all' : ''}`}
         >
           <Icon size={12} className={color} />
           <span className="text-[10px] font-bold text-gray-300 tabular-nums">{value}</span>
@@ -432,7 +483,7 @@ export const CatalogDetailPage = () => {
           {/* Mini Stats discreet */}
           <div className="hidden sm:flex items-center gap-1.5 mr-2">
             <StatBadge icon={MessageSquare} value={messages.length} color="text-blue-400" />
-            <StatBadge icon={Zap} value={messages.filter(m => m.is_sequence).length} color="text-yellow-400" />
+            {hasInstance && <StatBadge icon={Zap} value={messages.filter(m => m.is_sequence).length} color="text-yellow-400" />}
             <StatBadge icon={Package} value={products.length} color="text-purple-400" />
             <StatBadge icon={Users} value={linkedGroups.filter(g => g.is_active).length} color="text-[var(--accent)]" />
             {queueStats.pending > 0 && (
@@ -440,7 +491,7 @@ export const CatalogDetailPage = () => {
                 icon={Clock} 
                 value={queueStats.pending} 
                 color="text-orange-400 animate-pulse" 
-                onClick={() => setIsQueueModalOpen(true)}
+                onClick={isOwner ? () => setIsQueueModalOpen(true) : undefined}
                 title="Ver cola de envío"
               />
             )}
@@ -449,21 +500,23 @@ export const CatalogDetailPage = () => {
                 icon={AlertCircle} 
                 value={queueStats.error} 
                 color="text-red-400" 
-                onClick={() => setIsQueueModalOpen(true)}
+                onClick={isOwner ? () => setIsQueueModalOpen(true) : undefined}
                 title="Ver cola de envío"
               />
             )}
           </div>
 
-          <DropdownMenu 
-            items={optionsItems} 
-            trigger={
-              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/5 text-gray-400 hover:text-white">
-                <Settings size={18} />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Opciones</span>
-              </button>
-            }
-          />
+          {optionsItems.length > 0 && (
+            <DropdownMenu 
+              items={optionsItems} 
+              trigger={
+                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/5 text-gray-400 hover:text-white">
+                  <Settings size={18} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Opciones</span>
+                </button>
+              }
+            />
+          )}
         </div>
       );
     }
@@ -1132,7 +1185,7 @@ export const CatalogDetailPage = () => {
                 <span className="text-[8px] font-bold uppercase tracking-widest">Compartir</span>
               </button>
 
-              {selectedMessageIds.length > 0 && (
+              {selectedMessageIds.length > 0 && hasInstance && (
                 <button 
                   onClick={handleBulkSequence}
                   className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-yellow-500/10 text-secondary hover:text-yellow-400 border border-border hover:border-yellow-500/20 transition-all group"
@@ -1163,8 +1216,8 @@ export const CatalogDetailPage = () => {
               )}
             </div>
           </div>
-        ) : (
-          /* Triple Switch Moderno */
+        ) : isOwner ? (
+          /* Switch Moderno Adaptativo (Cuádruple o Triple) */
           <div className="relative flex p-1.5 bg-surface-hover rounded-2xl border border-border backdrop-blur-sm">
             <button
               onClick={() => setView('individual')}
@@ -1186,24 +1239,46 @@ export const CatalogDetailPage = () => {
               <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Productos</span>
             </button>
 
-          <button
-            onClick={() => setView('sequences')}
-            className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
-              view === 'sequences' ? 'text-accent' : 'text-secondary hover:text-primary'
-            }`}
-          >
-            <Zap size={18} className={view === 'sequences' ? 'animate-pulse' : ''} />
-            <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Secuencia</span>
-          </button>
+            {hasInstance && (
+              <button
+                onClick={() => setView('sequences')}
+                className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
+                  view === 'sequences' ? 'text-accent' : 'text-secondary hover:text-primary'
+                }`}
+              >
+                <Zap size={18} className={view === 'sequences' ? 'animate-pulse' : ''} />
+                <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Secuencia</span>
+              </button>
+            )}
 
-          {/* Indicador Deslizante */}
-          <div 
-            className="absolute top-1.5 bottom-1.5 left-1.5 transition-all duration-500 ease-out bg-primary/10 rounded-xl border border-primary/10 shadow-lg shadow-accent/10"
-            style={{ 
-              width: 'calc((100% - 12px) / 3)',
-              transform: `translateX(${view === 'individual' ? '0%' : view === 'products' ? '100%' : view === 'sequences' ? '200%' : '0%'})`
-            }}
-          />
+            <button
+              onClick={() => setView('members')}
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
+                view === 'members' ? 'text-accent' : 'text-secondary hover:text-primary'
+              }`}
+            >
+              <Users size={18} className={view === 'members' ? 'animate-pulse' : ''} />
+              <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Miembros</span>
+            </button>
+
+            {/* Indicador Deslizante Adaptativo */}
+            <div 
+              className="absolute top-1.5 bottom-1.5 left-1.5 transition-all duration-500 ease-out bg-primary/10 rounded-xl border border-primary/10 shadow-lg shadow-accent/10"
+              style={{ 
+                width: hasInstance ? 'calc((100% - 16px) / 4)' : 'calc((100% - 12px) / 3)',
+                transform: hasInstance
+                  ? `translateX(${view === 'individual' ? '0%' : view === 'products' ? '100%' : view === 'sequences' ? '200%' : view === 'members' ? '300%' : '0%'})`
+                  : `translateX(${view === 'individual' ? '0%' : view === 'products' ? '100%' : view === 'members' ? '200%' : '0%'})`
+              }}
+            />
+          </div>
+        ) : (
+          /* Vista simple para colaboradores */
+          <div className="flex items-center justify-between px-3 py-3 border border-border bg-surface-hover rounded-2xl">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-secondary flex items-center gap-2">
+              <Package size={14} className="text-accent" />
+              Gestión de Productos (Colaboración)
+            </span>
           </div>
         )}
       </div>
@@ -1258,6 +1333,31 @@ export const CatalogDetailPage = () => {
                 ]}
               />
             </div>
+
+            {sharedContentList.length > 0 && (
+              <div className="mb-4 space-y-1">
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-secondary px-1 mb-1 flex justify-between items-center">
+                  <span>Productos en espera ({sharedContentList.length})</span>
+                  <span className="text-[8px] lowercase opacity-60">Arraste a la izquierda para borrar</span>
+                </p>
+                {sharedContentList.map((item, index) => (
+                  <SwipeableShareBanner
+                    key={index}
+                    item={item}
+                    onRegister={() => {
+                      if (canAddProduct) {
+                        setEditingProduct(null);
+                        setPrefillIndex(index);
+                        setIsProdFormOpen(true);
+                      } else {
+                        setShowUpgrade(true);
+                      }
+                    }}
+                    onDelete={() => removeSharedContent(index)}
+                  />
+                ))}
+              </div>
+            )}
 
             {prodLoading && products.length === 0 ? (
               <div className="grid gap-4">
@@ -1316,7 +1416,7 @@ export const CatalogDetailPage = () => {
                                       setIsProdFormOpen(true);
                                     }}
                                     onDelete={setProductToDelete}
-                                    onSendNow={sendSingleProduct}
+                                    onSendNow={hasInstance ? sendSingleProduct : undefined}
                                     isSending={sendingIds.has(`prod_${product.id}`)}
                                     onOutOfStock={(p) => setProductToAgotado(p)}
                                     onAvailable={(p) => setProductToAvailable(p)}
@@ -1404,9 +1504,9 @@ export const CatalogDetailPage = () => {
                                     setIsMsgFormOpen(true);
                                   }}
                                   onDelete={setMessageToDelete}
-                                  onSendNow={sendSingleMessage}
+                                  onSendNow={hasInstance ? sendSingleMessage : undefined}
                                   isSending={sendingIds.has(`msg_${message.id}`)}
-                                  onToggleSequence={toggleMessageSequence}
+                                  onToggleSequence={hasInstance ? toggleMessageSequence : undefined}
                                 />
                             </div>
                           )}
@@ -1508,9 +1608,9 @@ export const CatalogDetailPage = () => {
                                     setIsMsgFormOpen(true);
                                   }}
                                   onDelete={setMessageToDelete}
-                                  onSendNow={sendSingleMessage}
+                                  onSendNow={hasInstance ? sendSingleMessage : undefined}
                                   isSending={sendingIds.has(`msg_${message.id}`)}
-                                  onToggleSequence={toggleMessageSequence}
+                                  onToggleSequence={hasInstance ? toggleMessageSequence : undefined}
                                 />
                             </div>
                           )}
@@ -1611,18 +1711,154 @@ export const CatalogDetailPage = () => {
             )}
           </div>
         )}
+
+        {view === 'members' && isOwner && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+            {/* Sección: Colaboradores del Catálogo */}
+            <div className="card p-5 space-y-4 border-border">
+              <div className="flex items-center gap-2 pb-3 border-b border-border">
+                <Shield size={18} className="text-accent" />
+                <h3 className="font-bold text-primary text-sm uppercase tracking-wider">Miembros Colaboradores</h3>
+              </div>
+              <p className="text-secondary text-xs">
+                Los colaboradores pueden agregar, editar y eliminar productos en este catálogo, además de compartirlo en sus propios perfiles.
+              </p>
+
+              {/* Formulario de invitación de colaboradores */}
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  const phoneInput = form.elements.namedItem('collabPhone') as HTMLInputElement;
+                  let phone = phoneInput.value.trim();
+                  if (!phone) return;
+                  
+                  // Si tiene 8 dígitos (ej. móvil en Cuba), agregar prefijo +53
+                  const digits = phone.replace(/\D/g, '');
+                  if (digits.length === 8) {
+                    phone = '+53' + digits;
+                  }
+                  
+                  const success = await inviteMember(catalogId!, phone);
+                  if (success) phoneInput.value = '';
+                }}
+                className="flex gap-2"
+              >
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary">+</span>
+                  <input
+                    name="collabPhone"
+                    type="tel"
+                    placeholder="Teléfono del colaborador (ej. 54911...)"
+                    className="w-full bg-background border border-border rounded-xl h-10 pl-6 pr-3 text-xs focus:border-accent focus:outline-none transition-colors text-primary"
+                    required
+                  />
+                </div>
+                <Button type="submit" size="sm" className="h-10 px-4 flex-shrink-0">
+                  Invitar
+                </Button>
+              </form>
+
+              {/* Lista de colaboradores */}
+              <div className="space-y-2 pt-2">
+                {members.length === 0 ? (
+                  <p className="text-[10px] text-secondary italic text-center py-2">No hay colaboradores añadidos aún.</p>
+                ) : (
+                  members.map((member: any) => (
+                    <div key={member.id} className="flex justify-between items-center bg-background border border-border p-3 rounded-xl animate-in fade-in duration-200">
+                      <div className="min-w-0 flex-1 pr-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-primary text-xs truncate">
+                            {member.user_profile?.full_name || `+${member.invited_phone}`}
+                          </span>
+                          {member.user_profile?.full_name && (
+                            <span className="text-[9px] text-secondary font-mono">+{member.invited_phone}</span>
+                          )}
+                        </div>
+                        <span className={`inline-block text-[8px] font-black uppercase tracking-wider mt-1 px-1.5 py-0.5 rounded ${
+                          member.status === 'accepted' 
+                            ? 'bg-green-500/10 text-green-500 border border-green-500/20' 
+                            : member.status === 'rejected'
+                            ? 'bg-red-500/10 text-red-500 border border-red-500/20'
+                            : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+                        }`}>
+                          {member.status === 'accepted' ? 'Aceptado' : member.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                        </span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => removeMember(catalogId!, member.id)}
+                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
+                        title="Eliminar miembro"
+                      >
+                        <UserMinus size={16} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Sección: Invitar Seguidores */}
+            <div className="card p-5 space-y-4 border-border">
+              <div className="flex items-center gap-2 pb-3 border-b border-border">
+                <Users size={18} className="text-accent" />
+                <h3 className="font-bold text-primary text-sm uppercase tracking-wider">Invitar Seguidores</h3>
+              </div>
+              <p className="text-secondary text-xs">
+                Envía una invitación para que otros usuarios sigan tu catálogo. Recibirán la solicitud en su bandeja de catálogos seguidos.
+              </p>
+
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  const phoneInput = form.elements.namedItem('followerPhone') as HTMLInputElement;
+                  let phone = phoneInput.value.trim();
+                  if (!phone) return;
+                  
+                  // Si tiene 8 dígitos (ej. móvil en Cuba), agregar prefijo +53
+                  const digits = phone.replace(/\D/g, '');
+                  if (digits.length === 8) {
+                    phone = '+53' + digits;
+                  }
+                  
+                  const success = await inviteFollower(catalogId!, phone);
+                  if (success) phoneInput.value = '';
+                }}
+                className="flex gap-2"
+              >
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary">+</span>
+                  <input
+                    name="followerPhone"
+                    type="tel"
+                    placeholder="Teléfono del seguidor (ej. 54911...)"
+                    className="w-full bg-background border border-border rounded-xl h-10 pl-6 pr-3 text-xs focus:border-accent focus:outline-none transition-colors text-primary"
+                    required
+                  />
+                </div>
+                <Button type="submit" size="sm" className="h-10 px-4 flex-shrink-0">
+                  Enviar Invitación
+                </Button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="fixed bottom-24 right-6 z-20">
-        <Button 
-          size="lg"
-          className="w-14 h-14 rounded-full flex items-center justify-center p-0" 
-          icon={Plus}
-          iconSize={24}
-          onClick={handleAddAction}
-          title={view === 'products' ? 'Nuevo Producto' : view === 'groups' ? 'Vincular Grupos' : 'Nuevo Mensaje'}
-        />
-      </div>
+      {view !== 'members' && (
+        <div className="fixed bottom-24 right-6 z-20">
+          <Button 
+            size="lg"
+            className="w-14 h-14 rounded-full flex items-center justify-center p-0" 
+            icon={Plus}
+            iconSize={24}
+            onClick={handleAddAction}
+            title={view === 'products' ? 'Nuevo Producto' : view === 'groups' ? 'Vincular Grupos' : 'Nuevo Mensaje'}
+          />
+        </div>
+      )}
 
       {/* Evolution Config Modal */}
       <Modal 
@@ -1647,8 +1883,12 @@ export const CatalogDetailPage = () => {
       {/* Modales de Producto */}
       <ProductFormModal
         isOpen={isProdFormOpen}
-        onClose={() => setIsProdFormOpen(false)}
+        onClose={() => {
+          setIsProdFormOpen(false);
+          setPrefillIndex(null);
+        }}
         product={editingProduct}
+        prefilledData={prefillIndex !== null ? sharedContentList[prefillIndex] : null}
         onSave={async (form, id, file, shouldSend) => {
           try {
             const product = await saveProduct(form, id, file);
@@ -1656,6 +1896,10 @@ export const CatalogDetailPage = () => {
               refreshLimits();
               if (shouldSend) {
                 await sendProductAvailable(product);
+              }
+              if (prefillIndex !== null) {
+                removeSharedContent(prefillIndex);
+                setPrefillIndex(null);
               }
               return true;
             }

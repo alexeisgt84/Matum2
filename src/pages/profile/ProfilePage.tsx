@@ -314,7 +314,7 @@ export const ProfilePage = () => {
           variant="secondary" 
           className="w-full justify-between" 
           icon={CreditCard}
-          onClick={() => toast.success('Próximamente')}
+          onClick={() => navigate('/profile/subscription')}
         >
           Gestionar Suscripción
         </Button>

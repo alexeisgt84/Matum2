@@ -19,6 +19,13 @@ export const AdminDashboard = () => {
       color: 'bg-purple-500/10 text-purple-500'
     },
     {
+      title: 'Validación de Pagos',
+      description: 'Aprobar o rechazar comprobantes de suscripción',
+      icon: CreditCard,
+      path: '/admin/payments',
+      color: 'bg-emerald-500/10 text-emerald-500'
+    },
+    {
       title: 'Usuarios y Roles',
       description: 'Ver usuarios registrados y cambiar sus privilegios',
       icon: Users,

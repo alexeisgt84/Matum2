@@ -333,6 +333,14 @@ export const CatalogSettingsPage = () => {
 
   // WhatsApp e Instancia
   const { instance, loading: instanceLoading, checkStatus } = useEvolution(catalogId);
+  const hasInstance = instance?.status === 'connected';
+
+  // Redirigir si la pestaña activa requiere conexión y no la hay
+  useEffect(() => {
+    if ((activeTab === 'groups' || activeTab === 'automation') && !hasInstance) {
+      setActiveTab('whatsapp');
+    }
+  }, [activeTab, hasInstance]);
 
   // Hooks de Grupos
   const { 
@@ -857,14 +865,16 @@ export const CatalogSettingsPage = () => {
     );
   }
 
-  const tabs = [
-    { id: 'store', label: 'Tienda', icon: ShoppingBag },
-    { id: 'whatsapp', label: 'WhatsApp', icon: Smartphone },
-    { id: 'groups', label: 'Grupos', icon: Users },
-    { id: 'automation', label: 'Automatización', icon: Zap },
-    { id: 'templates', label: 'Plantillas', icon: Layout },
-    { id: 'history', label: 'Historial', icon: Clock },
-  ] as const;
+  const tabs: { id: SettingsTab; label: string; icon: any }[] = [
+    { id: 'store' as SettingsTab, label: 'Tienda', icon: ShoppingBag },
+    { id: 'whatsapp' as SettingsTab, label: 'WhatsApp', icon: Smartphone },
+    ...(hasInstance ? [
+      { id: 'groups' as SettingsTab, label: 'Grupos', icon: Users },
+      { id: 'automation' as SettingsTab, label: 'Automatización', icon: Zap }
+    ] : []),
+    { id: 'templates' as SettingsTab, label: 'Plantillas', icon: Layout },
+    { id: 'history' as SettingsTab, label: 'Historial', icon: Clock },
+  ];
 
   return (
     <div className="p-4 max-w-lg mx-auto pb-32">
