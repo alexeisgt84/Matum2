@@ -5,7 +5,8 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import type { Product, ProductForm } from '../../types/product';
 import type { Category } from '../../types/category';
-import { Camera, Save, Tag, Send, ImagePlus, Sparkles, Crown } from 'lucide-react';
+import { Camera, Save, Tag, Send, ImagePlus, Sparkles, Crown, Calculator } from 'lucide-react';
+import { CalculatorModal } from '../ui/CalculatorModal';
 import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { ImageCropperModal } from '../ui/ImageCropperModal';
 import { blobToFile } from '../../lib/imageOptimizer';
@@ -46,6 +47,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [preview, setPreview] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isCropperOpen, setIsCropperOpen] = useState(false);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -359,12 +361,28 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             <div className="col-span-2">
               <Input
                 label="Precio"
-                type="number"
+                type="text"
+                inputMode="decimal"
                 placeholder="0.00"
                 value={form.price}
-                onChange={(e) => setForm({ ...form, price: e.target.value })}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                    setForm({ ...form, price: val });
+                  }
+                }}
                 icon={Tag}
                 disabled={isAnalyzing}
+                rightElement={
+                  <button
+                    type="button"
+                    onClick={() => setCalculatorOpen(true)}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-surface hover:bg-surface-hover border border-border text-secondary hover:text-primary transition-colors active:scale-95 shadow-sm"
+                    title="Abrir calculadora"
+                  >
+                    <Calculator size={18} />
+                  </button>
+                }
               />
             </div>
             <div>
@@ -411,6 +429,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         onClose={() => setIsCropperOpen(false)}
         image={selectedImage}
         onCropComplete={handleCropComplete}
+      />
+
+      <CalculatorModal
+        isOpen={calculatorOpen}
+        onClose={() => setCalculatorOpen(false)}
+        onConfirm={(val) => setForm(prev => ({ ...prev, price: val.toString() }))}
+        initialValue={parseFloat(form.price.toString()) || 0}
       />
     </Modal>
   );

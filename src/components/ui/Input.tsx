@@ -9,6 +9,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement | HTMLTe
   rows?: number;
   icon?: any;
   showPasswordToggle?: boolean;
+  rightElement?: React.ReactNode;
 }
 
 export const Input: React.FC<InputProps> = ({
@@ -19,6 +20,7 @@ export const Input: React.FC<InputProps> = ({
   rows,
   icon: Icon,
   showPasswordToggle = true,
+  rightElement,
   className = '',
   type,
   ...props
@@ -34,7 +36,7 @@ export const Input: React.FC<InputProps> = ({
     ${error ? 'border-danger/50 focus:border-danger' : 'border-border focus:border-accent focus:bg-surface'}
     ${multiline ? 'p-4' : 'h-[58px] py-0 px-4'}
     ${Icon ? 'pl-12' : ''}
-    ${isPasswordType && showPasswordToggle ? 'pr-12' : ''}
+    ${(isPasswordType && showPasswordToggle) || rightElement ? 'pr-12' : ''}
     ${className}
   `;
 
@@ -71,6 +73,12 @@ export const Input: React.FC<InputProps> = ({
           >
             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
           </button>
+        )}
+
+        {rightElement && !isPasswordType && (
+          <div className="absolute right-3 flex items-center justify-center">
+            {rightElement}
+          </div>
         )}
       </div>
 
