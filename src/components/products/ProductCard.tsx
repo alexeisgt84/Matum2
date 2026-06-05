@@ -23,6 +23,10 @@ interface ProductCardProps {
   catalogName?: string | null;
   contactNumber?: string | null;
   catalogSlug?: string | null;
+  displayCurrency?: string;
+  usdToCupRate?: number;
+  cupToUsdRate?: number;
+  ownerPlan?: string;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -41,9 +45,45 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   shareTemplate,
   catalogName,
   contactNumber,
-  catalogSlug
+  catalogSlug,
+  displayCurrency,
+  usdToCupRate,
+  cupToUsdRate,
+  ownerPlan
 }) => {
+  const getDisplayPriceInfo = () => {
+    const price = product.price;
+    const currency = product.currency;
+    if (price === null) return { priceText: 'Consultar', currencyText: '' };
+
+    const hasDuality = ownerPlan && ownerPlan !== 'free';
+    if (!hasDuality || !displayCurrency || displayCurrency === 'original') {
+      return { priceText: `${price.toLocaleString()}`, currencyText: currency };
+    }
+
+    const usdToCup = Number(usdToCupRate) || 1.0;
+    const cupToUsd = Number(cupToUsdRate) || 1.0;
+
+    const pUsd = product.price_usd !== null && product.price_usd !== undefined ? product.price_usd : (currency === 'USD' ? price : price * cupToUsd);
+    const pCup = product.price_cup !== null && product.price_cup !== undefined ? product.price_cup : (currency === 'CUP' ? price : price * usdToCup);
+
+    switch (displayCurrency) {
+      case 'usd':
+        return { priceText: `${pUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`, currencyText: 'USD' };
+      case 'cup':
+        return { priceText: `${pCup.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`, currencyText: 'CUP' };
+      case 'both':
+        return { 
+          priceText: `${pUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USD / ${pCup.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`, 
+          currencyText: 'CUP' 
+        };
+      default:
+        return { priceText: `${price.toLocaleString()}`, currencyText: currency };
+    }
+  };
+
   const handleShare = async () => {
+    const { priceText, currencyText } = getDisplayPriceInfo();
     let text = '';
     if (shareTemplate) {
       const contactPhone = contactNumber || '';
@@ -51,14 +91,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       text = shareTemplate
         .replace(/{product_name}/g, (product.name || '').trim())
         .replace(/{product_description}/g, (product.description || '').trim())
-        .replace(/{product_price}/g, product.price ? `${product.price}`.trim() : 'Consultar')
-        .replace(/{product_currency}/g, (product.currency || '').trim())
+        .replace(/{product_price}/g, priceText.trim())
+        .replace(/{product_currency}/g, currencyText.trim())
         .replace(/{catalog_name}/g, (catalogName || '').trim())
         .replace(/{contact_number}/g, contactPhone)
         .replace(/{store_url}/g, storeUrl);
     } else {
-      const priceText = product.price ? `${product.price} ${product.currency}` : 'S/P';
-      text = `*${product.name}*\n\nPrecio: ${priceText}\n\n${product.description || ''}`.trim();
+      text = `*${product.name}*\n\nPrecio: ${priceText} ${currencyText}\n\n${product.description || ''}`.trim();
     }
 
     await shareContent({
@@ -198,7 +237,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </p>
           <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
             <span className="text-accent font-bold text-xs tabular-nums mr-1">
-              {product.price ? `${product.price} ${product.currency}` : 'S/P'}
+              {product.price ? `${getDisplayPriceInfo().priceText} ${getDisplayPriceInfo().currencyText}` : 'S/P'}
             </span>
             {product.parent_product_id && product.base_price !== undefined && product.base_price !== null && (
               <span className="text-secondary text-[9px] sm:text-[10px] font-semibold tabular-nums mr-1 bg-surface-hover px-1.5 py-0.5 rounded-lg border border-border/40 select-none" title="Precio original del catálogo origen">

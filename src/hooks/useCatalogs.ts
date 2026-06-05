@@ -132,6 +132,7 @@ export const useCatalogs = () => {
         .insert([{ 
           user_id: user.id, 
           name: form.nombre, 
+          slogan: form.slogan || null,
           description: form.descripcion,
           template: form.plantilla || '🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n✨ Ver catálogo completo: *{catalog_name}*',
           share_template: form.share_template || '✨ *¡Mira este producto!* ✨\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n💬 Escríbenos para ordenarlo o ver más detalles en el catálogo: *{catalog_name}*',
@@ -157,7 +158,12 @@ export const useCatalogs = () => {
           footer_email: form.footer_email || null,
           footer_schedule: form.footer_schedule || null,
           footer_instagram: form.footer_instagram || null,
-          footer_facebook: form.footer_facebook || null
+          footer_facebook: form.footer_facebook || null,
+          usd_to_cup_rate: form.usd_to_cup_rate ?? 1.0,
+          cup_to_usd_rate: form.cup_to_usd_rate ?? 1.0,
+          display_currency: form.display_currency || 'original',
+          min_order_amount: form.min_order_amount ?? 0.0,
+          min_order_currency: form.min_order_currency || 'CUP'
         }])
         .select()
         .single();
@@ -228,6 +234,7 @@ export const useCatalogs = () => {
       const updateData: any = {};
       
       if (form.nombre !== undefined) updateData.name = form.nombre;
+      if (form.slogan !== undefined) updateData.slogan = form.slogan;
       if (form.descripcion !== undefined) updateData.description = form.descripcion;
       if (form.plantilla !== undefined) updateData.template = form.plantilla;
       if (form.share_template !== undefined) updateData.share_template = form.share_template;
@@ -255,6 +262,11 @@ export const useCatalogs = () => {
       if (form.footer_schedule !== undefined) updateData.footer_schedule = form.footer_schedule;
       if (form.footer_instagram !== undefined) updateData.footer_instagram = form.footer_instagram;
       if (form.footer_facebook !== undefined) updateData.footer_facebook = form.footer_facebook;
+      if (form.usd_to_cup_rate !== undefined) updateData.usd_to_cup_rate = form.usd_to_cup_rate;
+      if (form.cup_to_usd_rate !== undefined) updateData.cup_to_usd_rate = form.cup_to_usd_rate;
+      if (form.display_currency !== undefined) updateData.display_currency = form.display_currency;
+      if (form.min_order_amount !== undefined) updateData.min_order_amount = form.min_order_amount;
+      if (form.min_order_currency !== undefined) updateData.min_order_currency = form.min_order_currency;
 
       const { error } = await supabase
         .from('catalogs')

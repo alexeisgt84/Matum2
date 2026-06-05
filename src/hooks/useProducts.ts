@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 
 import { optimizeImage, blobToFile } from '../lib/imageOptimizer';
 
-export const useProducts = (catalogId?: string, search?: string, sortField: string = 'position', sortOrder: 'asc' | 'desc' = 'asc') => {
+export const useProducts = (catalogId?: string, search?: string, sortField: string = 'position', sortOrder: 'asc' | 'desc' = 'asc', categoryId?: number | string | null) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -30,6 +30,15 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
         .from('products')
         .select('*')
         .eq('catalog_id', catalogId);
+
+      // Búsqueda por categoría
+      if (categoryId !== undefined && categoryId !== null) {
+        if (categoryId === 'none') {
+          query = query.is('category_id', null);
+        } else {
+          query = query.eq('category_id', Number(categoryId));
+        }
+      }
 
       // Búsqueda
       if (search && search.trim() !== '') {
@@ -75,7 +84,7 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
     } finally {
       setLoading(false);
     }
-  }, [catalogId, page, search, sortField, sortOrder]);
+  }, [catalogId, page, search, sortField, sortOrder, categoryId]);
 
   const loadMore = useCallback(() => {
     if (!loading && hasMore) {
@@ -126,7 +135,8 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
         description: form.description?.trim() || null,
         price: form.price === '' || form.price === null ? null : Number(form.price),
         currency: form.currency,
-        imagen_url
+        imagen_url,
+        category_id: form.category_id || null
       };
 
       let result: Product | null = null;
@@ -190,7 +200,8 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
         imagen_url: p.imagen_url,
         position: index,
         is_active: p.is_active,
-        is_out_of_stock: p.is_out_of_stock
+        is_out_of_stock: p.is_out_of_stock,
+        category_id: p.category_id || null
       }));
 
       const { error } = await supabase.from('products').upsert(updates);

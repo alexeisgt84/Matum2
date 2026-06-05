@@ -15,6 +15,9 @@ export interface Product {
   parent_product_id?: string | null;
   base_price?: number | null;
   is_discontinued?: boolean;
+  price_cup?: number | null;
+  price_usd?: number | null;
+  category_id?: number | null;
 }
 
 export interface ProductForm {
@@ -23,4 +26,6 @@ export interface ProductForm {
   price: number | string;
   currency: string;
   imagen_url?: string | null;
+  category_id?: number | null;
 }
+

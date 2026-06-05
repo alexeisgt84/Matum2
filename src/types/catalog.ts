@@ -8,6 +8,7 @@ export interface Catalog {
   id: string;
   user_id: string;
   name: string;
+  slogan: string | null;
   description: string | null;
   template: string | null;
   share_template: string | null;
@@ -37,6 +38,11 @@ export interface Catalog {
   footer_schedule?: string | null;
   footer_instagram?: string | null;
   footer_facebook?: string | null;
+  usd_to_cup_rate?: number;
+  cup_to_usd_rate?: number;
+  display_currency?: 'original' | 'usd' | 'cup' | 'both';
+  min_order_amount?: number;
+  min_order_currency?: string;
   created_at: string;
   updated_at: string;
 }
@@ -44,6 +50,7 @@ export interface Catalog {
 export interface CatalogForm {
   nombre: string;
   descripcion: string;
+  slogan?: string | null;
   plantilla?: string;
   share_template?: string;
   out_of_stock_template?: string;
@@ -70,4 +77,9 @@ export interface CatalogForm {
   footer_schedule?: string | null;
   footer_instagram?: string | null;
   footer_facebook?: string | null;
+  usd_to_cup_rate?: number;
+  cup_to_usd_rate?: number;
+  display_currency?: 'original' | 'usd' | 'cup' | 'both';
+  min_order_amount?: number;
+  min_order_currency?: string;
 }

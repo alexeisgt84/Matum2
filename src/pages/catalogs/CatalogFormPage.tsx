@@ -3,10 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Save, Info, Zap, Globe, AlertCircle, Camera, MapPin, Clock, Phone, Mail } from 'lucide-react';
+import { Save, Info, Zap, Globe, AlertCircle, Camera, MapPin, Clock, Phone, Mail, Coins, DollarSign, ShoppingBag } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Switch } from '../../components/ui/Switch';
+import { Select } from '../../components/ui/Select';
+import { useProfile } from '../../hooks/useProfile';
 import { toast } from 'react-hot-toast';
 
 const InstagramIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
@@ -52,8 +54,12 @@ export const CatalogFormPage = () => {
   const navigate = useNavigate();
   const { loading, createCatalog, updateCatalog } = useCatalogs();
   
+  const { profile } = useProfile();
+  const hasDualityAccess = (profile?.plan && profile.plan !== 'free') || profile?.role === 'admin';
+  
   const [form, setForm] = useState({
     nombre: '',
+    slogan: '',
     descripcion: '',
     is_active: true,
     is_public: false,
@@ -66,7 +72,12 @@ export const CatalogFormPage = () => {
     footer_email: '',
     footer_schedule: '',
     footer_instagram: '',
-    footer_facebook: ''
+    footer_facebook: '',
+    usd_to_cup_rate: 1.0,
+    cup_to_usd_rate: 1.0,
+    display_currency: 'original' as 'original' | 'usd' | 'cup' | 'both',
+    min_order_amount: 0,
+    min_order_currency: 'CUP'
   });
 
   const [slugError, setSlugError] = useState('');
@@ -99,6 +110,7 @@ export const CatalogFormPage = () => {
     if (data) {
       setForm({
         nombre: data.name,
+        slogan: data.slogan || '',
         descripcion: data.description || '',
         is_active: data.is_active ?? true,
         is_public: data.is_public ?? false,
@@ -111,7 +123,12 @@ export const CatalogFormPage = () => {
         footer_email: data.footer_email || '',
         footer_schedule: data.footer_schedule || '',
         footer_instagram: data.footer_instagram || '',
-        footer_facebook: data.footer_facebook || ''
+        footer_facebook: data.footer_facebook || '',
+        usd_to_cup_rate: Number(data.usd_to_cup_rate) || 1.0,
+        cup_to_usd_rate: Number(data.cup_to_usd_rate) > 1.0 ? (1 / Number(data.cup_to_usd_rate)) : (Number(data.cup_to_usd_rate) || 1.0),
+        display_currency: data.display_currency || 'original',
+        min_order_amount: Number(data.min_order_amount) || 0,
+        min_order_currency: data.min_order_currency || 'CUP'
       });
       setLogoPreview(data.logo_url);
       setCoverPreview(data.cover_url);
@@ -225,6 +242,13 @@ export const CatalogFormPage = () => {
             onChange={(e) => setForm({ ...form, nombre: e.target.value })}
             required
             autoFocus
+          />
+
+          <Input
+            label="Eslogan (Opcional)"
+            placeholder="Ej: Los mejores productos al mejor precio"
+            value={form.slogan || ''}
+            onChange={(e) => setForm({ ...form, slogan: e.target.value })}
           />
           
           <Input
@@ -382,6 +406,108 @@ export const CatalogFormPage = () => {
                 )}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Sección: Configuración de Moneda y Tasas */}
+        <div className="card space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-primary uppercase tracking-wider flex items-center gap-2">
+              <Coins size={16} className="text-[var(--accent)]" /> Moneda y Tasa
+            </h3>
+            <p className="text-[10px] text-secondary uppercase tracking-widest mt-1">Configura la dualidad de moneda en tu tienda</p>
+          </div>
+
+          <div className="space-y-4 border-t border-border pt-4">
+            {!hasDualityAccess ? (
+              <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 text-center space-y-3">
+                <p className="text-xs text-amber-400 font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 animate-pulse">
+                  👑 Función Básico / Premium
+                </p>
+                <p className="text-[11px] text-secondary leading-relaxed">
+                  La dualidad de moneda te permite ingresar productos en CUP o USD y mostrarlos convertidos automáticamente en tu tienda. Actualiza tu plan para habilitar esta opción.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 animate-in fade-in duration-300">
+                <Select
+                  label="Visualización en la Tienda"
+                  value={form.display_currency}
+                  onChange={(e) => setForm({ ...form, display_currency: e.target.value as any })}
+                >
+                  <option value="original" className="bg-surface text-primary">Moneda Original del Producto</option>
+                  <option value="usd" className="bg-surface text-primary">Mostrar solo en USD ($)</option>
+                  <option value="cup" className="bg-surface text-primary">Mostrar solo en CUP (Cubano)</option>
+                  <option value="both" className="bg-surface text-primary">Mostrar ambas monedas (USD / CUP)</option>
+                </Select>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input
+                    label="Precio de Venta del Dólar (USD en CUP)"
+                    type="number"
+                    step="0.01"
+                    placeholder="Ej: 600.00"
+                    value={form.usd_to_cup_rate}
+                    onChange={(e) => setForm({ ...form, usd_to_cup_rate: Number(e.target.value) || 1.0 })}
+                    icon={DollarSign}
+                    helperText="Precio en CUP al que vendes el dólar. Usado cuando un producto en USD se muestra en CUP."
+                  />
+
+                  <Input
+                    label="Precio de Compra del Dólar (USD en CUP)"
+                    type="number"
+                    step="1"
+                    placeholder="Ej: 580"
+                    value={form.cup_to_usd_rate > 0 ? Math.round(1 / form.cup_to_usd_rate) : ''}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setForm({ ...form, cup_to_usd_rate: val > 0 ? 1 / val : 1.0 });
+                    }}
+                    icon={DollarSign}
+                    helperText="Precio en CUP al que compras el dólar. Usado cuando un producto en CUP se muestra en USD."
+                  />
+                </div>
+                <p className="text-[10px] text-secondary italic">
+                  * Los precios de tus productos se convertirán usando estas tasas de cambio en la tienda pública.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sección: Monto Mínimo de Pedido */}
+        <div className="card space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-primary uppercase tracking-wider flex items-center gap-2">
+              <ShoppingBag size={16} className="text-[var(--accent)]" /> Monto Mínimo de Pedido
+            </h3>
+            <p className="text-[10px] text-secondary uppercase tracking-widest mt-1">Configura un importe mínimo para que tus clientes puedan solicitar el pedido</p>
+          </div>
+
+          <div className="space-y-4 border-t border-border pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Monto Mínimo de Compra"
+                type="number"
+                step="0.01"
+                placeholder="Ej: 1500.00"
+                value={form.min_order_amount || ''}
+                onChange={(e) => setForm({ ...form, min_order_amount: Number(e.target.value) || 0 })}
+                icon={Coins}
+              />
+
+              <Select
+                label="Moneda del Monto Mínimo"
+                value={form.min_order_currency}
+                onChange={(e) => setForm({ ...form, min_order_currency: e.target.value })}
+              >
+                <option value="CUP" className="bg-surface text-primary">CUP (Pesos Cubanos)</option>
+                <option value="USD" className="bg-surface text-primary">USD (Dólares Estadounidenses)</option>
+              </Select>
+            </div>
+            <p className="text-[10px] text-secondary italic">
+              * Si configuras un monto mínimo, los pedidos que no alcancen esta cifra (calculada según la tasa de cambio) no podrán enviarse a WhatsApp. Deja en 0 para no requerir mínimo.
+            </p>
           </div>
         </div>
 

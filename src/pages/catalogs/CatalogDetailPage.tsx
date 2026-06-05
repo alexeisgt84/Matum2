@@ -37,7 +37,9 @@ import {
   Globe,
   Sparkles,
   Shield,
-  UserMinus
+  UserMinus,
+  Coins,
+  FolderHeart
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { shareContent } from '../../lib/share';
@@ -59,9 +61,13 @@ import { LinkGroupsModal } from '../../components/groups/LinkGroupsModal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { UpgradeModal } from '../../components/ui/UpgradeModal';
 import { Modal } from '../../components/ui/Modal';
+import { ExchangeRatesModal } from '../../components/catalogs/ExchangeRatesModal';
 import { Switch } from '../../components/ui/Switch';
 import { EvolutionConfig } from '../../components/profile/EvolutionConfig';
 import { useHeader } from '../../lib/HeaderContext';
+import { useCategories } from '../../hooks/useCategories';
+import { ManageCategoriesModal } from '../../components/products/ManageCategoriesModal';
+import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { DropdownMenu, type DropdownItem } from '../../components/ui/DropdownMenu';
 import { toast } from 'react-hot-toast';
 import { useEvolution } from '../../hooks/useEvolution';
@@ -139,6 +145,8 @@ export const CatalogDetailPage = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortField, setSortField] = useState('position');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | string | null>(null);
+  const [isCategoriesModalOpen, setIsCategoriesModalOpen] = useState(false);
 
   // Debounce para la búsqueda
   useEffect(() => {
@@ -148,8 +156,11 @@ export const CatalogDetailPage = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Hook de Categorías
+  const { categories, getCategories } = useCategories(catalogId);
+
   // Hooks de Producto
-  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, updateProductsOrder } = useProducts(catalogId, debouncedSearch, sortField, sortOrder);
+  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, updateProductsOrder } = useProducts(catalogId, debouncedSearch, sortField, sortOrder, selectedCategoryId);
   
   // Hooks de Mensaje
   const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, updateMessagesOrder, toggleMessageSequence } = useMessages(catalogId);
@@ -167,6 +178,7 @@ export const CatalogDetailPage = () => {
   const { sharedContentList, removeSharedContent } = useShareStore();
   const [prefillIndex, setPrefillIndex] = useState<number | null>(null);
   const [isProdFormOpen, setIsProdFormOpen] = useState(false);
+  const [isExchangeRatesOpen, setIsExchangeRatesOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<string | null>(null);
   const [productToAgotado, setProductToAgotado] = useState<Product | null>(null);
@@ -360,7 +372,8 @@ export const CatalogDetailPage = () => {
     getProducts(true);
     getMessages();
     getLinkedGroups();
-  }, [catalogId, getMessages, getLinkedGroups, debouncedSearch, sortField, sortOrder]);
+    getCategories();
+  }, [catalogId, getMessages, getLinkedGroups, debouncedSearch, sortField, sortOrder, selectedCategoryId, getCategories]);
 
 
   const [isEnsuringCatalog, setIsEnsuringCatalog] = useState(false);
@@ -430,6 +443,11 @@ export const CatalogDetailPage = () => {
             label: 'Ajustes de Tienda', 
             icon: Settings, 
             onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=store`) 
+          },
+          { 
+            label: 'Tasa de Cambio', 
+            icon: Coins, 
+            onClick: () => setIsExchangeRatesOpen(true) 
           },
           { 
             label: 'Configurar Plantillas', 
@@ -572,6 +590,30 @@ export const CatalogDetailPage = () => {
       console.error('Error fetching queue stats:', err);
     } finally {
       setStatsLoading(false);
+    }
+  };
+
+  const updateExchangeRates = async (usdToCup: number, cupToUsd: number) => {
+    if (!catalogId) return;
+    try {
+      const { error } = await supabase
+        .from('catalogs')
+        .update({ 
+          usd_to_cup_rate: usdToCup,
+          cup_to_usd_rate: cupToUsd
+        })
+        .eq('id', catalogId);
+      
+      if (error) throw error;
+      setCatalog({ 
+        ...catalog, 
+        usd_to_cup_rate: usdToCup,
+        cup_to_usd_rate: cupToUsd
+      });
+      toast.success('Tasas de cambio actualizadas');
+    } catch (err: any) {
+      toast.error('Error al actualizar tasas de cambio');
+      throw err;
     }
   };
 
@@ -1288,20 +1330,20 @@ export const CatalogDetailPage = () => {
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             
             {/* Buscador y Ordenación */}
-            <div className="flex items-center gap-2 mb-6 flex-1">
+            <div className="flex items-center gap-2 mb-4 flex-1">
               <Input
                 type="text"
                 placeholder="Buscar por nombre, descripción o precio…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 icon={Search}
+                className="!h-12 py-0"
               />
               
               <DropdownMenu
                 trigger={
-                  <button className="flex items-center gap-2 px-3 py-2.5 bg-surface-hover border border-border rounded-xl hover:bg-surface transition-colors">
+                  <button className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-surface-hover border border-border rounded-xl hover:bg-surface transition-colors" title="Ordenar">
                     <ArrowUpDown size={18} className="text-accent" />
-                    <span className="hidden sm:inline text-xs font-bold uppercase">Ordenar</span>
                   </button>
                 }
                 items={[
@@ -1332,6 +1374,54 @@ export const CatalogDetailPage = () => {
                   }
                 ]}
               />
+            </div>
+
+            {/* Chips de Categorías */}
+            <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-none select-none">
+              <button
+                onClick={() => setSelectedCategoryId(null)}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                  selectedCategoryId === null
+                    ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-surface-hover border-border text-secondary hover:text-primary hover:border-white/20'
+                }`}
+              >
+                Todos
+              </button>
+              
+              <button
+                onClick={() => setSelectedCategoryId('none')}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                  selectedCategoryId === 'none'
+                    ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-surface-hover border-border text-secondary hover:text-primary hover:border-white/20'
+                }`}
+              >
+                Sin categoría
+              </button>
+
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategoryId(cat.id)}
+                  className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                    selectedCategoryId === cat.id
+                      ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
+                      : 'bg-surface-hover border-border text-secondary hover:text-primary hover:border-white/20'
+                  }`}
+                >
+                  <CategoryIcon name={cat.icon} size={14} />
+                  <span>{cat.name}</span>
+                </button>
+              ))}
+
+              <button
+                onClick={() => setIsCategoriesModalOpen(true)}
+                className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-surface-hover border border-dashed border-border rounded-full hover:bg-surface text-secondary hover:text-primary transition-all ml-1 cursor-pointer"
+                title="Gestionar Categorías"
+              >
+                <FolderHeart size={14} />
+              </button>
             </div>
 
             {sharedContentList.length > 0 && (
@@ -1411,6 +1501,10 @@ export const CatalogDetailPage = () => {
                                     catalogName={catalog?.name}
                                     catalogSlug={catalog?.slug}
                                     contactNumber={user?.phone}
+                                    displayCurrency={catalog?.display_currency}
+                                    usdToCupRate={catalog?.usd_to_cup_rate}
+                                    cupToUsdRate={catalog?.cup_to_usd_rate}
+                                    ownerPlan={user?.plan}
                                     onEdit={(p) => {
                                       setEditingProduct(p);
                                       setIsProdFormOpen(true);
@@ -1889,6 +1983,7 @@ export const CatalogDetailPage = () => {
         }}
         product={editingProduct}
         prefilledData={prefillIndex !== null ? sharedContentList[prefillIndex] : null}
+        categories={categories}
         onSave={async (form, id, file, shouldSend) => {
           try {
             const product = await saveProduct(form, id, file);
@@ -1910,6 +2005,18 @@ export const CatalogDetailPage = () => {
         }}
         loading={prodLoading}
       />
+
+      {catalogId && (
+        <ManageCategoriesModal
+          isOpen={isCategoriesModalOpen}
+          onClose={() => setIsCategoriesModalOpen(false)}
+          catalogId={catalogId}
+          onCategoriesChange={() => {
+            getCategories();
+            getProducts(true);
+          }}
+        />
+      )}
 
       <ConfirmDialog
         isOpen={!!productToDelete}
@@ -2192,6 +2299,14 @@ export const CatalogDetailPage = () => {
         onClose={() => setIsNemuImportOpen(false)}
         catalogId={catalogId!}
         onSuccess={() => getProducts(true)}
+      />
+
+      <ExchangeRatesModal
+        isOpen={isExchangeRatesOpen}
+        onClose={() => setIsExchangeRatesOpen(false)}
+        initialUsdToCup={catalog?.usd_to_cup_rate || 1.0}
+        initialCupToUsd={catalog?.cup_to_usd_rate || 1.0}
+        onSave={updateExchangeRates}
       />
 
       <ConfirmDialog

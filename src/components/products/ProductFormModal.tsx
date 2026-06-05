@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import type { Product, ProductForm } from '../../types/product';
+import type { Category } from '../../types/category';
 import { Camera, Save, Tag, Send, ImagePlus, Sparkles, Crown } from 'lucide-react';
 import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { ImageCropperModal } from '../ui/ImageCropperModal';
@@ -20,6 +21,7 @@ interface ProductFormModalProps {
   product?: Product | null;
   loading?: boolean;
   prefilledData?: { description?: string; file?: File; preview?: string } | null;
+  categories?: Category[];
 }
 
 export const ProductFormModal: React.FC<ProductFormModalProps> = ({
@@ -29,6 +31,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   product,
   loading = false,
   prefilledData = null,
+  categories = [],
 }) => {
   const { profile } = useProfile();
   const [form, setForm] = useState<ProductForm>({
@@ -37,6 +40,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     price: '',
     currency: 'USD',
     imagen_url: null,
+    category_id: null,
   });
   const [file, setFile] = useState<File | undefined>();
   const [preview, setPreview] = useState<string | null>(null);
@@ -120,6 +124,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         price: product.price?.toString() || '',
         currency: product.currency || 'USD',
         imagen_url: product.imagen_url,
+        category_id: product.category_id || null,
       });
       setPreview(product.imagen_url);
     } else if (prefilledData) {
@@ -129,11 +134,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         price: '',
         currency: 'USD',
         imagen_url: null,
+        category_id: null,
       });
       setPreview(prefilledData.preview || null);
       setFile(prefilledData.file);
     } else {
-      setForm({ name: '', description: '', price: '', currency: 'USD', imagen_url: null });
+      setForm({ name: '', description: '', price: '', currency: 'USD', imagen_url: null, category_id: null });
       setPreview(null);
       setFile(undefined);
     }
@@ -370,10 +376,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               >
                 <option value="USD" className="bg-surface text-primary">USD</option>
                 <option value="CUP" className="bg-surface text-primary">CUP</option>
-                <option value="MLC" className="bg-surface text-primary">MLC</option>
               </Select>
             </div>
           </div>
+
+          <Select
+            label="Categoría (Opcional)"
+            value={form.category_id || ''}
+            onChange={(e) => setForm({ ...form, category_id: e.target.value ? Number(e.target.value) : null })}
+            disabled={isAnalyzing}
+          >
+            <option value="" className="bg-surface text-primary">Sin categoría</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id} className="bg-surface text-primary">
+                {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
+              </option>
+            ))}
+          </Select>
 
           <Input
             label="Descripción (Opcional)"

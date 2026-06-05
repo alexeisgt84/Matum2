@@ -20,12 +20,16 @@ import {
   Phone,
   Mail,
   Settings,
-  Copy
+  Copy,
+  Coins
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { toast } from 'react-hot-toast';
 import { DropdownMenu } from '../../components/ui/DropdownMenu';
 import { useAuthStore } from '../../store/authStore';
+import { Modal } from '../../components/ui/Modal';
+import { Switch } from '../../components/ui/Switch';
+import { CategoryIcon } from '../../components/ui/CategoryIcon';
 
 const InstagramIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
   <svg
@@ -68,6 +72,7 @@ const FacebookIcon = ({ size = 20, className, ...props }: { size?: number; class
 interface PublicCatalog {
   id: string;
   name: string;
+  slogan: string | null;
   description: string | null;
   user_id: string;
   logo_url: string | null;
@@ -82,6 +87,11 @@ interface PublicCatalog {
   footer_schedule?: string | null;
   footer_instagram?: string | null;
   footer_facebook?: string | null;
+  min_order_amount?: number | null;
+  min_order_currency?: string | null;
+  usd_to_cup_rate?: number;
+  cup_to_usd_rate?: number;
+  display_currency?: 'original' | 'usd' | 'cup' | 'both';
 }
 
 interface PublicProduct {
@@ -93,6 +103,16 @@ interface PublicProduct {
   imagen_url: string | null;
   is_out_of_stock: boolean;
   stock_status: string;
+  price_cup?: number | null;
+  price_usd?: number | null;
+  category_id?: number | null;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  icon: string | null;
+  display_order: number;
 }
 
 interface CartItem {
@@ -107,6 +127,7 @@ export const PublicCatalogPage = () => {
   const [products, setProducts] = useState<PublicProduct[]>([]);
   const [vendorPhone, setVendorPhone] = useState<string>('');
   const [vendorName, setVendorName] = useState<string>('');
+  const [vendorPlan, setVendorPlan] = useState<string>('free');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -117,6 +138,18 @@ export const PublicCatalogPage = () => {
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc'>('default');
   const [selectedProduct, setSelectedProduct] = useState<PublicProduct | null>(null);
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | string | null>(null);
+
+  // Estados para el formulario de cliente
+  const [isCustomerFormOpen, setIsCustomerFormOpen] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [isDifferentRecipient, setIsDifferentRecipient] = useState(false);
+  const [deliveryName, setDeliveryName] = useState('');
+  const [deliveryPhone, setDeliveryPhone] = useState('');
 
   // Estados de paginación y diseño responsivo
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
@@ -132,11 +165,11 @@ export const PublicCatalogPage = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Reiniciar paginación cuando cambie la búsqueda o el orden
+  // Reiniciar paginación cuando cambie la búsqueda, la categoría o el orden
   useEffect(() => {
     setVisibleCount(10);
     setCurrentPage(1);
-  }, [searchQuery, sortBy]);
+  }, [searchQuery, sortBy, selectedCategoryId]);
 
   useEffect(() => {
     if (slug) {
@@ -151,7 +184,7 @@ export const PublicCatalogPage = () => {
       // 1. Obtener catálogo público y activo por su slug
       const { data: catData, error: catError } = await supabase
         .from('catalogs')
-        .select('id, name, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook')
+        .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency')
         .eq('slug', slug)
         .single();
 
@@ -172,7 +205,7 @@ export const PublicCatalogPage = () => {
       // 2. Obtener productos activos de este catálogo
       const { data: prodData, error: prodError } = await supabase
         .from('products')
-        .select('id, name, description, price, currency, imagen_url, is_out_of_stock, stock_status')
+        .select('id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id')
         .eq('catalog_id', catData.id)
         .eq('is_active', true)
         .order('position', { ascending: true });
@@ -185,16 +218,29 @@ export const PublicCatalogPage = () => {
       );
       setProducts(availableProducts);
 
+      // 2b. Obtener categorías de este catálogo
+      const { data: catKeysData, error: catKeysError } = await supabase
+        .from('categories')
+        .select('id, name, icon, display_order')
+        .eq('catalog_id', catData.id)
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (!catKeysError && catKeysData) {
+        setCategories(catKeysData);
+      }
+
       // 3. Obtener el teléfono del vendedor
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('phone, full_name')
+        .select('phone, full_name, plan')
         .eq('id', catData.user_id)
         .single();
 
       if (!userError && userData) {
         setVendorPhone(userData.phone || '');
         setVendorName(userData.full_name || 'Vendedor Matum');
+        setVendorPlan(userData.plan || 'free');
       }
 
     } catch (err: any) {
@@ -244,31 +290,212 @@ export const PublicCatalogPage = () => {
     return item ? item.quantity : 0;
   };
 
+  // Establecer cantidad específica en el carrito
+  const updateCartQuantity = (product: PublicProduct, qty: number) => {
+    if (qty <= 0) {
+      setCart(prevCart => prevCart.filter(item => item.product.id !== product.id));
+      return;
+    }
+    setCart(prevCart => {
+      const existing = prevCart.find(item => item.product.id === product.id);
+      if (existing) {
+        return prevCart.map(item => 
+          item.product.id === product.id 
+            ? { ...item, quantity: qty }
+            : item
+        );
+      }
+      return [...prevCart, { product, quantity: qty }];
+    });
+  };
+
   // Limpiar carrito
   const clearCart = () => {
     setCart([]);
   };
 
+  const getProductDisplayPrice = (
+    price: number | null,
+    currency: string,
+    priceCup?: number | null,
+    priceUsd?: number | null
+  ) => {
+    if (price === null) return 'Consultar precio';
+    
+    // Si es un usuario Free (gratis), ignorar la dualidad y mostrar en la moneda original
+    const hasDuality = vendorPlan && vendorPlan !== 'free';
+    if (!hasDuality) {
+      return `${price.toLocaleString()} ${currency}`;
+    }
+
+    const displayCurrency = catalog?.display_currency || 'original';
+    const usdToCup = Number(catalog?.usd_to_cup_rate) || 1.0;
+    const cupToUsd = Number(catalog?.cup_to_usd_rate) || 1.0;
+
+    const pUsd = priceUsd !== null && priceUsd !== undefined ? priceUsd : (currency === 'USD' ? price : price * cupToUsd);
+    const pCup = priceCup !== null && priceCup !== undefined ? priceCup : (currency === 'CUP' ? price : price * usdToCup);
+
+    switch (displayCurrency) {
+      case 'usd':
+        return `${pUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USD`;
+      case 'cup':
+        return `${pCup.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} CUP`;
+      case 'both':
+        return `${pUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USD / ${pCup.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} CUP`;
+      case 'original':
+      default:
+        return `${price.toLocaleString()} ${currency}`;
+    }
+  };
+
+  const getSubtotalDisplay = (item: CartItem) => {
+    const hasDuality = vendorPlan && vendorPlan !== 'free';
+    const displayCurrency = hasDuality ? (catalog?.display_currency || 'original') : 'original';
+    const price = item.product.price || 0;
+    const currency = item.product.currency;
+    const qty = item.quantity;
+    
+    const usdToCup = Number(catalog?.usd_to_cup_rate) || 1.0;
+    const cupToUsd = Number(catalog?.cup_to_usd_rate) || 1.0;
+
+    const pUsd = item.product.price_usd !== null && item.product.price_usd !== undefined 
+      ? item.product.price_usd 
+      : (currency === 'USD' ? price : price * cupToUsd);
+    const pCup = item.product.price_cup !== null && item.product.price_cup !== undefined 
+      ? item.product.price_cup 
+      : (currency === 'CUP' ? price : price * usdToCup);
+
+    switch (displayCurrency) {
+      case 'usd':
+        return `${(pUsd * qty).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USD`;
+      case 'cup':
+        return `${(pCup * qty).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} CUP`;
+      case 'both':
+        return `${(pUsd * qty).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USD / ${(pCup * qty).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} CUP`;
+      case 'original':
+      default:
+        return `${(price * qty).toLocaleString()} ${currency}`;
+    }
+  };
+
   // Totales acumulados por moneda
   const getTotals = () => {
+    const hasDuality = vendorPlan && vendorPlan !== 'free';
+    const displayCurrency = hasDuality ? (catalog?.display_currency || 'original') : 'original';
+    
     const totals: Record<string, number> = {};
-    cart.forEach(item => {
-      const currency = item.product.currency || 'CUP';
-      const price = item.product.price || 0;
-      const subtotal = price * item.quantity;
-      totals[currency] = (totals[currency] || 0) + subtotal;
-    });
+    
+    if (displayCurrency === 'usd') {
+      let totalUsd = 0;
+      cart.forEach(item => {
+        const usdToCup = Number(catalog?.usd_to_cup_rate) || 1.0;
+        const cupToUsd = Number(catalog?.cup_to_usd_rate) || 1.0;
+        const price = item.product.price || 0;
+        const currency = item.product.currency;
+        const pUsd = item.product.price_usd !== null && item.product.price_usd !== undefined 
+          ? item.product.price_usd 
+          : (currency === 'USD' ? price : price * cupToUsd);
+        totalUsd += pUsd * item.quantity;
+      });
+      totals['USD'] = totalUsd;
+    } else if (displayCurrency === 'cup') {
+      let totalCup = 0;
+      cart.forEach(item => {
+        const usdToCup = Number(catalog?.usd_to_cup_rate) || 1.0;
+        const cupToUsd = Number(catalog?.cup_to_usd_rate) || 1.0;
+        const price = item.product.price || 0;
+        const currency = item.product.currency;
+        const pCup = item.product.price_cup !== null && item.product.price_cup !== undefined 
+          ? item.product.price_cup 
+          : (currency === 'CUP' ? price : price * usdToCup);
+        totalCup += pCup * item.quantity;
+      });
+      totals['CUP'] = totalCup;
+    } else if (displayCurrency === 'both') {
+      let totalUsd = 0;
+      let totalCup = 0;
+      cart.forEach(item => {
+        const usdToCup = Number(catalog?.usd_to_cup_rate) || 1.0;
+        const cupToUsd = Number(catalog?.cup_to_usd_rate) || 1.0;
+        const price = item.product.price || 0;
+        const currency = item.product.currency;
+        const pUsd = item.product.price_usd !== null && item.product.price_usd !== undefined 
+          ? item.product.price_usd 
+          : (currency === 'USD' ? price : price * cupToUsd);
+        const pCup = item.product.price_cup !== null && item.product.price_cup !== undefined 
+          ? item.product.price_cup 
+          : (currency === 'CUP' ? price : price * usdToCup);
+        totalUsd += pUsd * item.quantity;
+        totalCup += pCup * item.quantity;
+      });
+      totals['USD'] = totalUsd;
+      totals['CUP'] = totalCup;
+    } else {
+      // original currency behavior
+      cart.forEach(item => {
+        const currency = item.product.currency || 'CUP';
+        const price = item.product.price || 0;
+        totals[currency] = (totals[currency] || 0) + (price * item.quantity);
+      });
+    }
+    
     return totals;
   };
 
   const totals = getTotals();
 
-  // Filtrado de productos por búsqueda y ordenamiento por precio
+  // Calcular total unificado en la moneda del monto mínimo
+  const getUnifiedTotal = () => {
+    if (!catalog) return 0;
+    const minCurrency = catalog.min_order_currency || 'CUP';
+    const rateUsdToCup = catalog.usd_to_cup_rate || 1.0;
+    const rateCupToUsd = catalog.cup_to_usd_rate || 1.0;
+
+    let total = 0;
+    cart.forEach(item => {
+      const prodCurrency = item.product.currency || 'CUP';
+      const price = item.product.price || 0;
+      const subtotal = price * item.quantity;
+
+      if (prodCurrency === minCurrency) {
+        total += subtotal;
+      } else if (minCurrency === 'CUP' && prodCurrency === 'USD') {
+        total += subtotal * rateUsdToCup;
+      } else if (minCurrency === 'USD' && prodCurrency === 'CUP') {
+        total += subtotal * rateCupToUsd;
+      } else {
+        total += subtotal;
+      }
+    });
+
+    return total;
+  };
+
+  const unifiedTotal = getUnifiedTotal();
+  const minAmount = catalog?.min_order_amount || 0;
+  const isMinAmountMet = minAmount <= 0 || unifiedTotal >= minAmount;
+  const missingAmount = minAmount > 0 ? Math.max(0, minAmount - unifiedTotal) : 0;
+
+  const handleOpenCustomerForm = () => {
+    if (!isMinAmountMet) {
+      toast.error(`El monto mínimo de pedido es de ${minAmount.toLocaleString()} ${catalog?.min_order_currency}. Te faltan ${missingAmount.toLocaleString()} ${catalog?.min_order_currency}.`);
+      return;
+    }
+    setIsCustomerFormOpen(true);
+  };
+
+  // Filtrado de productos por búsqueda, categoría y ordenamiento por precio
   const filteredProducts = products
-    .filter(p => 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()))
-    )
+    .filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (p.description && p.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      
+      const matchesCategory = selectedCategoryId === null ||
+        (selectedCategoryId === 'none' && !p.category_id) ||
+        (selectedCategoryId !== 'none' && p.category_id === Number(selectedCategoryId));
+
+      return matchesSearch && matchesCategory;
+    })
     .sort((a, b) => {
       if (sortBy === 'price-asc') {
         return (a.price || 0) - (b.price || 0);
@@ -387,8 +614,15 @@ export const PublicCatalogPage = () => {
     };
   }, []);
 
-  // Enviar pedido por WhatsApp
-  const handleSendOrder = () => {
+  // Enviar pedido por WhatsApp con datos de envío
+  const handleSendOrder = (
+    name: string,
+    address: string,
+    phone: string,
+    isDifferentRecipient: boolean,
+    deliveryName: string,
+    deliveryPhone: string
+  ) => {
     if (cart.length === 0 || !catalog) return;
 
     let messageText = `🛒 *Nuevo Pedido - Matum*\n`;
@@ -398,6 +632,19 @@ export const PublicCatalogPage = () => {
       messageText += `*Enlace:* matum.com/${slug}\n`;
     }
     messageText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    messageText += `👤 *Datos del Cliente:*\n`;
+    messageText += `• *Nombre:* ${name}\n`;
+    messageText += `• *Dirección de Entrega:* ${address}\n`;
+    messageText += `• *Teléfono de Contacto:* ${phone}\n`;
+
+    if (isDifferentRecipient) {
+      messageText += `\n🚚 *Persona que recibe (Destinatario):*\n`;
+      messageText += `• *Nombre:* ${deliveryName}\n`;
+      messageText += `• *Teléfono:* ${deliveryPhone}\n`;
+    }
+    messageText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
     messageText += `*Detalle de Productos:*\n`;
 
     cart.forEach((item, idx) => {
@@ -433,6 +680,14 @@ export const PublicCatalogPage = () => {
     setShowOrderSuccess(true);
     clearCart();
     setIsCartOpen(false);
+    setIsCustomerFormOpen(false);
+    // Limpiar formulario
+    setCustomerName('');
+    setCustomerAddress('');
+    setCustomerPhone('');
+    setIsDifferentRecipient(false);
+    setDeliveryName('');
+    setDeliveryPhone('');
   };
 
   if (loading) {
@@ -564,9 +819,9 @@ export const PublicCatalogPage = () => {
                   </a>
                 )}
               </div>
-              {catalog.description && (
-                <p className="text-secondary text-[10px] sm:text-sm mt-1.5 max-w-2xl leading-relaxed whitespace-pre-line">
-                  {catalog.description}
+              {catalog.slogan && (
+                <p className="text-secondary text-[10px] sm:text-sm mt-1.5 max-w-2xl leading-relaxed whitespace-pre-line italic">
+                  {catalog.slogan}
                 </p>
               )}
             </div>
@@ -595,13 +850,13 @@ export const PublicCatalogPage = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             icon={Search}
+            className="!h-12 py-0"
           />
 
           <DropdownMenu
             trigger={
-              <button className="flex items-center gap-1.5 px-3 py-2.5 bg-[var(--surface-hover)] border border-border rounded-xl hover:bg-surface text-xs font-bold text-primary transition-colors cursor-pointer select-none">
+              <button className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-[var(--surface-hover)] border border-border rounded-xl hover:bg-surface text-primary transition-colors cursor-pointer select-none" title="Ordenar">
                 <ArrowUpDown size={14} className="text-[var(--accent)]" />
-                <span className="hidden sm:inline">Ordenar</span>
               </button>
             }
             items={[
@@ -623,6 +878,46 @@ export const PublicCatalogPage = () => {
             ]}
           />
         </div>
+
+        {/* Chips de Categorías */}
+        {categories.length > 0 && (
+          <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none select-none">
+            <button
+              onClick={() => setSelectedCategoryId(null)}
+              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                selectedCategoryId === null
+                  ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
+                  : 'bg-[var(--surface-hover)] border-border text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-white/20'
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setSelectedCategoryId('none')}
+              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                selectedCategoryId === 'none'
+                  ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
+                  : 'bg-[var(--surface-hover)] border-border text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-white/20'
+              }`}
+            >
+              Sin categoría
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategoryId(cat.id)}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                  selectedCategoryId === cat.id
+                    ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-[var(--surface-hover)] border-border text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-white/20'
+                }`}
+              >
+                <CategoryIcon name={cat.icon} size={14} />
+                <span>{cat.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       {/* Listado de Productos */}
@@ -674,7 +969,7 @@ export const PublicCatalogPage = () => {
 
                       <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
                         <span className="text-xs sm:text-sm font-black text-[var(--accent)]">
-                          {product.price !== null ? `${product.price.toLocaleString()} ${product.currency || 'CUP'}` : 'Consultar precio'}
+                          {getProductDisplayPrice(product.price, product.currency, product.price_cup, product.price_usd)}
                         </span>
 
                         {/* Control de cantidades */}
@@ -787,9 +1082,31 @@ export const PublicCatalogPage = () => {
                 <h4 className="text-xs font-bold uppercase tracking-wider text-primary">{catalog.name}</h4>
               </div>
               {catalog.description && (
-                <p className="text-[10px] text-secondary leading-relaxed">
-                  {catalog.description.length > 100 ? `${catalog.description.slice(0, 100)}...` : catalog.description}
-                </p>
+                <div className="text-[10px] text-secondary leading-relaxed whitespace-pre-line">
+                  {isDescExpanded || catalog.description.length <= 150 ? (
+                    <>
+                      {catalog.description}
+                      {catalog.description.length > 150 && (
+                        <button 
+                          onClick={() => setIsDescExpanded(false)}
+                          className="text-[var(--accent)] hover:underline ml-1 font-bold inline-block cursor-pointer select-none"
+                        >
+                          Ver menos
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {catalog.description.slice(0, 150)}
+                      <button 
+                        onClick={() => setIsDescExpanded(true)}
+                        className="text-[var(--accent)] hover:underline ml-1 font-bold inline-block cursor-pointer select-none"
+                      >
+                        ...ver más
+                      </button>
+                    </>
+                  )}
+                </div>
               )}
               {catalog.follow_code && (
                 <div className="flex items-center gap-1.5 text-[10px] text-secondary font-medium tracking-wide">
@@ -912,8 +1229,6 @@ export const PublicCatalogPage = () => {
               </div>
             )}
           </div>
-
-
         </footer>
       )}
 
@@ -951,23 +1266,35 @@ export const PublicCatalogPage = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="secondary" 
-                size="sm"
-                onClick={() => setIsCartOpen(true)}
-              >
-                Ver Detalle
-              </Button>
-              <Button 
-                variant="primary"
-                size="sm"
-                icon={Send}
-                onClick={handleSendOrder}
-                className="bg-green-600 hover:bg-green-500 border-green-600 hover:border-green-500 text-white"
-              >
-                Enviar Pedido ({totalItemsCount})
-              </Button>
+            <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2">
+              {!isMinAmountMet && catalog.min_order_amount && (
+                <span className="text-[10px] sm:text-xs text-red-500 font-bold bg-red-500/10 border border-red-500/20 px-2.5 py-1 rounded-lg">
+                  Monto mín: {catalog.min_order_amount.toLocaleString()} {catalog.min_order_currency} (Faltan {missingAmount.toLocaleString()})
+                </span>
+              )}
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="secondary" 
+                  size="sm"
+                  onClick={() => setIsCartOpen(true)}
+                >
+                  Ver Detalle
+                </Button>
+                <Button 
+                  variant="primary"
+                  size="sm"
+                  icon={Send}
+                  onClick={handleOpenCustomerForm}
+                  disabled={!isMinAmountMet}
+                  className={`text-white transition-all ${
+                    isMinAmountMet 
+                      ? 'bg-green-600 hover:bg-green-500 border-green-600 hover:border-green-500' 
+                      : 'bg-gray-600 border-gray-600 cursor-not-allowed opacity-50'
+                  }`}
+                >
+                  Enviar Pedido ({totalItemsCount})
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1023,12 +1350,12 @@ export const PublicCatalogPage = () => {
                       <div>
                         <h4 className="text-xs font-bold text-primary truncate uppercase">{item.product.name}</h4>
                         <p className="text-[10px] text-secondary mt-0.5">
-                          {item.product.price !== null ? `${item.product.price.toLocaleString()} ${item.product.currency || 'CUP'}` : 'Consultar'}
+                          {getProductDisplayPrice(item.product.price, item.product.currency, item.product.price_cup, item.product.price_usd)}
                         </p>
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-[10px] font-bold text-secondary">
-                          Subtotal: {( (item.product.price || 0) * item.quantity ).toLocaleString()} {item.product.currency || 'CUP'}
+                          Subtotal: {getSubtotalDisplay(item)}
                         </span>
                         
                         <div className="flex items-center gap-1 bg-surface p-0.5 rounded-md border border-border">
@@ -1062,6 +1389,18 @@ export const PublicCatalogPage = () => {
                       <span className="text-[var(--accent)]">{val.toLocaleString()} {curr}</span>
                     </div>
                   ))}
+
+                  {!isMinAmountMet && catalog.min_order_amount && (
+                    <div className="mt-3 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-[11px] font-bold space-y-1 animate-in fade-in duration-300">
+                      <p className="uppercase tracking-wider">Monto Mínimo No Alcanzado</p>
+                      <p className="font-normal text-secondary">
+                        Para realizar un pedido en esta tienda el total debe ser al menos de <span className="font-bold text-red-500">{catalog.min_order_amount.toLocaleString()} {catalog.min_order_currency}</span>.
+                      </p>
+                      <p className="text-[10px]">
+                        Equivalente actual: {unifiedTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {catalog.min_order_currency} (Te faltan <span className="font-black underline">{missingAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} {catalog.min_order_currency}</span>)
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-2">
@@ -1074,8 +1413,13 @@ export const PublicCatalogPage = () => {
                   </Button>
                   <Button 
                     variant="primary" 
-                    onClick={handleSendOrder}
-                    className="w-full bg-green-600 hover:bg-green-500 border-green-600 hover:border-green-500 text-white flex items-center justify-center gap-1.5"
+                    onClick={handleOpenCustomerForm}
+                    disabled={!isMinAmountMet}
+                    className={`w-full text-white flex items-center justify-center gap-1.5 transition-all ${
+                      isMinAmountMet 
+                        ? 'bg-green-600 hover:bg-green-500 border-green-600 hover:border-green-500' 
+                        : 'bg-gray-600 border-gray-600 cursor-not-allowed opacity-50'
+                    }`}
                   >
                     <Send size={12} /> WhatsApp
                   </Button>
@@ -1136,7 +1480,12 @@ export const PublicCatalogPage = () => {
                   </h2>
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-base sm:text-lg font-black text-[var(--accent)]">
-                      {selectedProduct.price !== null ? `${selectedProduct.price.toLocaleString()} ${selectedProduct.currency || 'CUP'}` : 'Consultar precio'}
+                      {getProductDisplayPrice(
+                        selectedProduct.price,
+                        selectedProduct.currency,
+                        selectedProduct.price_cup,
+                        selectedProduct.price_usd
+                      )}
                     </span>
                   </div>
                 </div>
@@ -1165,9 +1514,16 @@ export const PublicCatalogPage = () => {
                     >
                       <Minus size={14} />
                     </button>
-                    <span className="w-8 text-center text-xs sm:text-sm font-bold text-primary tabular-nums">
-                      {getProductQuantity(selectedProduct.id)}
-                    </span>
+                    <input 
+                      type="number"
+                      min="0"
+                      className="w-12 text-center text-xs sm:text-sm font-bold text-primary bg-transparent outline-none focus:ring-1 focus:ring-accent rounded border border-border/30 h-8 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      value={getProductQuantity(selectedProduct.id)}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        updateCartQuantity(selectedProduct, isNaN(val) ? 0 : val);
+                      }}
+                    />
                     <button 
                       onClick={() => addToCart(selectedProduct)}
                       className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface active:scale-90 transition-all text-secondary hover:text-primary border border-border/50"
@@ -1195,7 +1551,13 @@ export const PublicCatalogPage = () => {
                   let messageText = `¡Hola! Me interesa este producto de tu catálogo:\n\n`;
                   messageText += `🛍️ *${selectedProduct.name}*\n`;
                   if (selectedProduct.price !== null) {
-                    messageText += `💵 *Precio:* ${selectedProduct.price.toLocaleString()} ${selectedProduct.currency || 'CUP'}\n`;
+                    const displayPrice = getProductDisplayPrice(
+                      selectedProduct.price,
+                      selectedProduct.currency,
+                      selectedProduct.price_cup,
+                      selectedProduct.price_usd
+                    );
+                    messageText += `💵 *Precio:* ${displayPrice}\n`;
                   }
                   if (slug) {
                     messageText += `🔗 *Enlace:* matum.com/${slug}\n`;
@@ -1218,6 +1580,112 @@ export const PublicCatalogPage = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de Formulario de Cliente */}
+      <Modal
+        isOpen={isCustomerFormOpen}
+        onClose={() => setIsCustomerFormOpen(false)}
+        title="Datos de Envío"
+        footer={
+          <div className="flex gap-2 w-full">
+            <Button
+              variant="secondary"
+              onClick={() => setIsCustomerFormOpen(false)}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (!customerName.trim() || !customerAddress.trim() || !customerPhone.trim()) {
+                  toast.error('Por favor, completa todos los campos del formulario.');
+                  return;
+                }
+                if (isDifferentRecipient && (!deliveryName.trim() || !deliveryPhone.trim())) {
+                  toast.error('Por favor, completa los datos de la persona que recibe.');
+                  return;
+                }
+                handleSendOrder(
+                  customerName,
+                  customerAddress,
+                  customerPhone,
+                  isDifferentRecipient,
+                  deliveryName,
+                  deliveryPhone
+                );
+              }}
+              className="flex-1 bg-green-600 hover:bg-green-500 border-green-600 hover:border-green-500 text-white"
+            >
+              Confirmar Pedido
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-left">
+          <p className="text-xs text-secondary mb-4 leading-relaxed">
+            Completa tus datos para coordinar la entrega y finalizar tu solicitud de pedido a través de WhatsApp.
+          </p>
+
+          <Input
+            label="Nombre Completo"
+            placeholder="Ej: Juan Pérez"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            required
+            autoFocus
+          />
+
+          <Input
+            label="Dirección de Entrega"
+            placeholder="Ej: Calle 23 #456 e/ H e I, Vedado, La Habana"
+            value={customerAddress}
+            onChange={(e) => setCustomerAddress(e.target.value)}
+            multiline
+            rows={2}
+            required
+          />
+
+          <Input
+            label="Número de Teléfono"
+            placeholder="Ej: +53 51234567"
+            type="tel"
+            value={customerPhone}
+            onChange={(e) => setCustomerPhone(e.target.value)}
+            required
+          />
+
+          <div className="pt-2 border-t border-border">
+            <Switch
+              checked={isDifferentRecipient}
+              onChange={setIsDifferentRecipient}
+              label="¿El pedido lo recibe otra persona?"
+              subtitle="Activa esta opción si los datos de entrega son de un destinatario diferente"
+            />
+          </div>
+
+          {isDifferentRecipient && (
+            <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+              <Input
+                label="Nombre de la persona que recibe"
+                placeholder="Ej: María Gómez"
+                value={deliveryName}
+                onChange={(e) => setDeliveryName(e.target.value)}
+                required
+              />
+
+              <Input
+                label="Número de Teléfono de quien recibe"
+                placeholder="Ej: +53 58765432"
+                type="tel"
+                value={deliveryPhone}
+                onChange={(e) => setDeliveryPhone(e.target.value)}
+                required
+              />
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };
