@@ -8,29 +8,22 @@ import { MessageSquare, ShieldCheck, ArrowRight, Phone, Lock, User } from 'lucid
 import { COUNTRIES } from '../../constants/countries';
 
 export const RegisterPage = () => {
-  const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState({ nombre: '', phone: '', password: '' });
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES.find(c => c.code === '53') || COUNTRIES[0]); // Cuba por defecto
-  const [code, setCode] = useState('');
-  const { sendRegisterCode, verifyAndRegister, loading, error, setError } = useAuthStore();
+  const { register, loading, error, setError } = useAuthStore();
   const navigate = useNavigate();
 
-  const handleSendCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const cleanPhone = form.phone.replace(/\D/g, '');
-      const fullPhone = `${selectedCountry.code}${cleanPhone}`;
-      await sendRegisterCode({ ...form, phone: fullPhone });
-      setStep(2);
-    } catch (err) {}
-  };
+  React.useEffect(() => {
+    // Limpiar errores previos al montar el componente
+    setError(null);
+  }, [setError]);
 
-  const handleVerify = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const cleanPhone = form.phone.replace(/\D/g, '');
       const fullPhone = `${selectedCountry.code}${cleanPhone}`;
-      await verifyAndRegister(code, { ...form, phone: fullPhone });
+      await register({ ...form, phone: fullPhone });
       navigate('/catalogs');
     } catch (err) {}
   };
@@ -40,119 +33,78 @@ export const RegisterPage = () => {
       <div className="card w-full max-w-lg">
         <div className="mb-8 text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[var(--accent)]/10 text-[var(--accent)] mb-4">
-            {step === 1 ? <MessageSquare size={32} /> : <ShieldCheck size={32} />}
+            <MessageSquare size={32} />
           </div>
           <h1 className="text-3xl font-bold text-white">
-            {step === 1 ? 'Crear cuenta' : 'Verificar teléfono'}
+            Crear cuenta
           </h1>
           <p className="text-gray-400 mt-2">
-            {step === 1 
-              ? 'Únete a la mejor plataforma de catálogos' 
-              : `Ingresa el código enviado al +${selectedCountry.code} ${form.phone}`}
+            Únete a la mejor plataforma de catálogos
           </p>
         </div>
 
-        {step === 1 ? (
-          <form onSubmit={handleSendCode} className="space-y-4">
-            <Input
-              label="Nombre completo"
-              placeholder="Juan Pérez"
-              value={form.nombre}
-              onChange={(e) => setForm({ ...form, nombre: e.target.value })}
-              icon={User}
-              required
-            />
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-secondary ml-1 block">Teléfono WhatsApp</label>
-              <div className="flex gap-3">
-                <div className="w-[110px]">
-                  <Select
-                    value={selectedCountry.name}
-                    onChange={(e) => {
-                      const country = COUNTRIES.find(c => c.name === e.target.value);
-                      if (country) setSelectedCountry(country);
-                    }}
-                  >
-                    {COUNTRIES.map((c) => (
-                      <option key={c.name} value={c.name} className="bg-surface text-primary">
-                        {c.flag} +{c.code}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                  
-                <div className="flex-1">
-                  <Input
-                    placeholder={selectedCountry.placeholder}
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '') })}
-                    required
-                    icon={Phone}
-                  />
-                </div>
+        <form onSubmit={handleRegister} className="space-y-4">
+          <Input
+            label="Nombre completo"
+            placeholder="Juan Pérez"
+            value={form.nombre}
+            onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+            icon={User}
+            required
+          />
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-secondary ml-1 block">Teléfono WhatsApp</label>
+            <div className="flex gap-3">
+              <div className="w-[110px]">
+                <Select
+                  value={selectedCountry.name}
+                  onChange={(e) => {
+                    const country = COUNTRIES.find(c => c.name === e.target.value);
+                    if (country) setSelectedCountry(country);
+                  }}
+                >
+                  {COUNTRIES.map((c) => (
+                    <option key={c.name} value={c.name} className="bg-surface text-primary">
+                      {c.flag} +{c.code}
+                    </option>
+                  ))}
+                </Select>
               </div>
-              <p className="text-xs text-secondary ml-1">Enviaremos un código por WhatsApp</p>
+                
+              <div className="flex-1">
+                <Input
+                  placeholder={selectedCountry.placeholder}
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '') })}
+                  required
+                  icon={Phone}
+                />
+              </div>
             </div>
+            <p className="text-xs text-secondary ml-1">Ingresa tu número de WhatsApp para tu catálogo</p>
+          </div>
 
-            <Input
-              label="Contraseña"
-              type="password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              icon={Lock}
-              required
-            />
+          <Input
+            label="Contraseña"
+            type="password"
+            placeholder="••••••••"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            icon={Lock}
+            required
+          />
 
-            {error && <p className="text-red-500 text-xs text-center">{error}</p>}
+          {error && <p className="text-red-500 text-xs text-center">{error}</p>}
 
-            <Button
-              type="submit"
-              className="w-full"
-              loading={loading}
-              icon={ArrowRight}
-            >
-              Continuar
-            </Button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerify} className="space-y-6">
-            <div className="space-y-4">
-              <label className="text-sm font-medium text-gray-400 block text-center">
-                Código de 6 dígitos
-              </label>
-              <input
-                type="text"
-                maxLength={6}
-                className="w-full bg-surface-hover border-2 border-border rounded-2xl p-4 text-3xl font-bold tracking-[1em] text-center text-accent focus:border-accent focus:bg-surface outline-none transition-all"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                required
-                autoFocus
-              />
-            </div>
-
-            {error && <p className="text-red-500 text-xs text-center">{error}</p>}
-
-            <div className="space-y-3">
-              <Button
-                type="submit"
-                className="w-full"
-                loading={loading}
-              >
-                Verificar y Registrarse
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full text-xs"
-                onClick={() => setStep(1)}
-              >
-                Cambiar número de teléfono
-              </Button>
-            </div>
-          </form>
-        )}
+          <Button
+            type="submit"
+            className="w-full"
+            loading={loading}
+            icon={ArrowRight}
+          >
+            Registrarse y Comenzar
+          </Button>
+        </form>
 
         <div className="mt-8 pt-6 border-t border-white/5 text-center">
           <p className="text-gray-400 text-sm">
@@ -166,4 +118,5 @@ export const RegisterPage = () => {
     </div>
   );
 };
+
 

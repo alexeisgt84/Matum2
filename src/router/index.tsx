@@ -11,6 +11,8 @@ import { CatalogTemplatesPage } from '../pages/catalogs/CatalogTemplatesPage';
 import { CatalogSettingsPage } from '../pages/settings/CatalogSettingsPage';
 import { FollowedCatalogsPage } from '../pages/catalogs/FollowedCatalogsPage';
 import { ProfilePage } from '../pages/profile/ProfilePage';
+import { EditProfilePage } from '../pages/profile/EditProfilePage';
+import { GeminiConfigPage } from '../pages/profile/GeminiConfigPage';
 import { SubscriptionPage } from '../pages/profile/SubscriptionPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { AdminDashboard } from '../pages/admin/AdminDashboard';
@@ -95,6 +97,14 @@ export const router = createBrowserRouter([
       {
         path: 'profile',
         element: <PrivateRoute><ProfilePage /></PrivateRoute>,
+      },
+      {
+        path: 'profile/edit',
+        element: <PrivateRoute><EditProfilePage /></PrivateRoute>,
+      },
+      {
+        path: 'profile/ai-settings',
+        element: <PrivateRoute><GeminiConfigPage /></PrivateRoute>,
       },
       {
         path: 'profile/subscription',

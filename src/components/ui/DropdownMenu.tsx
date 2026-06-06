@@ -34,14 +34,14 @@ export const DropdownMenu = ({ items, trigger }: DropdownMenuProps) => {
       ) : (
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 hover:bg-white/5 rounded-full transition-colors text-gray-400 hover:text-white"
+          className="p-2 hover:bg-[var(--surface-hover)] rounded-full transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         >
           <MoreVertical size={24} />
         </button>
       )}
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 rounded-xl bg-[#141414] border border-white/10 shadow-2xl py-2 z-50 animate-in fade-in zoom-in duration-200">
+        <div className="absolute right-0 mt-2 w-56 rounded-xl bg-surface border border-border shadow-2xl py-2 z-50 animate-in fade-in zoom-in duration-200">
           {items.map((item, index) => (
             <button
               key={index}
@@ -49,8 +49,8 @@ export const DropdownMenu = ({ items, trigger }: DropdownMenuProps) => {
                 item.onClick();
                 setIsOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-white/5 ${
-                item.variant === 'danger' ? 'text-red-400' : 'text-gray-300'
+              className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-surface-hover ${
+                item.variant === 'danger' ? 'text-red-400' : 'text-primary'
               }`}
             >
               {item.icon && <item.icon size={18} />}

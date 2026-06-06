@@ -26,6 +26,7 @@ export interface Catalog {
   primary_color: string | null;
   background_color: string | null;
   surface_color: string | null;
+  text_color: string | null;
   nemu_store_id: string | null;
   sequence_start_time: string | null;
   sequence_schedules?: SequenceSchedule[] | null;
@@ -68,6 +69,7 @@ export interface CatalogForm {
   primary_color?: string | null;
   background_color?: string | null;
   surface_color?: string | null;
+  text_color?: string | null;
   is_sequence_scheduled: boolean;
   is_individual_scheduled: boolean;
   nemu_store_id?: string | null;

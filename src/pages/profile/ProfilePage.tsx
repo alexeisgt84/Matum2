@@ -1,102 +1,83 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useProfile } from '../../hooks/useProfile';
 import { Avatar } from '../../components/ui/Avatar';
-import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { LogOut, Save, Camera, CreditCard, Sun, Moon, ShieldCheck, Key, Sparkles, Eye, EyeOff, RefreshCw } from 'lucide-react';
-import { toast } from 'react-hot-toast';
-import { Skeleton } from '../../components/ui/Skeleton';
+import { 
+  User, 
+  Sparkles, 
+  CreditCard, 
+  Key, 
+  Sun, 
+  Moon, 
+  ShieldCheck, 
+  LogOut, 
+  ChevronRight 
+} from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { ChangePasswordModal } from '../../components/profile/ChangePasswordModal';
 import { useNavigate } from 'react-router-dom';
-import { validateGeminiConfiguration } from '../../lib/aiService';
+import { Skeleton } from '../../components/ui/Skeleton';
+
+interface MenuItemProps {
+  icon: React.ComponentType<{ className?: string; size?: number }>;
+  label: string;
+  value?: string;
+  onClick: () => void;
+  showArrow?: boolean;
+  iconBgColorClass?: string;
+  textColorClass?: string;
+  isLast?: boolean;
+}
+
+const MenuItem: React.FC<MenuItemProps> = ({
+  icon: Icon,
+  label,
+  value,
+  onClick,
+  showArrow = true,
+  iconBgColorClass = 'bg-accent/10 text-accent',
+  textColorClass = 'text-primary',
+  isLast = false,
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full flex items-center justify-between p-4 transition-all hover:bg-[var(--surface-hover)] active:bg-[var(--border)] outline-none text-left ${
+        !isLast ? 'border-b border-[var(--border)]' : ''
+      }`}
+    >
+      <div className="flex items-center gap-3.5 min-w-0">
+        <div className={`p-2.5 rounded-xl flex-shrink-0 flex items-center justify-center transition-transform active:scale-95 ${iconBgColorClass}`}>
+          <Icon size={18} />
+        </div>
+        <div className="min-w-0">
+          <span className={`block font-medium text-sm leading-tight truncate ${textColorClass}`}>
+            {label}
+          </span>
+          {value && (
+            <span className="block text-secondary text-[11px] font-semibold mt-0.5 leading-none">
+              {value}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0 text-secondary">
+        {showArrow && (
+          <ChevronRight size={16} className="opacity-50" />
+        )}
+      </div>
+    </button>
+  );
+};
 
 export const ProfilePage = () => {
   const { user, logout } = useAuthStore();
-  const { profile, loading, updateProfile } = useProfile();
+  const { profile, loading } = useProfile();
   const { theme, toggleTheme } = useStore();
   const navigate = useNavigate();
-  
-  const [nombre, setNombre] = useState('');
-  const [avatarFile, setAvatarFile] = useState<File | undefined>();
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [geminiApiKey, setGeminiApiKey] = useState('');
-  const [geminiModel, setGeminiModel] = useState('gemini-2.5-flash');
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [testingConnection, setTestingConnection] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (profile) {
-      setNombre(profile.full_name || '');
-      setAvatarPreview(profile.avatar_url);
-      setGeminiApiKey(profile.gemini_api_key || '');
-      setGeminiModel(profile.gemini_model || 'gemini-2.5-flash');
-    }
-  }, [profile]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setAvatarFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setTestingConnection(true);
-    const success = await updateProfile(nombre, avatarFile, geminiApiKey, geminiModel);
-    if (success) {
-      if (geminiApiKey && geminiApiKey.trim() !== '') {
-        toast.loading('Validando conexión con Gemini...', { id: 'gemini-test' });
-        const testResult = await validateGeminiConfiguration();
-        if (testResult.success) {
-          toast.success('Perfil guardado y conexión con Gemini validada con éxito ✨', { id: 'gemini-test' });
-        } else {
-          toast.error(`Perfil guardado, pero falló la prueba de Gemini: ${testResult.error || 'Verifica la clave API'}`, { id: 'gemini-test', duration: 7000 });
-        }
-      } else {
-        toast.success('Perfil actualizado correctamente');
-      }
-    } else {
-      toast.error('Error al actualizar el perfil');
-    }
-    setTestingConnection(false);
-  };
-
-  const handleTestConnection = async () => {
-    if (!geminiApiKey || geminiApiKey.trim() === '') {
-      toast.error('Ingresa una Clave API de Gemini para poder realizar la prueba.');
-      return;
-    }
-
-    setTestingConnection(true);
-    toast.loading('Guardando configuración y probando conexión...', { id: 'gemini-manual-test' });
-    const saveSuccess = await updateProfile(nombre, avatarFile, geminiApiKey, geminiModel);
-    
-    if (!saveSuccess) {
-      toast.error('Error al guardar la configuración antes de la prueba.', { id: 'gemini-manual-test' });
-      setTestingConnection(false);
-      return;
-    }
-
-    const testResult = await validateGeminiConfiguration();
-    if (testResult.success) {
-      toast.success('¡Conexión exitosa! El modelo responde correctamente ✨', { id: 'gemini-manual-test', duration: 4000 });
-    } else {
-      toast.error(`Fallo de conexión: ${testResult.error || 'Verifica tu API Key o modelo.'}`, { id: 'gemini-manual-test', duration: 7000 });
-    }
-    setTestingConnection(false);
-  };
 
   const getPlanColor = (plan: string) => {
     switch (plan) {
@@ -107,232 +88,145 @@ export const ProfilePage = () => {
     }
   };
 
+  const hasGeminiApiKey = !!(profile?.gemini_api_key && profile.gemini_api_key.trim() !== '');
+
   return (
     <div className="p-4 max-w-lg mx-auto pb-20">
       <PageHeader 
         title="Mi Perfil" 
         subtitle="Configuración de Usuario"
       />
-      <div className="card mb-6">
-        {loading && !profile ? (
-          <div className="space-y-8 animate-pulse">
-            <div className="flex flex-col items-center">
-              <Skeleton className="w-32 h-32 rounded-full" />
-              <Skeleton className="h-6 w-24 mt-6 rounded-full" />
-            </div>
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-12 w-full" />
-              </div>
-            </div>
-            <Skeleton className="h-14 w-full" />
+
+      {loading && !profile ? (
+        <div className="space-y-6">
+          <div className="flex flex-col items-center py-6">
+            <Skeleton className="w-24 h-24 rounded-full" />
+            <Skeleton className="h-5 w-32 mt-4 rounded" />
+            <Skeleton className="h-4 w-24 mt-2 rounded" />
           </div>
-        ) : (
-          <form onSubmit={handleSave} className="space-y-8">
-            {/* Avatar Edit Section */}
-            <div className="flex flex-col items-center">
-              <div className="relative group">
-                <Avatar 
-                  src={avatarPreview} 
-                  nombre={nombre || user?.nombre || 'U'} 
-                  size="xl" 
+          <div className="space-y-4">
+            <Skeleton className="h-12 w-full rounded-2xl" />
+            <Skeleton className="h-24 w-full rounded-2xl" />
+            <Skeleton className="h-12 w-full rounded-2xl" />
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Header Unificado de Perfil */}
+          <div className="flex flex-col items-center py-4">
+            <div className="relative group">
+              <Avatar 
+                src={profile?.avatar_url} 
+                nombre={profile?.full_name || user?.nombre || 'U'} 
+                size="xl" 
+              />
+            </div>
+            
+            <h2 className="mt-4 text-base font-bold text-primary tracking-wide">
+              {profile?.full_name || 'Usuario'}
+            </h2>
+            
+            <p className="text-xs text-secondary mt-1">
+              {profile?.phone || user?.phone || 'Sin teléfono'}
+            </p>
+
+            <div className={`mt-3 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wider ${getPlanColor(profile?.plan || 'free')}`}>
+              Plan {profile?.plan || 'free'}
+            </div>
+          </div>
+
+          {/* Sección: Cuenta */}
+          <div>
+            <h3 className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-2 ml-1">
+              Cuenta
+            </h3>
+            <div className="card p-0 overflow-hidden">
+              <MenuItem
+                icon={User}
+                label="Editar Datos Personales"
+                onClick={() => navigate('/profile/edit')}
+                iconBgColorClass="bg-blue-500/10 text-blue-500 dark:text-blue-400"
+              />
+              <MenuItem
+                icon={Sparkles}
+                label="Asistente de IA (Gemini)"
+                value={hasGeminiApiKey ? 'Activo' : 'Inactivo'}
+                onClick={() => navigate('/profile/ai-settings')}
+                iconBgColorClass="bg-purple-500/10 text-purple-500 dark:text-purple-400"
+              />
+              <MenuItem
+                icon={CreditCard}
+                label="Gestionar Suscripción"
+                onClick={() => navigate('/profile/subscription')}
+                iconBgColorClass="bg-emerald-500/10 text-emerald-500 dark:text-emerald-400"
+              />
+              <MenuItem
+                icon={Key}
+                label="Cambiar Contraseña"
+                onClick={() => setIsPasswordModalOpen(true)}
+                iconBgColorClass="bg-amber-500/10 text-amber-500 dark:text-amber-400"
+                isLast
+              />
+            </div>
+          </div>
+
+          {/* Sección: Apariencia */}
+          <div>
+            <h3 className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-2 ml-1">
+              Apariencia
+            </h3>
+            <div className="card p-0 overflow-hidden">
+              <MenuItem
+                icon={theme === 'dark' ? Sun : Moon}
+                label="Modo Oscuro"
+                value={theme === 'dark' ? 'Activado' : 'Desactivado'}
+                onClick={toggleTheme}
+                showArrow={false}
+                iconBgColorClass="bg-orange-500/10 text-orange-500 dark:text-orange-400"
+                isLast
+              />
+            </div>
+          </div>
+
+          {/* Sección: Administración */}
+          {user?.role === 'admin' && (
+            <div>
+              <h3 className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-2 ml-1">
+                Administración
+              </h3>
+              <div className="card p-0 overflow-hidden">
+                <MenuItem
+                  icon={ShieldCheck}
+                  label="Panel de Administrador"
+                  onClick={() => navigate('/admin')}
+                  iconBgColorClass="bg-rose-500/10 text-rose-500 dark:text-rose-400"
+                  isLast
                 />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-0 right-0 p-3 bg-accent text-black rounded-2xl shadow-lg hover:scale-110 transition-transform"
-                >
-                  <Camera size={20} />
-                </button>
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept="image/jpeg,image/jpg,image/png,image/*"
-                  onChange={handleFileChange}
-                />
-              </div>
-              
-              <div className={`mt-6 px-4 py-1.5 rounded-full border text-xs font-bold uppercase tracking-widest ${getPlanColor(profile?.plan || 'free')}`}>
-                Plan {profile?.plan || 'free'}
               </div>
             </div>
+          )}
 
-            <div className="space-y-5">
-              <Input
-                label="Nombre Completo"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                required
+          {/* Sección: Sesión */}
+          <div>
+            <div className="card p-0 overflow-hidden border-danger/10">
+              <MenuItem
+                icon={LogOut}
+                label="Cerrar Sesión"
+                onClick={logout}
+                showArrow={false}
+                iconBgColorClass="bg-red-500/10 text-red-500"
+                textColorClass="text-danger font-semibold"
+                isLast
               />
-              
-              <Input
-                label="Teléfono (No editable)"
-                value={profile?.phone || user?.phone || ''}
-                disabled
-              />
-
-              {/* Sección Premium de Asistente de IA */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-purple-500/5 to-indigo-500/5 border border-purple-500/10 space-y-4 mt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
-                      <Sparkles size={18} />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-white tracking-wide">Asistente de IA (Gemini)</h3>
-                      <p className="text-[11px] text-gray-400">Autocompleta tus productos con análisis de fotos</p>
-                    </div>
-                  </div>
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border uppercase tracking-wider ${
-                    geminiApiKey 
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                      : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                  }`}>
-                    {geminiApiKey ? 'Activo ✨' : 'Inactivo'}
-                  </span>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Input
-                      label="Clave API de Gemini"
-                      placeholder="AIzaSy..."
-                      type={showApiKey ? 'text' : 'password'}
-                      value={geminiApiKey}
-                      onChange={(e) => setGeminiApiKey(e.target.value)}
-                      className="pr-12"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-[34px] p-1.5 text-gray-400 hover:text-white transition-colors"
-                    >
-                      {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                  
-                  <Select
-                    label="Modelo de IA (Gemini)"
-                    value={geminiModel}
-                    onChange={(e) => setGeminiModel(e.target.value)}
-                  >
-                    {/* Gemini 3 Series */}
-                    <option value="gemini-3-flash-preview" className="bg-surface text-primary">Gemini 3 Flash (Última generación - Ultra rápido y potente)</option>
-                    <option value="gemini-3.1-pro-preview" className="bg-surface text-primary">Gemini 3.1 Pro (Razonamiento y agentes avanzados)</option>
-                    <option value="gemini-3.1-flash-lite" className="bg-surface text-primary">Gemini 3.1 Flash-Lite (Eficiencia a gran escala)</option>
-                    
-                    {/* Gemini 2.5 Series */}
-                    <option value="gemini-2.5-flash" className="bg-surface text-primary">Gemini 2.5 Flash (Equilibrado y veloz)</option>
-                    <option value="gemini-2.5-pro" className="bg-surface text-primary">Gemini 2.5 Pro (Precisión y desarrollo)</option>
-                    <option value="gemini-2.5-flash-lite" className="bg-surface text-primary">Gemini 2.5 Flash-Lite (Bajo consumo)</option>
-                  </Select>
-
-                  <button
-                    type="button"
-                    onClick={handleTestConnection}
-                    disabled={testingConnection}
-                    className="w-full mt-2 flex items-center justify-center gap-2 py-3.5 px-4 border border-purple-500/20 hover:border-purple-500/40 bg-purple-500/5 hover:bg-purple-500/10 text-purple-300 rounded-xl text-xs font-bold transition-all active:scale-[0.98] disabled:opacity-50"
-                  >
-                    {testingConnection ? (
-                      <>
-                        <RefreshCw size={14} className="animate-spin text-purple-400" />
-                        <span>Probando Conexión con Gemini...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles size={14} className="text-purple-400" />
-                        <span>Probar Conexión en Caliente</span>
-                      </>
-                    )}
-                  </button>
-
-                  <a
-                    href="https://aistudio.google.com/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors font-medium mt-1 ml-1 hover:underline"
-                  >
-                    <Key size={12} />
-                    Obtener clave de API gratuita en Google AI Studio →
-                  </a>
-                </div>
-              </div>
             </div>
+          </div>
 
-            <Button 
-              type="submit" 
-              className="w-full" 
-              loading={loading}
-              icon={Save}
-              size="lg"
-            >
-              Guardar Cambios
-            </Button>
-          </form>
-        )}
-      </div>
-
-      <div className="card space-y-4 border-danger/10">
-        <h3 className="text-sm font-bold text-secondary uppercase tracking-widest mb-2">Más acciones</h3>
-        
-        <Button 
-          variant="secondary" 
-          className="w-full justify-between" 
-          icon={theme === 'dark' ? Sun : Moon}
-          onClick={toggleTheme}
-        >
-          Modo {theme === 'dark' ? 'Claro' : 'Oscuro'}
-        </Button>
-
-        <Button 
-          variant="secondary" 
-          className="w-full justify-between" 
-          icon={Key}
-          onClick={() => setIsPasswordModalOpen(true)}
-        >
-          Cambiar Contraseña
-        </Button>
-
-        {user?.role === 'admin' && (
-          <Button 
-            variant="secondary" 
-            className="w-full justify-between text-accent border-accent/10" 
-            icon={ShieldCheck}
-            onClick={() => navigate('/admin')}
-          >
-            Panel de Administrador
-          </Button>
-        )}
-
-        <Button 
-          variant="secondary" 
-          className="w-full justify-between" 
-          icon={CreditCard}
-          onClick={() => navigate('/profile/subscription')}
-        >
-          Gestionar Suscripción
-        </Button>
-
-        <Button 
-          variant="danger" 
-          className="w-full border-danger/10" 
-          icon={LogOut} 
-          onClick={logout}
-        >
-          Cerrar Sesión
-        </Button>
-      </div>
-
-
-      <p className="text-center text-secondary text-[10px] mt-12 uppercase tracking-widest">
-        Matum v1.0.0
-      </p>
+          {/* Footer */}
+          <div className="pt-8 text-center text-secondary text-[9px] uppercase tracking-widest font-medium opacity-60">
+            Matum v1.0.0
+          </div>
+        </div>
+      )}
 
       <ChangePasswordModal 
         isOpen={isPasswordModalOpen} 

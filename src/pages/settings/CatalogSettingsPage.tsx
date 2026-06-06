@@ -11,6 +11,8 @@ import { GroupCard } from '../../components/groups/GroupCard';
 import { LinkGroupsModal } from '../../components/groups/LinkGroupsModal';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Skeleton } from '../../components/ui/Skeleton';
+import { ExchangeRatesModal } from '../../components/catalogs/ExchangeRatesModal';
+import { NemuImportModal } from '../../components/catalogs/NemuImportModal';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import { Select } from '../../components/ui/Select';
 import { useProfile } from '../../hooks/useProfile';
@@ -47,7 +49,8 @@ import {
   Phone,
   Mail,
   Coins,
-  DollarSign
+  DollarSign,
+  ChevronRight
 } from 'lucide-react';
 
 const InstagramIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
@@ -104,7 +107,7 @@ const getSecondaryTextColor = (hexColor: string) => {
   return contrast === '#ffffff' ? '#a0a0a0' : '#4b5563';
 };
 
-type SettingsTab = 'store' | 'whatsapp' | 'groups' | 'automation' | 'templates' | 'history';
+type SettingsTab = 'menu' | 'store' | 'whatsapp' | 'groups' | 'automation' | 'templates' | 'history';
 
 interface TemplateSectionProps {
   id: string;
@@ -273,9 +276,10 @@ export const CatalogSettingsPage = () => {
   
   const { profile } = useProfile();
   const hasDualityAccess = (profile?.plan && profile.plan !== 'free') || profile?.role === 'admin';
+  const isPremium = profile?.plan === 'premium' || profile?.role === 'admin';
   
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = (searchParams.get('tab') as SettingsTab) || 'store';
+  const initialTab = (searchParams.get('tab') as SettingsTab) || 'menu';
   const [activeTab, setActiveTabState] = useState<SettingsTab>(initialTab);
 
   const setActiveTab = (tab: SettingsTab) => {
@@ -304,6 +308,7 @@ export const CatalogSettingsPage = () => {
     primary_color: '#ff782e',
     background_color: '#0a0a0a',
     surface_color: '#1a1a1a',
+    text_color: '#ffffff',
     footer_address: '',
     footer_phone: '',
     footer_email: '',
@@ -323,6 +328,9 @@ export const CatalogSettingsPage = () => {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [coverFile, setCoverFile] = useState<File | undefined>();
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
+
+  const [isExchangeRatesOpen, setIsExchangeRatesOpen] = useState(false);
+  const [isNemuImportOpen, setIsNemuImportOpen] = useState(false);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -435,6 +443,7 @@ export const CatalogSettingsPage = () => {
           primary_color: data.primary_color || '#ff782e',
           background_color: data.background_color || '#0a0a0a',
           surface_color: data.surface_color || '#1a1a1a',
+          text_color: data.text_color || '#ffffff',
           footer_address: data.footer_address || '',
           footer_phone: data.footer_phone || '',
           footer_email: data.footer_email || '',
@@ -610,6 +619,35 @@ export const CatalogSettingsPage = () => {
     if (success) {
       toast.success('Ajustes de la tienda guardados');
       loadCatalog();
+    }
+  };
+
+  const updateExchangeRates = async (usdToCup: number, cupToUsd: number) => {
+    if (!catalogId) return;
+    try {
+      const { error } = await supabase
+        .from('catalogs')
+        .update({ 
+          usd_to_cup_rate: usdToCup,
+          cup_to_usd_rate: cupToUsd
+        })
+        .eq('id', catalogId);
+      
+      if (error) throw error;
+      setCatalog((prev: any) => ({ 
+        ...prev, 
+        usd_to_cup_rate: usdToCup,
+        cup_to_usd_rate: cupToUsd
+      }));
+      setStoreForm(prev => ({
+        ...prev,
+        usd_to_cup_rate: usdToCup,
+        cup_to_usd_rate: cupToUsd
+      }));
+      toast.success('Tasas de cambio actualizadas');
+    } catch (err: any) {
+      toast.error('Error al actualizar tasas de cambio');
+      throw err;
     }
   };
 
@@ -893,39 +931,130 @@ export const CatalogSettingsPage = () => {
     { id: 'history' as SettingsTab, label: 'Historial', icon: Clock },
   ];
 
+  interface MenuItemProps {
+    icon: React.ComponentType<{ className?: string; size?: number }>;
+    label: string;
+    value?: string;
+    onClick: () => void;
+    showArrow?: boolean;
+    iconBgColorClass?: string;
+    isLast?: boolean;
+  }
+
+  const MenuItem: React.FC<MenuItemProps> = ({
+    icon: Icon,
+    label,
+    value,
+    onClick,
+    showArrow = true,
+    iconBgColorClass = 'bg-accent/10 text-accent',
+    isLast = false,
+  }) => {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`w-full flex items-center justify-between p-4 transition-all hover:bg-[var(--surface-hover)] active:bg-[var(--border)] outline-none text-left ${
+          !isLast ? 'border-b border-[var(--border)]' : ''
+        }`}
+      >
+        <div className="flex items-center gap-3.5 min-w-0">
+          <div className={`p-2.5 rounded-xl flex-shrink-0 flex items-center justify-center transition-transform active:scale-95 ${iconBgColorClass}`}>
+            <Icon size={18} />
+          </div>
+          <div className="min-w-0">
+            <span className="block font-medium text-sm leading-tight text-primary truncate">
+              {label}
+            </span>
+            {value && (
+              <span className="block text-secondary text-[11px] font-semibold mt-0.5 leading-tight">
+                {value}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0 text-secondary">
+          {showArrow && (
+            <ChevronRight size={16} className="opacity-50" />
+          )}
+        </div>
+      </button>
+    );
+  };
+
   return (
     <div className="p-4 max-w-lg mx-auto pb-32">
       <PageHeader 
-        title="Configuración" 
+        title={activeTab === 'menu' ? "Configuración" : tabs.find(t => t.id === activeTab)?.label || "Configuración"} 
         subtitle={catalog?.name || 'Ajustes de Catálogo'}
       />
 
-      {/* Tabs Selector */}
-      <div className="relative flex p-1 bg-surface-hover/60 rounded-2xl border border-border/80 backdrop-blur-sm mb-6 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1.5 py-3.5 px-1 rounded-xl transition-all duration-300 min-w-[70px] ${
-                activeTab === tab.id ? 'text-[var(--accent)] font-bold' : 'text-secondary hover:text-primary'
-              }`}
-            >
-              <Icon size={18} className={activeTab === tab.id ? 'scale-110 text-[var(--accent)]' : ''} />
-              <span className="text-[9px] uppercase tracking-wider text-center truncate w-full">
-                {tab.label}
-              </span>
-              {activeTab === tab.id && (
-                <div className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {activeTab !== 'menu' && (
+        <button
+          onClick={() => setActiveTab('menu')}
+          className="inline-flex items-center gap-1.5 text-xs text-secondary hover:text-primary transition-colors font-bold uppercase tracking-wider mb-5"
+        >
+          ← Volver al Menú
+        </button>
+      )}
 
-      {/* Tab Content */}
-      <div className="space-y-6">
+      {activeTab === 'menu' ? (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div>
+            <h3 className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-2 ml-1">
+              Ajustes de Catálogo
+            </h3>
+            <div className="card p-0 overflow-hidden">
+              <MenuItem
+                icon={ShoppingBag}
+                label="Tienda"
+                value="Configuración general, colores, logo y enlaces de la tienda"
+                onClick={() => setActiveTab('store')}
+                iconBgColorClass="bg-purple-500/10 text-purple-600 dark:text-purple-400"
+              />
+              <MenuItem
+                icon={Coins}
+                label="Tasa de Cambio"
+                value="Configura los precios de compra y venta del dólar (USD a CUP)"
+                onClick={() => setIsExchangeRatesOpen(true)}
+                iconBgColorClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              />
+              <MenuItem
+                icon={Layout}
+                label="Plantillas"
+                value="Personaliza las notificaciones y mensajes de stock del catálogo"
+                onClick={() => setActiveTab('templates')}
+                iconBgColorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400"
+              />
+              <MenuItem
+                icon={Smartphone}
+                label="WhatsApp"
+                value="Conecta tu número y gestiona grupos o colas de automatización"
+                onClick={() => setActiveTab('whatsapp')}
+                iconBgColorClass="bg-orange-500/10 text-orange-600 dark:text-orange-400"
+              />
+              {isPremium && (
+                <MenuItem
+                  icon={Globe}
+                  label="Vincular con Nemu"
+                  value="Importa productos y sincroniza el catálogo con tu app Nemu"
+                  onClick={() => setIsNemuImportOpen(true)}
+                  iconBgColorClass="bg-pink-500/10 text-pink-600 dark:text-pink-400"
+                />
+              )}
+              <MenuItem
+                icon={Clock}
+                label="Historial de Envíos"
+                value="Visualiza el historial y estados de los mensajes de la cola"
+                onClick={() => setActiveTab('history')}
+                iconBgColorClass="bg-secondary/10 text-secondary"
+                isLast
+              />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
         
         {/* PESTAÑA: TIENDA */}
         {activeTab === 'store' && (
@@ -1047,7 +1176,8 @@ export const CatalogSettingsPage = () => {
                       ...prev,
                       primary_color: '#ff782e',
                       background_color: '#0a0a0a',
-                      surface_color: '#1a1a1a'
+                      surface_color: '#1a1a1a',
+                      text_color: '#ffffff'
                     }));
                     toast.success('Colores restablecidos a los predeterminados');
                   }}
@@ -1057,7 +1187,7 @@ export const CatalogSettingsPage = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 border-t border-border/40 pt-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-border/40 pt-4">
                 {/* Color Primario */}
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-bold text-secondary uppercase tracking-wider block ml-0.5">Acento / Botones</label>
@@ -1105,6 +1235,22 @@ export const CatalogSettingsPage = () => {
                     </span>
                   </div>
                 </div>
+
+                {/* Color de Textos */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-secondary uppercase tracking-wider block ml-0.5">Color de Textos</label>
+                  <div className="flex items-center gap-2 bg-surface-hover/50 p-2 rounded-xl border border-border">
+                    <input
+                      type="color"
+                      value={storeForm.text_color}
+                      onChange={(e) => setStoreForm(prev => ({ ...prev, text_color: e.target.value }))}
+                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg"
+                    />
+                    <span className="text-[10px] font-mono font-bold uppercase text-primary select-all">
+                      {storeForm.text_color}
+                    </span>
+                  </div>
+                </div>
               </div>
 
               {/* Vista Previa Interactiva en Tiempo Real */}
@@ -1129,13 +1275,13 @@ export const CatalogSettingsPage = () => {
                     <div className="flex-grow min-w-0 flex flex-col justify-between">
                       <div>
                         <div 
-                          style={{ color: getContrastColor(storeForm.surface_color) }}
+                          style={{ color: storeForm.text_color || getContrastColor(storeForm.surface_color) }}
                           className="text-[10px] font-bold uppercase tracking-wide truncate"
                         >
                           Producto Ejemplo
                         </div>
                         <div 
-                          style={{ color: getSecondaryTextColor(storeForm.surface_color) }}
+                          style={{ color: storeForm.text_color ? `${storeForm.text_color}b3` : getSecondaryTextColor(storeForm.surface_color) }}
                           className="text-[8px] line-clamp-1 leading-snug mt-0.5"
                         >
                           Descripción rápida del producto para simular.
@@ -1802,6 +1948,7 @@ export const CatalogSettingsPage = () => {
         )}
 
       </div>
+      )}
 
       {/* MODALES REUTILIZADOS */}
 
@@ -1849,6 +1996,25 @@ export const CatalogSettingsPage = () => {
         confirmLabel="Restaurar"
         onConfirm={restoreDefaultMessages}
         onClose={() => setIsRestoreConfirmOpen(false)}
+      />
+
+      {/* Modal Tasa de Cambio */}
+      {catalog && (
+        <ExchangeRatesModal
+          isOpen={isExchangeRatesOpen}
+          onClose={() => setIsExchangeRatesOpen(false)}
+          initialUsdToCup={catalog.usd_to_cup_rate || 1.0}
+          initialCupToUsd={catalog.cup_to_usd_rate || 1.0}
+          onSave={updateExchangeRates}
+        />
+      )}
+
+      {/* Modal Vincular con Nemu */}
+      <NemuImportModal
+        isOpen={isNemuImportOpen}
+        onClose={() => setIsNemuImportOpen(false)}
+        catalogId={catalogId!}
+        onSuccess={() => loadCatalog()}
       />
 
     </div>

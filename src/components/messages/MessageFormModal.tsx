@@ -282,7 +282,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
               <label className="text-sm font-bold text-gray-500 uppercase tracking-widest block">Imagen</label>
               <div className="flex items-center gap-4">
                 {previewUrl ? (
-                  <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-white/10 flex-shrink-0">
+                  <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-border flex-shrink-0">
                     <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
                     <button 
                       type="button"
@@ -294,7 +294,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <label className="w-20 h-20 rounded-2xl border-2 border-dashed border-white/10 hover:border-[var(--accent)]/30 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all hover:bg-white/5 flex-shrink-0 relative overflow-hidden">
+                  <label className="w-20 h-20 rounded-2xl border-2 border-dashed border-border hover:border-[var(--accent)]/30 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all hover:bg-surface-hover flex-shrink-0 relative overflow-hidden">
                     {isConverting ? (
                       <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
                     ) : (
@@ -328,7 +328,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                         <button
                           type="button"
                           onClick={handleAIClick}
-                          className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-white/5 border border-white/10 hover:bg-white/10 text-gray-400 transition-all"
+                          className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-surface-hover border border-border hover:bg-surface text-secondary transition-all"
                         >
                           <Crown size={13} className="text-amber-400" />
                           <span>Redactar con IA (Premium 👑)</span>
@@ -383,7 +383,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                       is_individual: form.is_sequence // Si estaba en secuencia, ahora es individual (true)
                     })}
                     className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-all ${
-                      form.is_sequence ? 'bg-[var(--accent)] border-[var(--accent)]' : 'bg-white/5 border-white/10'
+                      form.is_sequence ? 'bg-[var(--accent)] border-[var(--accent)]' : 'bg-surface-hover border-border'
                     }`}
                   >
                     {form.is_sequence && <div className="w-2 h-2 bg-black rounded-full" />}
@@ -394,7 +394,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
 
               {/* 5. Programación de Envío (solo para mensajes individuales / fuera de secuencia) */}
               {!form.is_sequence && (
-                <div className="space-y-4 p-4 rounded-2xl bg-white/5 border border-white/10 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="space-y-4 p-4 rounded-2xl bg-surface-hover border border-border animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
                       <label className="text-sm font-bold text-gray-300 uppercase tracking-widest">Programar Envío</label>
@@ -406,7 +406,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                         setShowSchedule(!showSchedule);
                       }}
                       className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
-                        showSchedule ? 'bg-[var(--accent)]' : 'bg-white/10'
+                        showSchedule ? 'bg-[var(--accent)]' : 'bg-border'
                       }`}
                     >
                       <div
@@ -418,16 +418,16 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                   </div>
 
                   {showSchedule && (
-                    <div className="space-y-4 pt-2 border-t border-white/5 animate-in slide-in-from-top-2 duration-200">
+                    <div className="space-y-4 pt-2 border-t border-border animate-in slide-in-from-top-2 duration-200">
                       {/* Selector de Tipo de Programación */}
-                      <div className="flex p-1 bg-black/30 rounded-xl border border-white/5">
+                      <div className="flex p-1 bg-surface-hover/50 rounded-xl border border-border">
                         <button
                           type="button"
                           onClick={() => setForm({ ...form, schedule_type: 'fixed' })}
                           className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                             form.schedule_type === 'fixed'
                               ? 'bg-[var(--accent)] text-black shadow-md'
-                              : 'text-gray-400 hover:text-white'
+                              : 'text-secondary hover:text-primary'
                           }`}
                         >
                           Horarios Fijos
@@ -438,7 +438,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                           className={`flex-1 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                             form.schedule_type === 'interval'
                               ? 'bg-[var(--accent)] text-black shadow-md'
-                              : 'text-gray-400 hover:text-white'
+                              : 'text-secondary hover:text-primary'
                           }`}
                         >
                           Intervalo
@@ -453,7 +453,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                           {form.fixed_schedules && form.fixed_schedules.length > 0 ? (
                             <div className="flex flex-wrap gap-1.5">
                               {form.fixed_schedules.map((sched, idx) => (
-                                <div key={idx} className="flex items-center gap-1.5 py-1 px-2.5 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-white transition-all hover:border-red-500/30 group/tag">
+                                <div key={idx} className="flex items-center gap-1.5 py-1 px-2.5 bg-surface border border-border rounded-xl text-xs font-bold text-primary transition-all hover:border-red-500/30 group/tag">
                                   <span className="tabular-nums">{sched.time}</span>
                                   <button
                                     type="button"
@@ -495,7 +495,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                                 setForm({ ...form, fixed_schedules: updated });
                                 setNewTime('');
                               }}
-                              className="py-2.5 px-4 rounded-xl bg-white/10 hover:bg-[var(--accent)] hover:text-black font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1 border border-white/5 cursor-pointer active:scale-95"
+                              className="py-2.5 px-4 rounded-xl bg-surface-hover hover:bg-[var(--accent)] hover:text-black font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1 border border-border cursor-pointer active:scale-95"
                             >
                               <Plus size={14} />
                               <span>Agregar</span>
@@ -514,7 +514,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                                 className={`py-2 rounded-xl text-[10px] font-bold tracking-wider transition-all border ${
                                   form.schedule_interval === mins
                                     ? 'bg-[var(--accent)] text-black border-[var(--accent)] shadow-lg shadow-[var(--accent)]/15'
-                                    : 'bg-white/5 text-gray-400 border-white/5 hover:border-white/10 hover:text-white'
+                                    : 'bg-surface-hover text-secondary border border-border hover:bg-surface hover:text-primary'
                                 }`}
                               >
                                 {mins >= 60 ? `${mins / 60} ${mins / 60 === 1 ? 'Hora' : 'Horas'}` : `${mins} Min`}
@@ -536,7 +536,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                               className={`py-2 rounded-xl text-[10px] font-bold tracking-wider transition-all border ${
                                 ![15, 30, 60, 120, 240].includes(form.schedule_interval || 0)
                                   ? 'bg-[var(--accent)] text-black border-[var(--accent)] shadow-lg'
-                                  : 'bg-white/5 text-gray-400 border-white/5 hover:border-white/10'
+                                  : 'bg-surface-hover text-secondary border border-border hover:bg-surface hover:text-primary'
                               }`}
                             >
                               {![15, 30, 60, 120, 240].includes(form.schedule_interval || 0) && form.schedule_interval

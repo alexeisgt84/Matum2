@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -325,6 +325,51 @@ export const CatalogDetailPage = () => {
     }
   };
 
+  // Estados y refs para enlace de catálogo web (Copiar con pulsación larga)
+  const webLinkTimeoutRef = useRef<any>(null);
+  const isWebLinkLongPressRef = useRef(false);
+
+  const handleWebLinkPointerDown = useCallback((e: React.PointerEvent) => {
+    isWebLinkLongPressRef.current = false;
+    if (webLinkTimeoutRef.current) {
+      clearTimeout(webLinkTimeoutRef.current);
+    }
+    webLinkTimeoutRef.current = setTimeout(() => {
+      isWebLinkLongPressRef.current = true;
+      if (catalog?.slug) {
+        const url = `${window.location.origin}/${catalog.slug}`;
+        navigator.clipboard.writeText(url)
+          .then(() => {
+            toast.success('¡Enlace del catálogo copiado!');
+            if (navigator.vibrate) {
+              navigator.vibrate(80);
+            }
+          })
+          .catch((err) => {
+            console.error('Error al copiar el enlace:', err);
+          });
+      }
+      webLinkTimeoutRef.current = null;
+    }, 800);
+  }, [catalog?.slug]);
+
+  const handleWebLinkPointerUp = useCallback((e: React.PointerEvent) => {
+    if (webLinkTimeoutRef.current) {
+      clearTimeout(webLinkTimeoutRef.current);
+      webLinkTimeoutRef.current = null;
+    }
+    if (!isWebLinkLongPressRef.current && catalog?.slug) {
+      window.open(`/${catalog.slug}`, '_blank');
+    }
+  }, [catalog?.slug]);
+
+  const handleWebLinkPointerCancel = useCallback(() => {
+    if (webLinkTimeoutRef.current) {
+      clearTimeout(webLinkTimeoutRef.current);
+      webLinkTimeoutRef.current = null;
+    }
+  }, []);
+
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [isRestoreOpen, setIsRestoreOpen] = useState(false);
   const [isNemuImportOpen, setIsNemuImportOpen] = useState(false);
@@ -497,43 +542,30 @@ export const CatalogDetailPage = () => {
       );
 
       setRightAction(
-        <div className="flex items-center gap-2">
-          {/* Mini Stats discreet */}
-          <div className="hidden sm:flex items-center gap-1.5 mr-2">
-            <StatBadge icon={MessageSquare} value={messages.length} color="text-blue-400" />
-            {hasInstance && <StatBadge icon={Zap} value={messages.filter(m => m.is_sequence).length} color="text-yellow-400" />}
-            <StatBadge icon={Package} value={products.length} color="text-purple-400" />
-            <StatBadge icon={Users} value={linkedGroups.filter(g => g.is_active).length} color="text-[var(--accent)]" />
-            {queueStats.pending > 0 && (
-              <StatBadge 
-                icon={Clock} 
-                value={queueStats.pending} 
-                color="text-orange-400 animate-pulse" 
-                onClick={isOwner ? () => setIsQueueModalOpen(true) : undefined}
-                title="Ver cola de envío"
-              />
-            )}
-            {queueStats.error > 0 && (
-              <StatBadge 
-                icon={AlertCircle} 
-                value={queueStats.error} 
-                color="text-red-400" 
-                onClick={isOwner ? () => setIsQueueModalOpen(true) : undefined}
-                title="Ver cola de envío"
-              />
-            )}
-          </div>
+        <div className="flex items-center gap-1.5 animate-in fade-in duration-300">
+          {/* Botón Ver Catálogo Online (solo si es público y tiene slug) */}
+          {catalog.is_public && catalog.slug && (
+            <button
+              onPointerDown={handleWebLinkPointerDown}
+              onPointerUp={handleWebLinkPointerUp}
+              onPointerCancel={handleWebLinkPointerCancel}
+              onContextMenu={(e) => e.preventDefault()}
+              title="Ver catálogo online (Mantén presionado para copiar)"
+              className="p-2.5 rounded-xl bg-surface-hover hover:bg-surface text-secondary hover:text-primary transition-all active:scale-95 flex items-center justify-center border border-border select-none"
+            >
+              <Globe size={16} />
+            </button>
+          )}
 
-          {optionsItems.length > 0 && (
-            <DropdownMenu 
-              items={optionsItems} 
-              trigger={
-                <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/5 text-gray-400 hover:text-white">
-                  <Settings size={18} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Opciones</span>
-                </button>
-              }
-            />
+          {/* Botón Configuración */}
+          {isOwner && (
+            <button
+              onClick={() => navigate(`/catalogs/${catalogId}/settings?tab=menu`)}
+              title="Configuración de Catálogo"
+              className="p-2.5 rounded-xl bg-surface-hover hover:bg-surface text-secondary hover:text-primary transition-all active:scale-95 flex items-center justify-center border border-border"
+            >
+              <Settings size={16} />
+            </button>
           )}
         </div>
       );
@@ -544,7 +576,7 @@ export const CatalogDetailPage = () => {
       setSubtitle(null);
       setRightAction(null);
     };
-  }, [catalog, catalogId, navigate, setTitle, setSubtitle, setRightAction, instance?.status, messages.length, products.length, linkedGroups, queueStats, setIsQueueModalOpen]);
+  }, [catalog, catalogId, navigate, setTitle, setSubtitle, setRightAction, instance?.status, messages.length, products.length, linkedGroups, queueStats, setIsQueueModalOpen, handleWebLinkPointerDown, handleWebLinkPointerUp, handleWebLinkPointerCancel]);
 
   const loadCatalog = async () => {
     setCatLoading(true);
@@ -1154,12 +1186,13 @@ export const CatalogDetailPage = () => {
           onPointerDown={handleSharePointerDown}
           onPointerUp={handleSharePointerUp}
           onPointerCancel={handleSharePointerCancel}
+          onContextMenu={(e) => e.preventDefault()}
           className="w-full flex items-center justify-between px-4 py-2.5 bg-surface/50 border-b border-border/80 text-[11px] text-secondary select-none active:bg-surface-hover/50 cursor-pointer transition-colors"
           title="Click para compartir, mantener presionado para copiar"
         >
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-accent/60 flex-shrink-0 animate-pulse" />
-            <span>Compartir catálogo:</span>
+            <span>Código:</span>
             <span className="font-mono font-bold text-primary tracking-wider">{catalog.follow_code}</span>
           </div>
           <div className="flex items-center gap-1 text-[10px] font-bold text-accent uppercase tracking-wider">
@@ -1377,7 +1410,7 @@ export const CatalogDetailPage = () => {
             </div>
 
             {/* Chips de Categorías */}
-            <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-none select-none">
+            <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-2 scrollbar-none select-none">
               <button
                 onClick={() => setSelectedCategoryId(null)}
                 className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${

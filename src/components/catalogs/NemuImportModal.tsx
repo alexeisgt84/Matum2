@@ -82,7 +82,7 @@ export const NemuImportModal: React.FC<NemuImportModalProps> = ({ isOpen, onClos
               </div>
             ) : stores.length === 0 ? (
               <div className="text-center py-8">
-                <ShoppingBag size={48} className="mx-auto text-white/10 mb-2" />
+                <ShoppingBag size={48} className="mx-auto text-secondary/20 mb-2" />
                 <p className="text-secondary">No se encontraron tiendas activas.</p>
               </div>
             ) : (
@@ -91,7 +91,7 @@ export const NemuImportModal: React.FC<NemuImportModalProps> = ({ isOpen, onClos
                   <button
                     key={store.id}
                     onClick={() => handleSelectStore(store)}
-                    className="w-full flex items-center gap-4 p-4 rounded-2xl bg-surface-hover hover:bg-white/5 border border-white/5 transition-all text-left"
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl bg-surface-hover hover:bg-surface border border-border transition-all text-left"
                   >
                     {store.logo_url ? (
                       <img src={store.logo_url} alt={store.name} className="w-12 h-12 rounded-xl object-cover" />
@@ -155,7 +155,7 @@ export const NemuImportModal: React.FC<NemuImportModalProps> = ({ isOpen, onClos
         {step === 'progress' && (
           <div className="py-12 flex flex-col items-center justify-center text-center space-y-6">
             <div className="relative">
-              <div className="w-24 h-24 rounded-full border-4 border-white/5 flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full border-4 border-border flex items-center justify-center">
                 <Loader2 size={48} className="text-accent animate-spin" />
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
@@ -170,7 +170,7 @@ export const NemuImportModal: React.FC<NemuImportModalProps> = ({ isOpen, onClos
               <p className="text-secondary">Procesando {progress} de {total}</p>
             </div>
 
-            <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden max-w-xs mx-auto">
+            <div className="w-full bg-surface-hover rounded-full h-2 overflow-hidden max-w-xs mx-auto">
               <div 
                 className="bg-accent h-full transition-all duration-300" 
                 style={{ width: `${total > 0 ? (progress / total) * 100 : 0}%` }}

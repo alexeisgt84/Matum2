@@ -1,11 +1,63 @@
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   CreditCard, 
   ChevronRight, 
-  Settings
+  Settings 
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+
+interface MenuItemProps {
+  icon: React.ComponentType<{ className?: string; size?: number }>;
+  label: string;
+  value?: string;
+  onClick: () => void;
+  showArrow?: boolean;
+  iconBgColorClass?: string;
+  isLast?: boolean;
+}
+
+const MenuItem: React.FC<MenuItemProps> = ({
+  icon: Icon,
+  label,
+  value,
+  onClick,
+  showArrow = true,
+  iconBgColorClass = 'bg-accent/10 text-accent',
+  isLast = false,
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full flex items-center justify-between p-4 transition-all hover:bg-[var(--surface-hover)] active:bg-[var(--border)] outline-none text-left ${
+        !isLast ? 'border-b border-[var(--border)]' : ''
+      }`}
+    >
+      <div className="flex items-center gap-3.5 min-w-0">
+        <div className={`p-2.5 rounded-xl flex-shrink-0 flex items-center justify-center transition-transform active:scale-95 ${iconBgColorClass}`}>
+          <Icon size={18} />
+        </div>
+        <div className="min-w-0">
+          <span className="block font-medium text-sm leading-tight text-primary truncate">
+            {label}
+          </span>
+          {value && (
+            <span className="block text-secondary text-[11px] font-semibold mt-0.5 leading-none">
+              {value}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0 text-secondary">
+        {showArrow && (
+          <ChevronRight size={16} className="opacity-50" />
+        )}
+      </div>
+    </button>
+  );
+};
 
 export const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -16,55 +68,55 @@ export const AdminDashboard = () => {
       description: 'Gestionar límites, precios y visibilidad de planes',
       icon: CreditCard,
       path: '/admin/plans',
-      color: 'bg-purple-500/10 text-purple-500'
+      color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400'
     },
     {
       title: 'Validación de Pagos',
       description: 'Aprobar o rechazar comprobantes de suscripción',
       icon: CreditCard,
       path: '/admin/payments',
-      color: 'bg-emerald-500/10 text-emerald-500'
+      color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
     },
     {
       title: 'Usuarios y Roles',
       description: 'Ver usuarios registrados y cambiar sus privilegios',
       icon: Users,
       path: '/admin/users',
-      color: 'bg-blue-500/10 text-blue-500'
+      color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
     },
     {
       title: 'Configuración Global',
       description: 'Ajustes del sistema y mantenimiento',
       icon: Settings,
       path: '/admin/settings',
-      color: 'bg-orange-500/10 text-orange-500'
+      color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
     }
   ];
 
   return (
-    <div className="p-4 max-w-lg mx-auto pb-24 space-y-8 animate-in fade-in duration-700">
+    <div className="p-4 max-w-lg mx-auto pb-24 space-y-6 animate-in fade-in duration-700">
       <PageHeader 
         title="Admin" 
         subtitle="Gestión del Sistema" 
       />
 
-      <div className="space-y-3">
-        {adminModules.map((module) => (
-          <button
-            key={module.path}
-            onClick={() => navigate(module.path)}
-            className="w-full card p-5 flex items-center gap-5 hover:bg-surface-hover transition-all active:scale-[0.98] text-left border-border group"
-          >
-            <div className={`w-14 h-14 rounded-2xl ${module.color} flex items-center justify-center border border-current/10`}>
-              <module.icon size={28} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-primary group-hover:text-accent transition-colors">{module.title}</h3>
-              <p className="text-xs text-secondary leading-relaxed">{module.description}</p>
-            </div>
-            <ChevronRight size={18} className="text-secondary" />
-          </button>
-        ))}
+      <div>
+        <h3 className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-2 ml-1">
+          Módulos de Control
+        </h3>
+        <div className="card p-0 overflow-hidden">
+          {adminModules.map((module, index) => (
+            <MenuItem
+              key={module.path}
+              icon={module.icon}
+              label={module.title}
+              value={module.description}
+              onClick={() => navigate(module.path)}
+              iconBgColorClass={module.color}
+              isLast={index === adminModules.length - 1}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="p-6 card border-dashed border-border flex flex-col items-center text-center gap-4">

@@ -8,8 +8,7 @@ interface AuthState {
   loading: boolean;
   error: string | null;
   login: (data: LoginForm) => Promise<void>;
-  sendRegisterCode: (data: RegisterForm) => Promise<void>;
-  verifyAndRegister: (code: string, userData: RegisterForm) => Promise<void>;
+  register: (data: RegisterForm) => Promise<void>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
@@ -59,48 +58,22 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  sendRegisterCode: async ({ phone }) => {
+  register: async (userData) => {
     set({ loading: true, error: null });
     try {
-      const code = generateCode();
-      const expiresAt = new Date(Date.now() + 10 * 60000).toISOString();
+      const cleanPhone = userData.phone.replace(/\D/g, '');
 
-      // Guardar código en Supabase
-      const { error: dbError } = await supabase
-        .from('verification_codes')
-        .insert([{ phone, code, expires_at: expiresAt }]);
-
-      if (dbError) throw dbError;
-
-      // Enviar por WhatsApp llamando a la Edge Function pública
-      const { data: edgeData, error: edgeError } = await supabase.functions.invoke('send-verification-otp', {
-        body: { phone }
-      });
-
-      if (edgeError || (edgeData && edgeData.error)) {
-        throw new Error(edgeError?.message || edgeData?.error || 'Error al enviar el código de verificación por WhatsApp');
-      }
-
-      set({ loading: false });
-    } catch (err: any) {
-      set({ error: err.message, loading: false });
-      throw err;
-    }
-  },
-
-  verifyAndRegister: async (code, userData) => {
-    set({ loading: true, error: null });
-    try {
-      // 1. Verificar código
-      const { data: vData, error: vError } = await supabase
-        .from('verification_codes')
-        .select('*')
-        .eq('phone', userData.phone)
-        .eq('code', code)
-        .gt('expires_at', new Date().toISOString())
+      // 1. Verificar si el teléfono ya está registrado
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('phone', cleanPhone)
         .maybeSingle();
 
-      if (vError || !vData) throw new Error('Código inválido o expirado');
+      if (checkError) throw checkError;
+      if (existingUser) {
+        throw new Error('El número de teléfono ya está registrado');
+      }
 
       // 2. Registrar en Auth
       const email = phoneToEmail(userData.phone);
@@ -112,7 +85,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (signUpError) throw signUpError;
       if (!authData.user) throw new Error('Error al crear usuario');
 
-      const cleanPhone = userData.phone.replace(/\D/g, '');
+      // 3. Crear perfil de usuario
       const { error: profileError } = await supabase.from('users').upsert([
         {
           id: authData.user.id,

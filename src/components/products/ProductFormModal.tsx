@@ -270,7 +270,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       <form id="product-form" onSubmit={handleSubmit} className="space-y-6">
         <div className="flex flex-col items-center mb-4">
           <div 
-            className="w-32 h-32 rounded-2xl bg-white/5 border-2 border-dashed border-white/10 flex items-center justify-center relative overflow-hidden group hover:border-[var(--accent)]/50 transition-colors cursor-pointer"
+            className="w-32 h-32 rounded-2xl bg-surface-hover border-2 border-dashed border-border flex items-center justify-center relative overflow-hidden group hover:border-[var(--accent)]/50 transition-colors cursor-pointer"
             onClick={handleSelectImage}
           >
             {preview ? (
@@ -314,7 +314,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAIClick}
-                  className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-white/5 border border-white/10 hover:bg-white/10 text-gray-400 transition-all"
+                  className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-surface-hover border border-border hover:bg-surface text-secondary transition-all"
                 >
                   <Crown size={13} className="text-amber-400" />
                   <span>Autocompletar con IA (Premium 👑)</span>

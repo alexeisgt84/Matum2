@@ -147,6 +147,7 @@ export const useCatalogs = () => {
           primary_color: form.primary_color || '#ff782e',
           background_color: form.background_color || '#0a0a0a',
           surface_color: form.surface_color || '#1a1a1a',
+          text_color: form.text_color || '#ffffff',
           is_sequence_scheduled: form.is_sequence_scheduled,
           is_individual_scheduled: form.is_individual_scheduled,
           sequence_start_time: form.sequence_start_time,
@@ -249,6 +250,7 @@ export const useCatalogs = () => {
       if (form.primary_color !== undefined) updateData.primary_color = form.primary_color;
       if (form.background_color !== undefined) updateData.background_color = form.background_color;
       if (form.surface_color !== undefined) updateData.surface_color = form.surface_color;
+      if (form.text_color !== undefined) updateData.text_color = form.text_color;
       if (form.is_sequence_scheduled !== undefined) updateData.is_sequence_scheduled = form.is_sequence_scheduled;
       if (form.is_individual_scheduled !== undefined) updateData.is_individual_scheduled = form.is_individual_scheduled;
       if (form.sequence_start_time !== undefined) updateData.sequence_start_time = form.sequence_start_time;

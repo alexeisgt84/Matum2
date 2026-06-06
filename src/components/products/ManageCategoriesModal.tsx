@@ -149,7 +149,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
       >
         <div className="space-y-6">
           {/* Formulario para agregar */}
-          <form onSubmit={handleAdd} className="space-y-4 bg-white/5 p-4 rounded-2xl border border-border">
+          <form onSubmit={handleAdd} className="space-y-4 bg-surface-hover/50 p-4 rounded-2xl border border-border">
             <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--accent)]">
               {editingId !== null ? 'Editando Categoría' : 'Nueva Categoría'}
             </h3>
@@ -245,7 +245,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                 <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : categories.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center gap-2 border border-dashed border-border rounded-2xl bg-white/[0.01]">
+              <div className="flex flex-col items-center justify-center py-10 text-center gap-2 border border-dashed border-border rounded-2xl bg-surface-hover/20">
                 <Folder size={32} className="text-gray-600" />
                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Sin categorías creadas</span>
                 <p className="text-[10px] text-gray-500 max-w-[280px]">
@@ -263,7 +263,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                       className={`p-3 border rounded-xl flex items-center justify-between gap-3 transition-all ${
                         isEditing 
                           ? 'border-[var(--accent)]/30 bg-[var(--accent)]/[0.02]' 
-                          : 'border-border bg-white/5 hover:border-border-hover'
+                          : 'border-border bg-surface-hover/40 hover:bg-surface-hover'
                       }`}
                     >
                       {isEditing ? (
@@ -277,7 +277,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                           <button
                             type="button"
                             onClick={handleCancelEdit}
-                            className="p-1 px-2.5 bg-white/5 border border-border text-xs rounded-lg hover:bg-white/10 text-gray-300 font-bold transition-all"
+                            className="p-1 px-2.5 bg-surface border border-border text-xs rounded-lg hover:bg-surface-hover text-secondary hover:text-primary font-bold transition-all"
                           >
                             Cancelar
                           </button>
@@ -286,7 +286,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                         /* Modo Vista */
                         <>
                           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className="w-8 h-8 rounded-lg bg-white/5 border border-border/50 flex items-center justify-center text-accent">
+                            <div className="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center text-accent">
                               <CategoryIcon name={cat.icon} size={16} />
                             </div>
                             <span className="text-xs font-bold text-primary truncate">
@@ -300,7 +300,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                               type="button"
                               onClick={() => handleMove(index, 'up')}
                               disabled={index === 0}
-                              className="p-1.5 text-gray-500 hover:text-primary hover:bg-white/10 rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                              className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
                               title="Subir"
                             >
                               <ArrowUp size={14} />
@@ -309,7 +309,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                               type="button"
                               onClick={() => handleMove(index, 'down')}
                               disabled={index === categories.length - 1}
-                              className="p-1.5 text-gray-500 hover:text-primary hover:bg-white/10 rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                              className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
                               title="Bajar"
                             >
                               <ArrowDown size={14} />
@@ -319,7 +319,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                             <button
                               type="button"
                               onClick={() => handleStartEdit(cat)}
-                              className="p-1.5 text-gray-400 hover:text-accent hover:bg-white/10 rounded-lg transition-all ml-1"
+                              className="p-1.5 text-secondary hover:text-accent hover:bg-surface-hover rounded-lg transition-all ml-1"
                               title="Editar"
                             >
                               <Edit2 size={14} />

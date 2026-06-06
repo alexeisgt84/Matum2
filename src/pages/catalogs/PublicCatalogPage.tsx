@@ -80,6 +80,7 @@ interface PublicCatalog {
   primary_color: string | null;
   background_color: string | null;
   surface_color: string | null;
+  text_color?: string | null;
   follow_code?: string | null;
   footer_address?: string | null;
   footer_phone?: string | null;
@@ -129,6 +130,7 @@ export const PublicCatalogPage = () => {
   const [vendorName, setVendorName] = useState<string>('');
   const [vendorPlan, setVendorPlan] = useState<string>('free');
   const [loading, setLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Estados de la UI del cliente
@@ -179,12 +181,13 @@ export const PublicCatalogPage = () => {
 
   const loadPublicCatalog = async () => {
     setLoading(true);
+    setProductsLoading(true);
     setError(null);
     try {
-      // 1. Obtener catálogo público y activo por su slug
+      // 1. Obtener catálogo público y activo por su slug (consulta ultra rápida indexada)
       const { data: catData, error: catError } = await supabase
         .from('catalogs')
-        .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency')
+        .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency')
         .eq('slug', slug)
         .single();
 
@@ -200,53 +203,62 @@ export const PublicCatalogPage = () => {
         return;
       }
 
+      // Establecemos el catálogo base inmediatamente y quitamos el loading general
+      // Esto renderizará el shell de la tienda, colores del tema, header, cover, logo, etc.
       setCatalog(catData);
+      setLoading(false);
 
-      // 2. Obtener productos activos de este catálogo
-      const { data: prodData, error: prodError } = await supabase
-        .from('products')
-        .select('id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id')
-        .eq('catalog_id', catData.id)
-        .eq('is_active', true)
-        .order('position', { ascending: true });
+      // 2. Obtener productos, categorías e info del vendedor en paralelo (concurrente)
+      try {
+        const [prodResult, catKeysResult, userResult] = await Promise.all([
+          supabase
+            .from('products')
+            .select('id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id')
+            .eq('catalog_id', catData.id)
+            .eq('is_active', true)
+            .order('position', { ascending: true }),
+          supabase
+            .from('categories')
+            .select('id, name, icon, display_order')
+            .eq('catalog_id', catData.id)
+            .eq('is_active', true)
+            .order('display_order', { ascending: true }),
+          supabase
+            .from('users')
+            .select('phone, full_name, plan')
+            .eq('id', catData.user_id)
+            .single()
+        ]);
 
-      if (prodError) throw prodError;
-      
-      // Filtrar artículos agotados
-      const availableProducts = (prodData || []).filter(
-        p => !p.is_out_of_stock && p.stock_status !== 'out_of_stock'
-      );
-      setProducts(availableProducts);
+        // Manejar productos
+        if (prodResult.error) throw prodResult.error;
+        const availableProducts = (prodResult.data || []).filter(
+          p => !p.is_out_of_stock && p.stock_status !== 'out_of_stock'
+        );
+        setProducts(availableProducts);
 
-      // 2b. Obtener categorías de este catálogo
-      const { data: catKeysData, error: catKeysError } = await supabase
-        .from('categories')
-        .select('id, name, icon, display_order')
-        .eq('catalog_id', catData.id)
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
+        // Manejar categorías
+        if (!catKeysResult.error && catKeysResult.data) {
+          setCategories(catKeysResult.data);
+        }
 
-      if (!catKeysError && catKeysData) {
-        setCategories(catKeysData);
-      }
+        // Manejar información del vendedor
+        if (!userResult.error && userResult.data) {
+          setVendorPhone(userResult.data.phone || '');
+          setVendorName(userResult.data.full_name || 'Vendedor Matum');
+          setVendorPlan(userResult.data.plan || 'free');
+        }
 
-      // 3. Obtener el teléfono del vendedor
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('phone, full_name, plan')
-        .eq('id', catData.user_id)
-        .single();
-
-      if (!userError && userData) {
-        setVendorPhone(userData.phone || '');
-        setVendorName(userData.full_name || 'Vendedor Matum');
-        setVendorPlan(userData.plan || 'free');
+      } catch (parallelError: any) {
+        console.error('Error cargando detalles secundarios de la tienda:', parallelError);
+        toast.error('Error al cargar algunos elementos de la tienda. Intente recargar.');
+      } finally {
+        setProductsLoading(false);
       }
 
     } catch (err: any) {
       console.error(err);
       setError('Ocurrió un error al cargar el catálogo. Inténtalo de nuevo.');
-    } finally {
       setLoading(false);
     }
   };
@@ -540,8 +552,10 @@ export const PublicCatalogPage = () => {
     const backgroundColor = catalog.background_color || '#0a0a0a';
     const surfaceColor = catalog.surface_color || '#1a1a1a';
 
-    const textPrimary = getContrastColorLocal(backgroundColor);
-    const textSecondary = getSecondaryTextColorLocal(backgroundColor);
+    const textPrimary = catalog.text_color || getContrastColorLocal(backgroundColor);
+    const textSecondary = catalog.text_color 
+      ? `${catalog.text_color}b3` 
+      : getSecondaryTextColorLocal(backgroundColor);
     const accentText = getContrastColorLocal(primaryColor);
     
     const borderVal = surfaceColor === '#1a1a1a' ? '#2a2a2a' : surfaceColor === '#ffffff' ? '#e5e7eb' : `${surfaceColor}33`;
@@ -740,8 +754,10 @@ export const PublicCatalogPage = () => {
   const backgroundColor = catalog.background_color || '#0a0a0a';
   const surfaceColor = catalog.surface_color || '#1a1a1a';
 
-  const textPrimary = getContrastColor(backgroundColor);
-  const textSecondary = getSecondaryTextColor(backgroundColor);
+  const textPrimary = catalog.text_color || getContrastColor(backgroundColor);
+  const textSecondary = catalog.text_color 
+    ? `${catalog.text_color}b3` 
+    : getSecondaryTextColor(backgroundColor);
 
   // Colores para contrastar texto del botón y tarjetas
   const accentText = getContrastColor(primaryColor);
@@ -782,7 +798,7 @@ export const PublicCatalogPage = () => {
       </div>
 
       {/* Cabecera / Info de la Tienda (Logo, Nombre, Buscador) */}
-      <header className="relative max-w-4xl mx-auto px-4 sm:px-6 z-10 pb-6 border-b border-border">
+      <header className="relative max-w-4xl mx-auto px-4 sm:px-6 z-10 pb-3">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
             {/* Logo de la tienda */}
@@ -880,49 +896,83 @@ export const PublicCatalogPage = () => {
         </div>
 
         {/* Chips de Categorías */}
-        {categories.length > 0 && (
+        {productsLoading ? (
           <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none select-none">
-            <button
-              onClick={() => setSelectedCategoryId(null)}
-              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                selectedCategoryId === null
-                  ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
-                  : 'bg-[var(--surface-hover)] border-border text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-white/20'
-              }`}
-            >
-              Todos
-            </button>
-            <button
-              onClick={() => setSelectedCategoryId('none')}
-              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                selectedCategoryId === 'none'
-                  ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
-                  : 'bg-[var(--surface-hover)] border-border text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-white/20'
-              }`}
-            >
-              Sin categoría
-            </button>
-            {categories.map((cat) => (
+            <div className="w-16 h-7 bg-[var(--surface)] border border-border animate-pulse rounded-full" />
+            <div className="w-24 h-7 bg-[var(--surface)] border border-border animate-pulse rounded-full" />
+            <div className="w-20 h-7 bg-[var(--surface)] border border-border animate-pulse rounded-full" />
+            <div className="w-28 h-7 bg-[var(--surface)] border border-border animate-pulse rounded-full" />
+          </div>
+        ) : (
+          categories.length > 0 && (
+            <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none select-none">
               <button
-                key={cat.id}
-                onClick={() => setSelectedCategoryId(cat.id)}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
-                  selectedCategoryId === cat.id
+                onClick={() => setSelectedCategoryId(null)}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                  selectedCategoryId === null
                     ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
                     : 'bg-[var(--surface-hover)] border-border text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-white/20'
                 }`}
               >
-                <CategoryIcon name={cat.icon} size={14} />
-                <span>{cat.name}</span>
+                Todos
               </button>
-            ))}
-          </div>
+              <button
+                onClick={() => setSelectedCategoryId('none')}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                  selectedCategoryId === 'none'
+                    ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-[var(--surface-hover)] border-border text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-white/20'
+                }`}
+              >
+                Sin categoría
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategoryId(cat.id)}
+                  className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                    selectedCategoryId === cat.id
+                      ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
+                      : 'bg-[var(--surface-hover)] border-border text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-white/20'
+                  }`}
+                >
+                  <CategoryIcon name={cat.icon} size={14} />
+                  <span>{cat.name}</span>
+                </button>
+              ))}
+            </div>
+          )
         )}
       </header>
 
       {/* Listado de Productos */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        {filteredProducts.length === 0 ? (
+      <main className="max-w-4xl mx-auto px-4 pb-2">
+        {productsLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div 
+                key={i} 
+                className="card flex gap-4 p-4 border border-border animate-pulse select-none"
+              >
+                {/* Imagen de Producto Esqueleto */}
+                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg bg-[var(--surface-hover)] flex-shrink-0 relative border border-border" />
+                
+                {/* Detalles del Producto Esqueleto */}
+                <div className="flex flex-col justify-between flex-grow min-w-0 py-1">
+                  <div className="space-y-2">
+                    <div className="h-4 bg-[var(--surface-hover)] rounded-md w-2/3" />
+                    <div className="h-3 bg-[var(--surface-hover)] rounded-md w-full" />
+                    <div className="h-3 bg-[var(--surface-hover)] rounded-md w-5/6" />
+                  </div>
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
+                    <div className="h-4 bg-[var(--surface-hover)] rounded-md w-1/4" />
+                    <div className="h-7 bg-[var(--surface-hover)] rounded-lg w-20" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-secondary text-sm">No se encontraron productos en esta tienda.</p>
           </div>
