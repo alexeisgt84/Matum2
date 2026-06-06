@@ -1827,6 +1827,7 @@ export const CatalogDetailPage = () => {
             )}
           </div>
         )}
+      </div>
 
       <div className="fixed bottom-24 right-6 z-20">
         <Button 

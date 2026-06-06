@@ -21,7 +21,8 @@ import {
   Mail,
   Settings,
   Copy,
-  Coins
+  Coins,
+  Share2
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { toast } from 'react-hot-toast';
@@ -30,6 +31,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Modal } from '../../components/ui/Modal';
 import { Switch } from '../../components/ui/Switch';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
+import { shareContent } from '../../lib/share';
 
 const InstagramIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
   <svg
@@ -704,6 +706,15 @@ export const PublicCatalogPage = () => {
     setDeliveryPhone('');
   };
 
+  const handleShareCatalog = async () => {
+    await shareContent({
+      title: catalog?.name || 'Tienda',
+      text: catalog?.slogan || '¡Mira esta tienda en Matum!',
+      url: window.location.href,
+      imageUrl: catalog?.logo_url || undefined,
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -823,17 +834,25 @@ export const PublicCatalogPage = () => {
                 <h1 className="text-sm sm:text-2xl font-black text-primary uppercase tracking-tight break-words">
                   {catalog.name}
                 </h1>
-                {/* Botón Contactar Vendedor (Móvil) */}
-                {vendorPhone && (
-                  <a 
-                    href={`https://wa.me/${vendorPhone.replace(/\D/g, '')}`} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="sm:hidden inline-flex flex-shrink-0 items-center justify-center gap-1 px-2 py-0.5 bg-green-600 hover:bg-green-500 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all border border-green-600/20 active:scale-95 shadow-sm cursor-pointer"
+                {/* Botones de acción móviles (Contactar y Compartir) */}
+                <div className="sm:hidden flex items-center gap-1.5 flex-shrink-0">
+                  {vendorPhone && (
+                    <a 
+                      href={`https://wa.me/${vendorPhone.replace(/\D/g, '')}`} 
+                      target="_blank" 
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-1 px-2 py-0.5 bg-green-600 hover:bg-green-500 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all border border-green-600/20 active:scale-95 shadow-sm cursor-pointer"
+                    >
+                      <Smartphone size={10} /> Contactar
+                    </a>
+                  )}
+                  <button 
+                    onClick={handleShareCatalog}
+                    className="inline-flex items-center justify-center gap-1 px-2 py-0.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all border border-[var(--accent)]/20 active:scale-95 shadow-sm cursor-pointer"
                   >
-                    <Smartphone size={10} /> Contactar
-                  </a>
-                )}
+                    <Share2 size={10} /> Compartir
+                  </button>
+                </div>
               </div>
               {catalog.slogan && (
                 <p className="text-secondary text-[10px] sm:text-sm mt-1.5 max-w-2xl leading-relaxed whitespace-pre-line italic">
@@ -843,9 +862,9 @@ export const PublicCatalogPage = () => {
             </div>
           </div>
 
-          {/* Botón Contactar Vendedor */}
-          {vendorPhone && (
-            <div className="hidden sm:block flex-shrink-0 self-start sm:self-center mt-2 sm:mt-0">
+          {/* Botones de acción escritorio (Contactar y Compartir) */}
+          <div className="hidden sm:flex items-center gap-2 flex-shrink-0 self-start sm:self-center mt-2 sm:mt-0">
+            {vendorPhone && (
               <a 
                 href={`https://wa.me/${vendorPhone.replace(/\D/g, '')}`} 
                 target="_blank" 
@@ -854,8 +873,14 @@ export const PublicCatalogPage = () => {
               >
                 <Smartphone size={11} /> Contactar Vendedor
               </a>
-            </div>
-          )}
+            )}
+            <button 
+              onClick={handleShareCatalog}
+              className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border border-[var(--accent)]/20 active:scale-95 shadow-sm shadow-[var(--accent)]/5 cursor-pointer"
+            >
+              <Share2 size={11} /> Compartir Tienda
+            </button>
+          </div>
         </div>
 
         {/* Buscador y Ordenador de productos */}
