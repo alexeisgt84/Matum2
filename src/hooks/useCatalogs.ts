@@ -86,8 +86,8 @@ export const useCatalogs = () => {
         const extension = isPng ? 'png' : 'jpg';
         const format = isPng ? 'image/png' : 'image/jpeg';
         const optimizedBlob = await optimizeImage(logoFile, {
-          maxWidth: 300,
-          maxHeight: 300,
+          maxWidth: 256,
+          maxHeight: 256,
           quality: 0.8,
           format
         });
@@ -111,7 +111,7 @@ export const useCatalogs = () => {
         const optimizedBlob = await optimizeImage(coverFile, {
           maxWidth: 1920,
           maxHeight: 768,
-          quality: 0.92,
+          quality: 0.82,
           format
         });
         const fileName = `catalogs/cover_${Date.now()}.${extension}`;
@@ -191,8 +191,8 @@ export const useCatalogs = () => {
         const extension = isPng ? 'png' : 'jpg';
         const format = isPng ? 'image/png' : 'image/jpeg';
         const optimizedBlob = await optimizeImage(logoFile, {
-          maxWidth: 300,
-          maxHeight: 300,
+          maxWidth: 256,
+          maxHeight: 256,
           quality: 0.8,
           format
         });
@@ -216,7 +216,7 @@ export const useCatalogs = () => {
         const optimizedBlob = await optimizeImage(coverFile, {
           maxWidth: 1920,
           maxHeight: 768,
-          quality: 0.92,
+          quality: 0.82,
           format
         });
         const fileName = `catalogs/cover_${Date.now()}.${extension}`;

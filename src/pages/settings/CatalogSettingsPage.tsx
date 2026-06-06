@@ -22,6 +22,7 @@ import { useEvolution } from '../../hooks/useEvolution';
 import { usePlanLimits } from '../../hooks/usePlanLimits';
 import { useHistory } from '../../hooks/useHistory';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { useCollaboration } from '../../hooks/useCollaboration';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
@@ -50,7 +51,9 @@ import {
   Mail,
   Coins,
   DollarSign,
-  ChevronRight
+  ChevronRight,
+  UserMinus,
+  Shield
 } from 'lucide-react';
 
 const InstagramIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
@@ -107,7 +110,7 @@ const getSecondaryTextColor = (hexColor: string) => {
   return contrast === '#ffffff' ? '#a0a0a0' : '#4b5563';
 };
 
-type SettingsTab = 'menu' | 'store' | 'whatsapp' | 'groups' | 'automation' | 'templates' | 'history';
+type SettingsTab = 'menu' | 'store' | 'whatsapp' | 'groups' | 'automation' | 'templates' | 'history' | 'members';
 
 interface TemplateSectionProps {
   id: string;
@@ -295,6 +298,15 @@ export const CatalogSettingsPage = () => {
   // Hook para actualizar catálogos
   const { loading: updateLoading, updateCatalog } = useCatalogs();
 
+  // Hook de colaboración
+  const { 
+    members, 
+    getCatalogMembers, 
+    inviteMember, 
+    removeMember,
+    inviteFollower 
+  } = useCollaboration();
+
   // Estados del Formulario de la Tienda
   const [storeForm, setStoreForm] = useState({
     nombre: '',
@@ -416,8 +428,9 @@ export const CatalogSettingsPage = () => {
       loadCatalog();
       getLinkedGroups();
       getMessages();
+      getCatalogMembers(catalogId);
     }
-  }, [catalogId]);
+  }, [catalogId, getCatalogMembers]);
 
   const loadCatalog = async () => {
     setCatLoading(true);
@@ -928,6 +941,7 @@ export const CatalogSettingsPage = () => {
       { id: 'automation' as SettingsTab, label: 'Automatización', icon: Zap }
     ] : []),
     { id: 'templates' as SettingsTab, label: 'Plantillas', icon: Layout },
+    { id: 'members' as SettingsTab, label: 'Miembros', icon: Users },
     { id: 'history' as SettingsTab, label: 'Historial', icon: Clock },
   ];
 
@@ -1042,6 +1056,13 @@ export const CatalogSettingsPage = () => {
                   iconBgColorClass="bg-pink-500/10 text-pink-600 dark:text-pink-400"
                 />
               )}
+              <MenuItem
+                icon={Users}
+                label="Miembros"
+                value="Gestiona los miembros colaboradores y seguidores del catálogo"
+                onClick={() => setActiveTab('members')}
+                iconBgColorClass="bg-teal-500/10 text-teal-600 dark:text-teal-400"
+              />
               <MenuItem
                 icon={Clock}
                 label="Historial de Envíos"
@@ -1945,6 +1966,141 @@ export const CatalogSettingsPage = () => {
         {/* PESTAÑA: HISTORIAL */}
         {activeTab === 'history' && (
           <HistoryTabContent catalogId={catalogId!} />
+        )}
+
+        {/* PESTAÑA: MIEMBROS */}
+        {activeTab === 'members' && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            {/* Sección: Colaboradores del Catálogo */}
+            <div className="card p-5 space-y-4 border-border">
+              <div className="flex items-center gap-2 pb-3 border-b border-border">
+                <Shield size={18} className="text-accent" />
+                <h3 className="font-bold text-primary text-sm uppercase tracking-wider">Miembros Colaboradores</h3>
+              </div>
+              <p className="text-secondary text-xs">
+                Los colaboradores pueden agregar, editar y eliminar productos en este catálogo, además de compartirlo en sus propios perfiles.
+              </p>
+
+              {/* Formulario de invitación de colaboradores */}
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  const phoneInput = form.elements.namedItem('collabPhone') as HTMLInputElement;
+                  let phone = phoneInput.value.trim();
+                  if (!phone) return;
+                  
+                  // Si tiene 8 dígitos (ej. móvil en Cuba), agregar prefijo +53
+                  const digits = phone.replace(/\D/g, '');
+                  if (digits.length === 8) {
+                    phone = '+53' + digits;
+                  }
+                  
+                  const success = await inviteMember(catalogId!, phone);
+                  if (success) phoneInput.value = '';
+                }}
+                className="flex gap-2"
+              >
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary">+</span>
+                  <input
+                    name="collabPhone"
+                    type="tel"
+                    placeholder="Teléfono del colaborador (ej. 54911...)"
+                    className="w-full bg-background border border-border rounded-xl h-10 pl-6 pr-3 text-xs focus:border-accent focus:outline-none transition-colors text-primary"
+                    required
+                  />
+                </div>
+                <Button type="submit" size="sm" className="h-10 px-4 flex-shrink-0">
+                  Invitar
+                </Button>
+              </form>
+
+              {/* Lista de colaboradores */}
+              <div className="space-y-2 pt-2">
+                {members.length === 0 ? (
+                  <p className="text-[10px] text-secondary italic text-center py-2">No hay colaboradores añadidos aún.</p>
+                ) : (
+                  members.map((member: any) => (
+                    <div key={member.id} className="flex justify-between items-center bg-background border border-border p-3 rounded-xl animate-in fade-in duration-200">
+                      <div className="min-w-0 flex-1 pr-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-primary text-xs truncate">
+                            {member.user_profile?.full_name || `+${member.invited_phone}`}
+                          </span>
+                          {member.user_profile?.full_name && (
+                            <span className="text-[9px] text-secondary font-mono">+{member.invited_phone}</span>
+                          )}
+                        </div>
+                        <span className={`inline-block text-[8px] font-black uppercase tracking-wider mt-1 px-1.5 py-0.5 rounded ${
+                          member.status === 'accepted' 
+                            ? 'bg-green-500/10 text-green-500 border border-green-500/20' 
+                            : member.status === 'rejected'
+                            ? 'bg-red-500/10 text-red-500 border border-red-500/20'
+                            : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+                        }`}>
+                          {member.status === 'accepted' ? 'Aceptado' : member.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                        </span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => removeMember(catalogId!, member.id)}
+                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
+                        title="Eliminar miembro"
+                      >
+                        <UserMinus size={16} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Sección: Invitar Seguidores */}
+            <div className="card p-5 space-y-4 border-border">
+              <div className="flex items-center gap-2 pb-3 border-b border-border">
+                <Users size={18} className="text-accent" />
+                <h3 className="font-bold text-primary text-sm uppercase tracking-wider">Invitar Seguidores</h3>
+              </div>
+              <p className="text-secondary text-xs">
+                Envía una invitación para que otros usuarios sigan tu catálogo. Recibirán la solicitud en su bandeja de catálogos seguidos.
+              </p>
+
+              <form 
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  const phoneInput = form.elements.namedItem('followerPhone') as HTMLInputElement;
+                  let phone = phoneInput.value.trim();
+                  if (!phone) return;
+                  
+                  // Si tiene 8 dígitos (ej. móvil en Cuba), agregar prefijo +53
+                  const digits = phone.replace(/\D/g, '');
+                  if (digits.length === 8) {
+                    phone = '+53' + digits;
+                  }
+                  
+                  const success = await inviteFollower(catalogId!, phone);
+                  if (success) phoneInput.value = '';
+                }}
+                className="flex gap-2"
+              >
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary">+</span>
+                  <input
+                    name="followerPhone"
+                    type="tel"
+                    placeholder="Teléfono del seguidor (ej. 54911...)"
+                    className="w-full bg-background border border-border rounded-xl h-10 pl-6 pr-3 text-xs focus:border-accent focus:outline-none transition-colors text-primary"
+                    required
+                  />
+                </div>
+                <Button type="submit" size="sm" className="h-10 px-4 flex-shrink-0">
+                  Enviar Invitación
+                </Button>
+              </form>
+            </div>
+          </div>
         )}
 
       </div>

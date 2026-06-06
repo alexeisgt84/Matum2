@@ -35,9 +35,6 @@ import {
   X,
   ZapOff,
   Globe,
-  Sparkles,
-  Shield,
-  UserMinus,
   Coins,
   FolderHeart
 } from 'lucide-react';
@@ -78,26 +75,16 @@ import { CatalogStatusBar } from '../../components/catalogs/CatalogStatusBar';
 import { ScheduleSequenceModal } from '../../components/catalogs/ScheduleSequenceModal';
 import type { SequenceSchedule } from '../../types/catalog';
 
-import { useCollaboration } from '../../hooks/useCollaboration';
-
-type View = 'individual' | 'sequences' | 'products' | 'groups' | 'members';
+type View = 'individual' | 'sequences' | 'products' | 'groups';
 
 export const CatalogDetailPage = () => {
   const { catalogId } = useParams();
   const navigate = useNavigate();
   const { setTitle, setSubtitle, setRightAction } = useHeader();
   const { user } = useAuthStore();
-  
-  const { 
-    members, 
-    getCatalogMembers, 
-    inviteMember, 
-    removeMember,
-    inviteFollower 
-  } = useCollaboration();
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const currentView = (searchParams.get('view') as View) || 'individual';
+  const currentView = (searchParams.get('view') as View) || 'products';
   
   const setView = (newView: View) => {
     setSearchParams(prev => {
@@ -119,12 +106,7 @@ export const CatalogDetailPage = () => {
     }
   }, [catalog, user?.id, view]);
 
-  // Cargar miembros colaboradores si es el propietario y está en la vista correspondiente
-  useEffect(() => {
-    if (view === 'members' && catalogId && isOwner) {
-      getCatalogMembers(catalogId);
-    }
-  }, [view, catalogId, isOwner, getCatalogMembers]);
+
 
   // Modales
   const [isEvolutionOpen, setIsEvolutionOpen] = useState(false);
@@ -1183,21 +1165,38 @@ export const CatalogDetailPage = () => {
       {/* Barra de compartir catálogo (Ancho completo debajo del header) */}
       {catalog?.follow_code && (
         <div 
-          onPointerDown={handleSharePointerDown}
-          onPointerUp={handleSharePointerUp}
-          onPointerCancel={handleSharePointerCancel}
-          onContextMenu={(e) => e.preventDefault()}
-          className="w-full flex items-center justify-between px-4 py-2.5 bg-surface/50 border-b border-border/80 text-[11px] text-secondary select-none active:bg-surface-hover/50 cursor-pointer transition-colors"
-          title="Click para compartir, mantener presionado para copiar"
+          className="w-full flex items-center justify-between px-4 py-2.5 bg-surface/50 border-b border-border/80 text-[11px] text-secondary select-none transition-colors"
         >
-          <div className="flex items-center gap-1.5">
+          <div 
+            onPointerDown={handleSharePointerDown}
+            onPointerUp={handleSharePointerUp}
+            onPointerCancel={handleSharePointerCancel}
+            onContextMenu={(e) => e.preventDefault()}
+            className="flex items-center gap-1.5 active:bg-surface-hover/50 cursor-pointer transition-colors py-0.5 rounded px-1.5 -ml-1.5"
+            title="Click para compartir, mantener presionado para copiar"
+          >
             <span className="w-1.5 h-1.5 rounded-full bg-accent/60 flex-shrink-0 animate-pulse" />
             <span>Código:</span>
             <span className="font-mono font-bold text-primary tracking-wider">{catalog.follow_code}</span>
           </div>
-          <div className="flex items-center gap-1 text-[10px] font-bold text-accent uppercase tracking-wider">
-            <Share2 size={12} className="text-accent/80" />
-            <span className="hidden sm:inline">Compartir</span>
+          <div 
+            onClick={isOwner ? () => setIsExchangeRatesOpen(true) : undefined}
+            className={`flex items-center gap-1.5 text-[10px] font-bold text-accent uppercase tracking-wider ${
+              isOwner 
+                ? 'cursor-pointer hover:text-accent-hover active:scale-95 transition-all py-0.5 rounded px-1.5 -mr-1.5 hover:bg-surface-hover/50' 
+                : ''
+            }`}
+            title={isOwner ? "Actualizar Tasas de Cambio" : undefined}
+          >
+            <Coins size={12} className="text-accent/80" />
+            <span>cambio:</span>
+            <span className="text-primary font-mono">{catalog.usd_to_cup_rate || 0}</span>
+            <span className="text-secondary/50 font-mono">/</span>
+            <span className="text-primary font-mono">
+              {catalog.cup_to_usd_rate && catalog.cup_to_usd_rate > 0 
+                ? Math.round(1 / catalog.cup_to_usd_rate) 
+                : 0}
+            </span>
           </div>
         </div>
       )}
@@ -1292,18 +1291,8 @@ export const CatalogDetailPage = () => {
             </div>
           </div>
         ) : isOwner ? (
-          /* Switch Moderno Adaptativo (Cuádruple o Triple) */
+          /* Switch Moderno Adaptativo (Triple o Doble) */
           <div className="relative flex p-1.5 bg-surface-hover rounded-2xl border border-border backdrop-blur-sm">
-            <button
-              onClick={() => setView('individual')}
-              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
-                view === 'individual' ? 'text-accent' : 'text-secondary hover:text-primary'
-              }`}
-            >
-              <MessageSquare size={18} className={view === 'individual' ? 'animate-pulse' : ''} />
-              <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Mensajes</span>
-            </button>
-            
             <button
               onClick={() => setView('products')}
               className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
@@ -1312,6 +1301,16 @@ export const CatalogDetailPage = () => {
             >
               <Package size={18} className={view === 'products' ? 'animate-pulse' : ''} />
               <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Productos</span>
+            </button>
+
+            <button
+              onClick={() => setView('individual')}
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
+                view === 'individual' ? 'text-accent' : 'text-secondary hover:text-primary'
+              }`}
+            >
+              <MessageSquare size={18} className={view === 'individual' ? 'animate-pulse' : ''} />
+              <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Mensajes</span>
             </button>
 
             {hasInstance && (
@@ -1326,24 +1325,14 @@ export const CatalogDetailPage = () => {
               </button>
             )}
 
-            <button
-              onClick={() => setView('members')}
-              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
-                view === 'members' ? 'text-accent' : 'text-secondary hover:text-primary'
-              }`}
-            >
-              <Users size={18} className={view === 'members' ? 'animate-pulse' : ''} />
-              <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Miembros</span>
-            </button>
-
             {/* Indicador Deslizante Adaptativo */}
             <div 
               className="absolute top-1.5 bottom-1.5 left-1.5 transition-all duration-500 ease-out bg-primary/10 rounded-xl border border-primary/10 shadow-lg shadow-accent/10"
               style={{ 
-                width: hasInstance ? 'calc((100% - 16px) / 4)' : 'calc((100% - 12px) / 3)',
+                width: hasInstance ? 'calc((100% - 12px) / 3)' : 'calc((100% - 8px) / 2)',
                 transform: hasInstance
-                  ? `translateX(${view === 'individual' ? '0%' : view === 'products' ? '100%' : view === 'sequences' ? '200%' : view === 'members' ? '300%' : '0%'})`
-                  : `translateX(${view === 'individual' ? '0%' : view === 'products' ? '100%' : view === 'members' ? '200%' : '0%'})`
+                  ? `translateX(${view === 'products' ? '0%' : view === 'individual' ? '100%' : view === 'sequences' ? '200%' : '0%'})`
+                  : `translateX(${view === 'products' ? '0%' : view === 'individual' ? '100%' : '0%'})`
               }}
             />
           </div>
@@ -1421,17 +1410,6 @@ export const CatalogDetailPage = () => {
               >
                 Todos
               </button>
-              
-              <button
-                onClick={() => setSelectedCategoryId('none')}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                  selectedCategoryId === 'none'
-                    ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
-                    : 'bg-surface-hover border-border text-secondary hover:text-primary hover:border-white/20'
-                }`}
-              >
-                Sin categoría
-              </button>
 
               {categories.map((cat) => (
                 <button
@@ -1447,6 +1425,17 @@ export const CatalogDetailPage = () => {
                   <span>{cat.name}</span>
                 </button>
               ))}
+
+              <button
+                onClick={() => setSelectedCategoryId('none')}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                  selectedCategoryId === 'none'
+                    ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-surface-hover border-border text-secondary hover:text-primary hover:border-white/20'
+                }`}
+              >
+                Sin categoría
+              </button>
 
               <button
                 onClick={() => setIsCategoriesModalOpen(true)}
@@ -1839,153 +1828,16 @@ export const CatalogDetailPage = () => {
           </div>
         )}
 
-        {view === 'members' && isOwner && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
-            {/* Sección: Colaboradores del Catálogo */}
-            <div className="card p-5 space-y-4 border-border">
-              <div className="flex items-center gap-2 pb-3 border-b border-border">
-                <Shield size={18} className="text-accent" />
-                <h3 className="font-bold text-primary text-sm uppercase tracking-wider">Miembros Colaboradores</h3>
-              </div>
-              <p className="text-secondary text-xs">
-                Los colaboradores pueden agregar, editar y eliminar productos en este catálogo, además de compartirlo en sus propios perfiles.
-              </p>
-
-              {/* Formulario de invitación de colaboradores */}
-              <form 
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  const form = e.currentTarget;
-                  const phoneInput = form.elements.namedItem('collabPhone') as HTMLInputElement;
-                  let phone = phoneInput.value.trim();
-                  if (!phone) return;
-                  
-                  // Si tiene 8 dígitos (ej. móvil en Cuba), agregar prefijo +53
-                  const digits = phone.replace(/\D/g, '');
-                  if (digits.length === 8) {
-                    phone = '+53' + digits;
-                  }
-                  
-                  const success = await inviteMember(catalogId!, phone);
-                  if (success) phoneInput.value = '';
-                }}
-                className="flex gap-2"
-              >
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary">+</span>
-                  <input
-                    name="collabPhone"
-                    type="tel"
-                    placeholder="Teléfono del colaborador (ej. 54911...)"
-                    className="w-full bg-background border border-border rounded-xl h-10 pl-6 pr-3 text-xs focus:border-accent focus:outline-none transition-colors text-primary"
-                    required
-                  />
-                </div>
-                <Button type="submit" size="sm" className="h-10 px-4 flex-shrink-0">
-                  Invitar
-                </Button>
-              </form>
-
-              {/* Lista de colaboradores */}
-              <div className="space-y-2 pt-2">
-                {members.length === 0 ? (
-                  <p className="text-[10px] text-secondary italic text-center py-2">No hay colaboradores añadidos aún.</p>
-                ) : (
-                  members.map((member: any) => (
-                    <div key={member.id} className="flex justify-between items-center bg-background border border-border p-3 rounded-xl animate-in fade-in duration-200">
-                      <div className="min-w-0 flex-1 pr-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-primary text-xs truncate">
-                            {member.user_profile?.full_name || `+${member.invited_phone}`}
-                          </span>
-                          {member.user_profile?.full_name && (
-                            <span className="text-[9px] text-secondary font-mono">+{member.invited_phone}</span>
-                          )}
-                        </div>
-                        <span className={`inline-block text-[8px] font-black uppercase tracking-wider mt-1 px-1.5 py-0.5 rounded ${
-                          member.status === 'accepted' 
-                            ? 'bg-green-500/10 text-green-500 border border-green-500/20' 
-                            : member.status === 'rejected'
-                            ? 'bg-red-500/10 text-red-500 border border-red-500/20'
-                            : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
-                        }`}>
-                          {member.status === 'accepted' ? 'Aceptado' : member.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
-                        </span>
-                      </div>
-                      <button 
-                        type="button"
-                        onClick={() => removeMember(catalogId!, member.id)}
-                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
-                        title="Eliminar miembro"
-                      >
-                        <UserMinus size={16} />
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Sección: Invitar Seguidores */}
-            <div className="card p-5 space-y-4 border-border">
-              <div className="flex items-center gap-2 pb-3 border-b border-border">
-                <Users size={18} className="text-accent" />
-                <h3 className="font-bold text-primary text-sm uppercase tracking-wider">Invitar Seguidores</h3>
-              </div>
-              <p className="text-secondary text-xs">
-                Envía una invitación para que otros usuarios sigan tu catálogo. Recibirán la solicitud en su bandeja de catálogos seguidos.
-              </p>
-
-              <form 
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  const form = e.currentTarget;
-                  const phoneInput = form.elements.namedItem('followerPhone') as HTMLInputElement;
-                  let phone = phoneInput.value.trim();
-                  if (!phone) return;
-                  
-                  // Si tiene 8 dígitos (ej. móvil en Cuba), agregar prefijo +53
-                  const digits = phone.replace(/\D/g, '');
-                  if (digits.length === 8) {
-                    phone = '+53' + digits;
-                  }
-                  
-                  const success = await inviteFollower(catalogId!, phone);
-                  if (success) phoneInput.value = '';
-                }}
-                className="flex gap-2"
-              >
-                <div className="relative flex-1">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-secondary">+</span>
-                  <input
-                    name="followerPhone"
-                    type="tel"
-                    placeholder="Teléfono del seguidor (ej. 54911...)"
-                    className="w-full bg-background border border-border rounded-xl h-10 pl-6 pr-3 text-xs focus:border-accent focus:outline-none transition-colors text-primary"
-                    required
-                  />
-                </div>
-                <Button type="submit" size="sm" className="h-10 px-4 flex-shrink-0">
-                  Enviar Invitación
-                </Button>
-              </form>
-            </div>
-          </div>
-        )}
+      <div className="fixed bottom-24 right-6 z-20">
+        <Button 
+          size="lg"
+          className="w-14 h-14 rounded-full flex items-center justify-center p-0" 
+          icon={Plus}
+          iconSize={24}
+          onClick={handleAddAction}
+          title={view === 'products' ? 'Nuevo Producto' : view === 'groups' ? 'Vincular Grupos' : 'Nuevo Mensaje'}
+        />
       </div>
-
-      {view !== 'members' && (
-        <div className="fixed bottom-24 right-6 z-20">
-          <Button 
-            size="lg"
-            className="w-14 h-14 rounded-full flex items-center justify-center p-0" 
-            icon={Plus}
-            iconSize={24}
-            onClick={handleAddAction}
-            title={view === 'products' ? 'Nuevo Producto' : view === 'groups' ? 'Vincular Grupos' : 'Nuevo Mensaje'}
-          />
-        </div>
-      )}
 
       {/* Evolution Config Modal */}
       <Modal 

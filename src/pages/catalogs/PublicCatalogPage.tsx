@@ -916,16 +916,6 @@ export const PublicCatalogPage = () => {
               >
                 Todos
               </button>
-              <button
-                onClick={() => setSelectedCategoryId('none')}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                  selectedCategoryId === 'none'
-                    ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
-                    : 'bg-[var(--surface-hover)] border-border text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-white/20'
-                }`}
-              >
-                Sin categoría
-              </button>
               {categories.map((cat) => (
                 <button
                   key={cat.id}
@@ -940,6 +930,16 @@ export const PublicCatalogPage = () => {
                   <span>{cat.name}</span>
                 </button>
               ))}
+              <button
+                onClick={() => setSelectedCategoryId('none')}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                  selectedCategoryId === 'none'
+                    ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
+                    : 'bg-[var(--surface-hover)] border-border text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-white/20'
+                }`}
+              >
+                Sin categoría
+              </button>
             </div>
           )
         )}
