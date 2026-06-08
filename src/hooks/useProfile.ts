@@ -10,7 +10,7 @@ export const useProfile = () => {
 
   const getProfile = async (force = false) => {
     if (!user) return;
-    if (profile && !force) {
+    if (profile && profile.id === user.id && !force) {
       setLoading(false);
       return;
     }
@@ -106,7 +106,16 @@ export const useProfile = () => {
 
   useEffect(() => {
     if (user?.id) {
+      // Limpiar perfil anterior de inmediato si cambió de usuario para evitar mostrar datos viejos
+      if (profile && profile.id !== user.id) {
+        setProfile(null);
+      }
       getProfile();
+    } else {
+      // Limpiar el perfil si no hay usuario logueado
+      if (profile !== null) {
+        setProfile(null);
+      }
     }
   }, [user?.id]);
 

@@ -791,7 +791,7 @@ export const PublicCatalogPage = () => {
   const hasCatalogRole = !!user && (user.id === catalog?.user_id || user.role === 'admin');
 
   return (
-    <div style={themeStyles} className={`min-h-screen bg-[var(--background)] text-[var(--text-primary)] ${totalItemsCount > 0 ? 'pb-28' : ''}`}>
+    <div style={themeStyles} className={`flex flex-col min-h-screen bg-[var(--background)] text-[var(--text-primary)] ${totalItemsCount > 0 ? 'pb-28' : ''}`}>
       {/* Banner de Portada */}
       <div className="relative h-28 sm:h-40 w-full bg-cover bg-center overflow-hidden border-b border-border">
         {catalog.cover_url ? (
@@ -971,7 +971,7 @@ export const PublicCatalogPage = () => {
       </header>
 
       {/* Listado de Productos */}
-      <main className="max-w-4xl mx-auto px-4 pb-2">
+      <main className="flex-1 w-full max-w-4xl mx-auto px-4 pb-2">
         {productsLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (

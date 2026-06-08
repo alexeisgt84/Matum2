@@ -19,6 +19,7 @@ import { AdminDashboard } from '../pages/admin/AdminDashboard';
 import { PlansPage } from '../pages/admin/PlansPage';
 import { UsersPage } from '../pages/admin/UsersPage';
 import { PaymentsPage } from '../pages/admin/PaymentsPage';
+import { AdminSettingsPage } from '../pages/admin/AdminSettingsPage';
 import { useAuthStore } from '../store/authStore';
 import { ErrorPage } from '../pages/ErrorPage';
 import { PublicCatalogPage } from '../pages/catalogs/PublicCatalogPage';
@@ -125,6 +126,10 @@ export const router = createBrowserRouter([
       {
         path: 'admin/payments',
         element: <AdminRoute><PaymentsPage /></AdminRoute>,
+      },
+      {
+        path: 'admin/settings',
+        element: <AdminRoute><AdminSettingsPage /></AdminRoute>,
       },
       {
         path: ':slug',

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useShareStore } from '../../store/shareStore';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { 
@@ -82,6 +83,7 @@ export const CatalogDetailPage = () => {
   const navigate = useNavigate();
   const { setTitle, setSubtitle, setRightAction } = useHeader();
   const { user } = useAuthStore();
+  const { getAppUrl } = useSystemSettings();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const currentView = (searchParams.get('view') as View) || 'products';
@@ -319,7 +321,7 @@ export const CatalogDetailPage = () => {
     webLinkTimeoutRef.current = setTimeout(() => {
       isWebLinkLongPressRef.current = true;
       if (catalog?.slug) {
-        const url = `${window.location.origin}/${catalog.slug}`;
+        const url = `${getAppUrl()}/${catalog.slug}`;
         navigator.clipboard.writeText(url)
           .then(() => {
             toast.success('¡Enlace del catálogo copiado!');
