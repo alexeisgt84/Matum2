@@ -808,10 +808,12 @@ export const PublicCatalogPage = () => {
         )}
       </div>
 
-      {/* Cabecera / Info de la Tienda (Logo, Nombre, Buscador) */}
-      <header className="relative max-w-4xl mx-auto px-4 sm:px-6 z-10 pb-3">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+      {/* Todo el contenido de la tienda en un solo contenedor para alineación perfecta */}
+      <main className="flex-1 w-full max-w-4xl mx-auto px-4 pb-2">
+        {/* Cabecera: Logo + Nombre a la izquierda, Botones a la derecha */}
+        <div className="flex items-start justify-between gap-3 sm:gap-4">
+          {/* Logo + Nombre */}
+          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
             {/* Logo de la tienda */}
             <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-background border-4 border-background flex-shrink-0 relative -mt-10 sm:-mt-16">
               {catalog.logo_url ? (
@@ -830,61 +832,40 @@ export const PublicCatalogPage = () => {
 
             {/* Nombre y Descripción */}
             <div className="pb-1 min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2 sm:justify-start sm:gap-4">
-                <h1 className="text-sm sm:text-2xl font-black text-primary uppercase tracking-tight break-words">
-                  {catalog.name}
-                </h1>
-                {/* Botones de acción móviles (Contactar y Compartir) */}
-                <div className="sm:hidden flex items-center gap-1.5 flex-shrink-0">
-                  {vendorPhone && (
-                    <a 
-                      href={`https://wa.me/${vendorPhone.replace(/\D/g, '')}`} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="inline-flex items-center justify-center gap-1 px-2 py-0.5 bg-green-600 hover:bg-green-500 text-white text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all border border-green-600/20 active:scale-95 shadow-sm cursor-pointer"
-                    >
-                      <Smartphone size={10} /> Contactar
-                    </a>
-                  )}
-                  <button 
-                    onClick={handleShareCatalog}
-                    className="inline-flex items-center justify-center gap-1 px-2 py-0.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-[9px] font-bold uppercase tracking-wider rounded-lg transition-all border border-[var(--accent)]/20 active:scale-95 shadow-sm cursor-pointer"
-                  >
-                    <Share2 size={10} /> Compartir
-                  </button>
-                </div>
-              </div>
+              <h1 className="text-sm sm:text-2xl font-black text-primary uppercase tracking-tight break-words">
+                {catalog.name}
+              </h1>
               {catalog.slogan && (
-                <p className="text-secondary text-[10px] sm:text-sm mt-1.5 max-w-2xl leading-relaxed whitespace-pre-line italic">
+                <p className="text-secondary text-[10px] sm:text-sm mt-1.5 max-w-2xl leading-relaxed whitespace-pre-line italic break-words">
                   {catalog.slogan}
                 </p>
               )}
             </div>
           </div>
 
-          {/* Botones de acción escritorio (Contactar y Compartir) */}
-          <div className="hidden sm:flex items-center gap-2 flex-shrink-0 self-start sm:self-center mt-2 sm:mt-0">
+          {/* Botones de acción: Contactar + Compartir (siempre visibles, alineados a la derecha) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 mt-1 sm:mt-2">
             {vendorPhone && (
               <a 
                 href={`https://wa.me/${vendorPhone.replace(/\D/g, '')}`} 
                 target="_blank" 
                 rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-green-600 hover:bg-green-500 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border border-green-600/20 active:scale-95 shadow-sm shadow-green-600/5 cursor-pointer"
+                className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 bg-green-600 hover:bg-green-500 text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border border-green-600/20 active:scale-95 shadow-sm cursor-pointer"
               >
-                <Smartphone size={11} /> Contactar Vendedor
+                <Smartphone size={10} /> Contactar
               </a>
             )}
             <button 
               onClick={handleShareCatalog}
-              className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border border-[var(--accent)]/20 active:scale-95 shadow-sm shadow-[var(--accent)]/5 cursor-pointer"
+              className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border border-[var(--accent)]/20 active:scale-95 shadow-sm cursor-pointer"
             >
-              <Share2 size={11} /> Compartir Tienda
+              <Share2 size={10} /> Compartir
             </button>
           </div>
         </div>
 
         {/* Buscador y Ordenador de productos */}
-        <div className="mt-6 flex items-center gap-2 w-full flex-1">
+        <div className="mt-6 flex items-center gap-2 w-full">
           <Input
             type="text"
             placeholder="Buscar en la tienda..."
@@ -930,7 +911,7 @@ export const PublicCatalogPage = () => {
           </div>
         ) : (
           categories.length > 0 && (
-            <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none select-none">
+            <div className="mt-4 mb-4 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none select-none">
               <button
                 onClick={() => setSelectedCategoryId(null)}
                 className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
@@ -968,10 +949,7 @@ export const PublicCatalogPage = () => {
             </div>
           )
         )}
-      </header>
 
-      {/* Listado de Productos */}
-      <main className="flex-1 w-full max-w-4xl mx-auto px-4 pb-2">
         {productsLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -1146,8 +1124,8 @@ export const PublicCatalogPage = () => {
 
       {/* Footer Premium de la Tienda */}
       {catalog && (
-        <footer className="w-full bg-[var(--surface)] border-t border-border mt-16 py-12 px-4 sm:px-6">
-          <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between gap-8">
+        <footer className="w-full bg-[var(--surface)] border-t border-border mt-16 py-12 px-4">
+          <div className="w-full max-w-4xl mx-auto flex flex-col md:flex-row justify-between gap-8">
             {/* Info principal de la tienda */}
             <div className="space-y-4 max-w-xs">
               <div className="flex items-center gap-2">
@@ -1323,7 +1301,7 @@ export const PublicCatalogPage = () => {
       {/* Barra Inferior del Carrito Flotante */}
       {totalItemsCount > 0 && (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur border-t border-border px-4 py-4 shadow-2xl animate-in slide-in-from-bottom duration-300">
-          <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
+          <div className="w-full max-w-4xl mx-auto flex items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
               <div className="relative bg-[var(--accent)]/15 p-2 rounded-xl border border-[var(--accent)]/20 text-[var(--accent)]">
                 <ShoppingBag size={18} />
