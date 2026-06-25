@@ -42,6 +42,7 @@ if ($LASTEXITCODE -ne 0) { Write-Host "Advertencia: Fallo la generacion automati
 # 3. Construir APK con Gradle
 Write-Host "[3/4] Generando APK con Gradle..." -ForegroundColor Yellow
 Push-Location android
+.\gradlew clean
 .\gradlew assembleRelease
 Pop-Location
 if ($LASTEXITCODE -ne 0) { Write-Error "Fallo gradle build"; exit $LASTEXITCODE }

@@ -136,7 +136,8 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
         price: form.price === '' || form.price === null ? null : Number(form.price),
         currency: form.currency,
         imagen_url,
-        category_id: form.category_id || null
+        category_id: form.category_id || null,
+        is_active: form.is_active !== undefined ? form.is_active : true
       };
 
       let result: Product | null = null;
@@ -161,8 +162,7 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
           .insert([{ 
             ...productData, 
             catalog_id: catalogId, 
-            position: 0,
-            is_active: true
+            position: 0
           }])
           .select()
           .single();

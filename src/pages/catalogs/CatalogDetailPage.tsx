@@ -37,7 +37,10 @@ import {
   ZapOff,
   Globe,
   Coins,
-  FolderHeart
+  FolderHeart,
+  Eye,
+  EyeOff,
+  Link2Off
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { shareContent } from '../../lib/share';
@@ -92,7 +95,7 @@ export const CatalogDetailPage = () => {
     setSearchParams(prev => {
       prev.set('view', newView);
       return prev;
-    });
+    }, { replace: true });
   };
 
   const view = currentView;
@@ -115,7 +118,8 @@ export const CatalogDetailPage = () => {
 
   // Hooks de Evolución (para saber si está conectado)
   const { instance } = useEvolution(catalogId);
-  const hasInstance = instance?.status === 'connected';
+  const hasInstance = !!instance;
+  const isConnected = instance?.status === 'connected';
 
   // Redirigir si la vista activa es 'sequences' pero no hay conexión
   useEffect(() => {
@@ -952,9 +956,9 @@ export const CatalogDetailPage = () => {
     }
   };
 
-  const handleUnlinkProduct = async (p: Product) => {
+  const handleUnlinkProduct = async (p: Product): Promise<boolean> => {
     const confirm = window.confirm(`¿Estás seguro de que deseas desvincular el producto "${p.name}" de su catálogo origen? Ya no se sincronizará automáticamente.`);
-    if (!confirm) return;
+    if (!confirm) return false;
 
     const toastId = toast.loading('Desvinculando producto…');
     try {
@@ -970,8 +974,10 @@ export const CatalogDetailPage = () => {
       if (error) throw error;
       toast.success('Producto desvinculado con éxito', { id: toastId });
       getProducts(true);
+      return true;
     } catch (err: any) {
       toast.error('Error al desvincular: ' + err.message, { id: toastId });
+      return false;
     }
   };
 
@@ -989,6 +995,56 @@ export const CatalogDetailPage = () => {
       getProducts(true);
     } catch (err: any) {
       toast.error('Error al cambiar visibilidad: ' + err.message, { id: toastId });
+    }
+  };
+
+  const handleBulkActiveStatus = async (isActive: boolean) => {
+    if (selectedProductIds.length === 0) return;
+    const toastId = toast.loading(`${isActive ? 'Activando' : 'Desactivando'} ${selectedProductIds.length} productos…`);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_active: isActive })
+        .in('id', selectedProductIds);
+
+      if (error) throw error;
+      toast.success(`${selectedProductIds.length} productos actualizados`, { id: toastId });
+      clearSelection();
+      getProducts(true);
+    } catch (err: any) {
+      toast.error(`Error al actualizar productos: ${err.message}`, { id: toastId });
+    }
+  };
+
+  const handleBulkUnlink = async () => {
+    if (selectedProductIds.length === 0) return;
+    
+    const linkedSelectedProducts = products.filter(p => selectedProductIds.includes(p.id) && p.parent_product_id);
+    if (linkedSelectedProducts.length === 0) {
+      toast.error('Ninguno de los productos seleccionados está vinculado.');
+      return;
+    }
+
+    const confirm = window.confirm(`¿Estás seguro de que deseas desvincular los ${linkedSelectedProducts.length} productos seleccionados de sus catálogos origen?`);
+    if (!confirm) return;
+
+    const toastId = toast.loading('Desvinculando productos…');
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({
+          parent_product_id: null,
+          base_price: null,
+          is_discontinued: false
+        })
+        .in('id', linkedSelectedProducts.map(p => p.id));
+
+      if (error) throw error;
+      toast.success(`${linkedSelectedProducts.length} productos desvinculados con éxito`, { id: toastId });
+      clearSelection();
+      getProducts(true);
+    } catch (err: any) {
+      toast.error(`Error al desvincular productos: ${err.message}`, { id: toastId });
     }
   };
 
@@ -1236,7 +1292,7 @@ export const CatalogDetailPage = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
               <button 
                 onClick={handleBulkSend}
                 className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-accent/10 text-secondary hover:text-accent border border-border hover:border-accent/20 transition-all group"
@@ -1288,6 +1344,32 @@ export const CatalogDetailPage = () => {
                     <PackageCheck size={16} className="group-hover:scale-110 transition-transform" />
                     <span className="text-[8px] font-bold uppercase tracking-widest">Disponible</span>
                   </button>
+
+                  <button 
+                    onClick={() => handleBulkActiveStatus(true)}
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-emerald-500/10 text-secondary hover:text-emerald-500 border border-border hover:border-emerald-500/20 transition-all group"
+                  >
+                    <Eye size={16} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest">Activar</span>
+                  </button>
+
+                  <button 
+                    onClick={() => handleBulkActiveStatus(false)}
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-red-500/10 text-secondary hover:text-red-500 border border-border hover:border-red-500/20 transition-all group"
+                  >
+                    <EyeOff size={16} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest">Desactivar</span>
+                  </button>
+
+                  {products.some(p => selectedProductIds.includes(p.id) && p.parent_product_id) && (
+                    <button 
+                      onClick={handleBulkUnlink}
+                      className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-orange-400/10 text-secondary hover:text-orange-400 border border-border hover:border-orange-400/20 transition-all group"
+                    >
+                      <Link2Off size={16} className="group-hover:scale-110 transition-transform" />
+                      <span className="text-[8px] font-bold uppercase tracking-widest">Desvincular</span>
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -1529,6 +1611,7 @@ export const CatalogDetailPage = () => {
                                     usdToCupRate={catalog?.usd_to_cup_rate}
                                     cupToUsdRate={catalog?.cup_to_usd_rate}
                                     ownerPlan={user?.plan}
+                                    appUrl={getAppUrl()}
                                     onEdit={(p) => {
                                       setEditingProduct(p);
                                       setIsProdFormOpen(true);
@@ -1641,6 +1724,14 @@ export const CatalogDetailPage = () => {
 
         {view === 'sequences' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {!isConnected && (
+              <div className="flex items-center gap-3 p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-orange-600 dark:text-orange-400">
+                <AlertCircle size={18} className="flex-shrink-0" />
+                <div className="text-xs">
+                  <span className="font-bold">WhatsApp Desconectado:</span> Las secuencias no se enviarán automáticamente. Por favor, ve a la configuración y conecta tu número.
+                </div>
+              </div>
+            )}
             {/* Control de Secuencia Minimalista */}
             <div className="flex items-center justify-between p-3 bg-surface border border-border rounded-2xl gap-4 shadow-sm">
               <Button 
@@ -1872,6 +1963,7 @@ export const CatalogDetailPage = () => {
         product={editingProduct}
         prefilledData={prefillIndex !== null ? sharedContentList[prefillIndex] : null}
         categories={categories}
+        onUnlink={handleUnlinkProduct}
         onSave={async (form, id, file, shouldSend) => {
           try {
             const product = await saveProduct(form, id, file);

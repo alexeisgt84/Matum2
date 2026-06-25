@@ -290,7 +290,7 @@ export const CatalogSettingsPage = () => {
     setSearchParams(prev => {
       prev.set('tab', tab);
       return prev;
-    });
+    }, { replace: true });
   };
   const [catalog, setCatalog] = useState<any>(null);
   const [catLoading, setCatLoading] = useState(true);
@@ -365,7 +365,8 @@ export const CatalogSettingsPage = () => {
 
   // WhatsApp e Instancia
   const { instance, loading: instanceLoading, checkStatus } = useEvolution(catalogId);
-  const hasInstance = instance?.status === 'connected';
+  const hasInstance = !!instance;
+  const isConnected = instance?.status === 'connected';
 
   // Redirigir si la pestaña activa requiere conexión y no la hay
   useEffect(() => {
@@ -1047,6 +1048,24 @@ export const CatalogSettingsPage = () => {
                 onClick={() => setActiveTab('whatsapp')}
                 iconBgColorClass="bg-orange-500/10 text-orange-600 dark:text-orange-400"
               />
+              {hasInstance && (
+                <>
+                  <MenuItem
+                    icon={Users}
+                    label="Grupos"
+                    value={isConnected ? "Vincula y gestiona los grupos de WhatsApp para envíos" : "WhatsApp desconectado - Ver grupos vinculados"}
+                    onClick={() => setActiveTab('groups')}
+                    iconBgColorClass={isConnected ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-zinc-500/10 text-zinc-500 dark:text-zinc-400"}
+                  />
+                  <MenuItem
+                    icon={Zap}
+                    label="Automatización"
+                    value={isConnected ? "Configura secuencias de mensajes y tiempos de envío" : "WhatsApp desconectado - Ver horarios"}
+                    onClick={() => setActiveTab('automation')}
+                    iconBgColorClass={isConnected ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-zinc-500/10 text-zinc-500 dark:text-zinc-400"}
+                  />
+                </>
+              )}
               {isPremium && (
                 <MenuItem
                   icon={Globe}
@@ -1596,6 +1615,14 @@ export const CatalogSettingsPage = () => {
         {/* PESTAÑA: GRUPOS */}
         {activeTab === 'groups' && (
           <div className="animate-in fade-in duration-300 space-y-6">
+            {!isConnected && (
+              <div className="flex items-center gap-3 p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-orange-600 dark:text-orange-400">
+                <AlertCircle size={18} className="flex-shrink-0" />
+                <div className="text-xs">
+                  <span className="font-bold">WhatsApp Desconectado:</span> No podrás vincular nuevos grupos ni sincronizar la lista de grupos activos. Por favor, ve a la pestaña de <button type="button" onClick={() => setActiveTab('whatsapp')} className="underline font-bold hover:text-orange-500">WhatsApp</button> para reconectar.
+                </div>
+              </div>
+            )}
             <div className="card space-y-4">
               <div className="flex justify-between items-center">
                 <div>
@@ -1692,6 +1719,14 @@ export const CatalogSettingsPage = () => {
         {/* PESTAÑA: AUTOMATIZACIÓN Y COLAS */}
         {activeTab === 'automation' && (
           <div className="animate-in fade-in duration-300 space-y-6">
+            {!isConnected && (
+              <div className="flex items-center gap-3 p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-orange-600 dark:text-orange-400">
+                <AlertCircle size={18} className="flex-shrink-0" />
+                <div className="text-xs">
+                  <span className="font-bold">WhatsApp Desconectado:</span> Los envíos programados no se realizarán mientras WhatsApp esté desconectado. Por favor, ve a la pestaña de <button type="button" onClick={() => setActiveTab('whatsapp')} className="underline font-bold hover:text-orange-500">WhatsApp</button> para reconectar.
+                </div>
+              </div>
+            )}
             
             {/* Ajustes de Automatización */}
             <div className="card space-y-6">

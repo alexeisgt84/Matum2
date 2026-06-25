@@ -26,3 +26,7 @@ dist-ssr
 Matum-signed.apk
 Matum-signed.apk.idsig
 Matum-signed.apk
+
+# Gemini/Agent configurations
+.agents/
+skills-lock.json

@@ -10,6 +10,7 @@ import { Switch } from '../../components/ui/Switch';
 import { Select } from '../../components/ui/Select';
 import { useProfile } from '../../hooks/useProfile';
 import { toast } from 'react-hot-toast';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 
 const InstagramIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
   <svg
@@ -53,6 +54,7 @@ export const CatalogFormPage = () => {
   const { catalogId } = useParams();
   const navigate = useNavigate();
   const { loading, createCatalog, updateCatalog } = useCatalogs();
+  const { getAppUrl } = useSystemSettings();
   
   const { profile } = useProfile();
   const hasDualityAccess = (profile?.plan && profile.plan !== 'free') || profile?.role === 'admin';
@@ -400,7 +402,9 @@ export const CatalogFormPage = () => {
                   form.slug && (
                     <p className="text-[11px] text-green-500 font-medium bg-green-500/10 p-2 rounded border border-green-500/20">
                       Tu tienda estará disponible en: <br />
-                      <span className="underline font-bold select-all">matum.com/{form.slug}</span>
+                      <span className="underline font-bold select-all">
+                        {getAppUrl().replace(/^(https?:\/\/)/, '')}/{form.slug}
+                      </span>
                     </p>
                   )
                 )}

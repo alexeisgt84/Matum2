@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 
 
 import { shareContent } from '../../lib/share';
+import { getAppBaseUrl } from '../../lib/urlHelper';
 
 interface ProductCardProps {
   product: Product;
@@ -27,6 +28,7 @@ interface ProductCardProps {
   usdToCupRate?: number;
   cupToUsdRate?: number;
   ownerPlan?: string;
+  appUrl?: string;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -49,7 +51,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   displayCurrency,
   usdToCupRate,
   cupToUsdRate,
-  ownerPlan
+  ownerPlan,
+  appUrl
 }) => {
   const getDisplayPriceInfo = () => {
     const price = product.price;
@@ -82,12 +85,65 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     }
   };
 
+  const renderAdminProductPrice = () => {
+    const price = product.price;
+    const currency = product.currency;
+    if (price === null) {
+      return <span className="text-accent font-bold text-xs tabular-nums mr-1">Consultar</span>;
+    }
+
+    const hasDuality = ownerPlan && ownerPlan !== 'free';
+    if (!hasDuality || !displayCurrency || displayCurrency === 'original') {
+      return (
+        <span className="text-accent font-bold text-xs tabular-nums mr-1">
+          {price.toLocaleString()} {currency}
+        </span>
+      );
+    }
+
+    const usdToCup = Number(usdToCupRate) || 1.0;
+    const cupToUsd = Number(cupToUsdRate) || 1.0;
+
+    const pUsd = product.price_usd !== null && product.price_usd !== undefined ? product.price_usd : (currency === 'USD' ? price : price * cupToUsd);
+    const pCup = product.price_cup !== null && product.price_cup !== undefined ? product.price_cup : (currency === 'CUP' ? price : price * usdToCup);
+
+    const formattedUsd = pUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' USD';
+    const formattedCup = pCup.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' CUP';
+
+    switch (displayCurrency) {
+      case 'usd':
+        return <span className="text-accent font-bold text-xs tabular-nums mr-1">{formattedUsd}</span>;
+      case 'cup':
+        return <span className="text-accent font-bold text-xs tabular-nums mr-1">{formattedCup}</span>;
+      case 'both': {
+        const isPrincipalUsd = currency === 'USD';
+        const principal = isPrincipalUsd ? formattedUsd : formattedCup;
+        const exchange = isPrincipalUsd ? formattedCup : formattedUsd;
+        return (
+          <span className="text-accent font-bold text-xs tabular-nums mr-1">
+            {principal}
+            <span className="text-[9px] font-normal opacity-60 text-secondary ml-1">
+              / {exchange}
+            </span>
+          </span>
+        );
+      }
+      default:
+        return (
+          <span className="text-accent font-bold text-xs tabular-nums mr-1">
+            {price.toLocaleString()} {currency}
+          </span>
+        );
+    }
+  };
+
   const handleShare = async () => {
     const { priceText, currencyText } = getDisplayPriceInfo();
     let text = '';
     if (shareTemplate) {
       const contactPhone = contactNumber || '';
-      const storeUrl = catalogSlug ? `https://matum.com/${catalogSlug}` : '';
+      const baseUrl = appUrl || getAppBaseUrl();
+      const storeUrl = catalogSlug ? `${baseUrl}/${catalogSlug}` : '';
       text = shareTemplate
         .replace(/{product_name}/g, (product.name || '').trim())
         .replace(/{product_description}/g, (product.description || '').trim())
@@ -236,9 +292,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {product.description || 'Sin descripción'}
           </p>
           <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-            <span className="text-accent font-bold text-xs tabular-nums mr-1">
-              {product.price ? `${getDisplayPriceInfo().priceText} ${getDisplayPriceInfo().currencyText}` : 'S/P'}
-            </span>
+            {renderAdminProductPrice()}
             {product.parent_product_id && product.base_price !== undefined && product.base_price !== null && (
               <span className="text-secondary text-[9px] sm:text-[10px] font-semibold tabular-nums mr-1 bg-surface-hover px-1.5 py-0.5 rounded-lg border border-border/40 select-none" title="Precio original del catálogo origen">
                 Orig: {product.base_price} {product.currency}

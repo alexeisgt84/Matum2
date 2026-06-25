@@ -27,5 +27,6 @@ export interface ProductForm {
   currency: string;
   imagen_url?: string | null;
   category_id?: number | null;
+  is_active?: boolean;
 }
 

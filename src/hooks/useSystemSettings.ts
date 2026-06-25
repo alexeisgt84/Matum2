@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { getAppBaseUrl } from '../lib/urlHelper';
 
 export interface SystemSetting {
   key: string;
@@ -48,11 +49,7 @@ export function useSystemSettings() {
   }, [fetchSettings]);
 
   const getAppUrl = useCallback(() => {
-    const appUrl = settings.app_url || 'matum.vercel.app';
-    if (appUrl.startsWith('http://') || appUrl.startsWith('https://')) {
-      return appUrl;
-    }
-    return `https://${appUrl}`;
+    return getAppBaseUrl(settings.app_url);
   }, [settings.app_url]);
 
   const updateSetting = useCallback(async (key: string, value: string, description?: string) => {

@@ -5,7 +5,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import type { Product, ProductForm } from '../../types/product';
 import type { Category } from '../../types/category';
-import { Camera, Save, Tag, Send, ImagePlus, Sparkles, Crown, Calculator } from 'lucide-react';
+import { Camera, Save, Tag, Send, ImagePlus, Sparkles, Crown, Calculator, Link2Off } from 'lucide-react';
 import { CalculatorModal } from '../ui/CalculatorModal';
 import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { ImageCropperModal } from '../ui/ImageCropperModal';
@@ -23,6 +23,7 @@ interface ProductFormModalProps {
   loading?: boolean;
   prefilledData?: { description?: string; file?: File; preview?: string } | null;
   categories?: Category[];
+  onUnlink?: (product: Product) => Promise<boolean>;
 }
 
 export const ProductFormModal: React.FC<ProductFormModalProps> = ({
@@ -33,6 +34,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   loading = false,
   prefilledData = null,
   categories = [],
+  onUnlink,
 }) => {
   const { profile } = useProfile();
   const [form, setForm] = useState<ProductForm>({
@@ -42,6 +44,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     currency: 'USD',
     imagen_url: null,
     category_id: null,
+    is_active: true,
   });
   const [file, setFile] = useState<File | undefined>();
   const [preview, setPreview] = useState<string | null>(null);
@@ -50,7 +53,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [calculatorOpen, setCalculatorOpen] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [parentProductId, setParentProductId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUnlink = async () => {
+    if (!product || !onUnlink) return;
+    const success = await onUnlink(product);
+    if (success) {
+      setParentProductId(null);
+    }
+  };
 
   const isPremium = profile?.plan === 'premium';
 
@@ -127,8 +139,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         currency: product.currency || 'USD',
         imagen_url: product.imagen_url,
         category_id: product.category_id || null,
+        is_active: product.is_active ?? true,
       });
       setPreview(product.imagen_url);
+      setParentProductId(product.parent_product_id || null);
     } else if (prefilledData) {
       setForm({
         name: '',
@@ -137,13 +151,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         currency: 'USD',
         imagen_url: null,
         category_id: null,
+        is_active: true,
       });
       setPreview(prefilledData.preview || null);
       setFile(prefilledData.file);
+      setParentProductId(null);
     } else {
-      setForm({ name: '', description: '', price: '', currency: 'USD', imagen_url: null, category_id: null });
+      setForm({ name: '', description: '', price: '', currency: 'USD', imagen_url: null, category_id: null, is_active: true });
       setPreview(null);
       setFile(undefined);
+      setParentProductId(null);
     }
   }, [product, prefilledData, isOpen]);
 
@@ -347,6 +364,30 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
           )}
 
+          {/* Alerta de Producto Vinculado */}
+          {parentProductId && (
+            <div className="p-3.5 rounded-2xl bg-blue-500/5 border border-blue-500/20 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between animate-in fade-in duration-300">
+              <div className="flex-1">
+                <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                  Importado
+                </span>
+                <p className="text-secondary text-[11px] mt-1.5 leading-relaxed font-semibold">
+                  Este producto está vinculado a un catálogo de origen. Las actualizaciones del catálogo de origen se sincronizan automáticamente.
+                </p>
+              </div>
+              {onUnlink && (
+                <button
+                  type="button"
+                  onClick={handleUnlink}
+                  className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-orange-400 hover:text-orange-500 bg-orange-500/5 hover:bg-orange-500/10 px-3 py-1.5 rounded-xl border border-orange-500/10 transition-colors flex-shrink-0 shadow-sm"
+                >
+                  <Link2Off size={12} />
+                  <span>Desvincular</span>
+                </button>
+              )}
+            </div>
+          )}
+
           <Input
             label="Nombre del Producto"
             placeholder="Ej: Pizza Margherita"
@@ -421,6 +462,24 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             onChange={(e) => setForm({ ...form, description: e.target.value })}
             disabled={isAnalyzing}
           />
+
+          {/* Activar / Desactivar Producto */}
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-hover border border-border/60">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs font-bold text-primary uppercase tracking-wider">Estado del Producto</span>
+              <span className="text-[10px] text-secondary">
+                {form.is_active ? 'El producto está visible en el catálogo público.' : 'El producto está oculto y no será visible para los clientes.'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setForm(prev => ({ ...prev, is_active: !prev.is_active }))}
+              className={`w-12 h-6 rounded-full transition-colors relative flex-shrink-0 ${form.is_active ? 'bg-accent' : 'bg-secondary'}`}
+              aria-label={form.is_active ? 'Desactivar producto' : 'Activar producto'}
+            >
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-black transition-all ${form.is_active ? 'left-7' : 'left-1'}`} />
+            </button>
+          </div>
         </div>
       </form>
 

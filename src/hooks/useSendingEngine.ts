@@ -2,9 +2,24 @@ import { useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useEvolution } from './useEvolution';
 import { toast } from 'react-hot-toast';
+import { getAppBaseUrl } from '../lib/urlHelper';
 
 const EVOLUTION_URL = import.meta.env.VITE_EVOLUTION_DEFAULT_URL;
 const EVOLUTION_KEY = import.meta.env.VITE_EVOLUTION_API_KEY;
+
+const fetchAppBaseUrl = async (): Promise<string> => {
+  try {
+    const { data } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'app_url')
+      .single();
+    return getAppBaseUrl(data?.value);
+  } catch (err) {
+    console.warn('Error al obtener app_url de system_settings, usando fallback:', err);
+    return getAppBaseUrl();
+  }
+};
 
 export const useSendingEngine = (catalogId?: string) => {
   const { instance } = useEvolution(catalogId);
@@ -135,7 +150,8 @@ export const useSendingEngine = (catalogId?: string) => {
         .eq('id', catalog.user_id)
         .single();
       const contactNumber = userData?.phone || '';
-      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
+      const baseUrl = await fetchAppBaseUrl();
+      const storeUrl = catalog.slug ? `${baseUrl}/${catalog.slug}` : '';
 
       // 2. Obtener Productos
       const { data: products } = await supabase
@@ -314,7 +330,8 @@ export const useSendingEngine = (catalogId?: string) => {
         .eq('id', catalog.user_id)
         .single();
       const contactNumber = userData?.phone || '';
-      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
+      const baseUrl = await fetchAppBaseUrl();
+      const storeUrl = catalog.slug ? `${baseUrl}/${catalog.slug}` : '';
 
       const { data: groups } = await supabase
         .from('whatsapp_groups')
@@ -464,7 +481,8 @@ export const useSendingEngine = (catalogId?: string) => {
         .eq('id', catalog.user_id)
         .single();
       const contactNumber = userData?.phone || '';
-      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
+      const baseUrl = await fetchAppBaseUrl();
+      const storeUrl = catalog.slug ? `${baseUrl}/${catalog.slug}` : '';
 
       const { data: products } = await supabase
         .from('products')
@@ -577,7 +595,8 @@ export const useSendingEngine = (catalogId?: string) => {
         .eq('id', catalog.user_id)
         .single();
       const contactNumber = userData?.phone || '';
-      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
+      const baseUrl = await fetchAppBaseUrl();
+      const storeUrl = catalog.slug ? `${baseUrl}/${catalog.slug}` : '';
 
       const { data: groups } = await supabase
         .from('whatsapp_groups')
@@ -677,7 +696,8 @@ export const useSendingEngine = (catalogId?: string) => {
         .eq('id', catalog.user_id)
         .single();
       const contactNumber = userData?.phone || '';
-      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
+      const baseUrl = await fetchAppBaseUrl();
+      const storeUrl = catalog.slug ? `${baseUrl}/${catalog.slug}` : '';
 
       const { data: groups } = await supabase
         .from('whatsapp_groups')

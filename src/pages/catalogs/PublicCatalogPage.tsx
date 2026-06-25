@@ -95,6 +95,7 @@ interface PublicCatalog {
   usd_to_cup_rate?: number;
   cup_to_usd_rate?: number;
   display_currency?: 'original' | 'usd' | 'cup' | 'both';
+  share_template?: string | null;
 }
 
 interface PublicProduct {
@@ -189,7 +190,7 @@ export const PublicCatalogPage = () => {
       // 1. Obtener catálogo público y activo por su slug (consulta ultra rápida indexada)
       const { data: catData, error: catError } = await supabase
         .from('catalogs')
-        .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency')
+        .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template')
         .eq('slug', slug)
         .single();
 
@@ -359,6 +360,109 @@ export const PublicCatalogPage = () => {
       case 'original':
       default:
         return `${price.toLocaleString()} ${currency}`;
+    }
+  };
+
+  const renderProductPrice = (
+    price: number | null,
+    currency: string,
+    priceCup?: number | null,
+    priceUsd?: number | null,
+    classes?: { main?: string; sub?: string }
+  ) => {
+    const mainClass = classes?.main || "text-xs sm:text-sm font-black text-[var(--accent)]";
+    const subClass = classes?.sub || "text-[0.8em] font-normal opacity-60 text-secondary ml-1";
+
+    if (price === null) {
+      return <span className={mainClass}>Consultar precio</span>;
+    }
+
+    const hasDuality = vendorPlan && vendorPlan !== 'free';
+    if (!hasDuality) {
+      return <span className={mainClass}>{price.toLocaleString()} {currency}</span>;
+    }
+
+    const displayCurrency = catalog?.display_currency || 'original';
+    const usdToCup = Number(catalog?.usd_to_cup_rate) || 1.0;
+    const cupToUsd = Number(catalog?.cup_to_usd_rate) || 1.0;
+
+    const pUsd = priceUsd !== null && priceUsd !== undefined ? priceUsd : (currency === 'USD' ? price : price * cupToUsd);
+    const pCup = priceCup !== null && priceCup !== undefined ? priceCup : (currency === 'CUP' ? price : price * usdToCup);
+
+    const formattedUsd = pUsd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' USD';
+    const formattedCup = pCup.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' CUP';
+
+    switch (displayCurrency) {
+      case 'usd':
+        return <span className={mainClass}>{formattedUsd}</span>;
+      case 'cup':
+        return <span className={mainClass}>{formattedCup}</span>;
+      case 'both': {
+        const isPrincipalUsd = currency === 'USD';
+        const principal = isPrincipalUsd ? formattedUsd : formattedCup;
+        const exchange = isPrincipalUsd ? formattedCup : formattedUsd;
+        return (
+          <span className={mainClass}>
+            {principal}
+            <span className={subClass}>
+              / {exchange}
+            </span>
+          </span>
+        );
+      }
+      case 'original':
+      default:
+        return <span className={mainClass}>{price.toLocaleString()} {currency}</span>;
+    }
+  };
+
+  const renderSubtotalDisplay = (
+    item: CartItem,
+    classes?: { main?: string; sub?: string }
+  ) => {
+    const hasDuality = vendorPlan && vendorPlan !== 'free';
+    const displayCurrency = hasDuality ? (catalog?.display_currency || 'original') : 'original';
+    const price = item.product.price || 0;
+    const currency = item.product.currency;
+    const qty = item.quantity;
+    
+    const usdToCup = Number(catalog?.usd_to_cup_rate) || 1.0;
+    const cupToUsd = Number(catalog?.cup_to_usd_rate) || 1.0;
+
+    const pUsd = item.product.price_usd !== null && item.product.price_usd !== undefined 
+      ? item.product.price_usd 
+      : (currency === 'USD' ? price : price * cupToUsd);
+    const pCup = item.product.price_cup !== null && item.product.price_cup !== undefined 
+      ? item.product.price_cup 
+      : (currency === 'CUP' ? price : price * usdToCup);
+
+    const formattedUsd = (pUsd * qty).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' USD';
+    const formattedCup = (pCup * qty).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' CUP';
+
+    const mainClass = classes?.main || "font-bold text-secondary";
+    const subClass = classes?.sub || "font-normal opacity-60 text-secondary ml-1";
+
+    switch (displayCurrency) {
+      case 'usd':
+        return <span className={mainClass}>{formattedUsd}</span>;
+      case 'cup':
+        return <span className={mainClass}>{formattedCup}</span>;
+      case 'both': {
+        const isPrincipalUsd = currency === 'USD';
+        const principal = isPrincipalUsd ? formattedUsd : formattedCup;
+        const exchange = isPrincipalUsd ? formattedCup : formattedUsd;
+        return (
+          <span className={mainClass}>
+            {principal}
+            <span className={subClass}>
+              / {exchange}
+            </span>
+          </span>
+        );
+      }
+      case 'original':
+      default:
+        return <span className={mainClass}>{(price * qty).toLocaleString()} {currency}</span>;
     }
   };
 
@@ -645,7 +749,8 @@ export const PublicCatalogPage = () => {
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
     messageText += `*Tienda:* ${catalog.name}\n`;
     if (slug) {
-      messageText += `*Enlace:* matum.com/${slug}\n`;
+      const currentHost = typeof window !== 'undefined' ? window.location.host : 'matum.vercel.app';
+      messageText += `*Enlace:* ${currentHost}/${slug}\n`;
     }
     messageText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
@@ -714,6 +819,38 @@ export const PublicCatalogPage = () => {
       imageUrl: catalog?.logo_url || undefined,
     });
   };
+
+  const handleShareProduct = async (product: PublicProduct, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    
+    const priceText = getProductDisplayPrice(product.price, product.currency, product.price_cup, product.price_usd);
+    
+    let text = '';
+    if (catalog?.share_template) {
+      const contactPhone = vendorPhone || '';
+      const baseUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
+      const storeUrl = slug ? `${baseUrl}/${slug}` : '';
+      text = catalog.share_template
+        .replace(/{product_name}/g, (product.name || '').trim())
+        .replace(/{product_description}/g, (product.description || '').trim())
+        .replace(/{product_price}/g, priceText.trim())
+        .replace(/{product_currency}/g, '')
+        .replace(/{catalog_name}/g, (catalog.name || '').trim())
+        .replace(/{contact_number}/g, contactPhone)
+        .replace(/{store_url}/g, storeUrl);
+    } else {
+      text = `*${product.name}*\n\nPrecio: ${priceText}\n\n${product.description || ''}`.trim();
+    }
+
+    await shareContent({
+      title: product.name,
+      text: text,
+      imageUrl: product.imagen_url || undefined
+    });
+  };
+
 
   if (loading) {
     return (
@@ -810,57 +947,57 @@ export const PublicCatalogPage = () => {
 
       {/* Todo el contenido de la tienda en un solo contenedor para alineación perfecta */}
       <main className="flex-1 w-full max-w-4xl mx-auto px-4 pb-2">
-        {/* Cabecera: Logo + Nombre a la izquierda, Botones a la derecha */}
-        <div className="flex items-start justify-between gap-3 sm:gap-4">
-          {/* Logo + Nombre */}
-          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
-            {/* Logo de la tienda */}
-            <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-background border-4 border-background flex-shrink-0 relative -mt-10 sm:-mt-16">
-              {catalog.logo_url ? (
-                <img 
-                  src={catalog.logo_url} 
-                  alt="Logo Tienda" 
-                  className="w-full h-full object-cover animate-in fade-in duration-300"
-                />
-              ) : (
-                /* Logo con inicial por defecto */
-                <div className="w-full h-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent)]/40 flex items-center justify-center text-[var(--accent-text,black)] font-black text-2xl sm:text-4xl select-none">
-                  {catalog.name.charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
-
-            {/* Nombre y Descripción */}
-            <div className="pb-1 min-w-0 flex-1">
-              <h1 className="text-sm sm:text-2xl font-black text-primary uppercase tracking-tight break-words">
-                {catalog.name}
-              </h1>
-              {catalog.slogan && (
-                <p className="text-secondary text-[10px] sm:text-sm mt-1.5 max-w-2xl leading-relaxed whitespace-pre-line italic break-words">
-                  {catalog.slogan}
-                </p>
-              )}
-            </div>
+        {/* Cabecera: Logo + Información (Nombre, Botones, Slogan) */}
+        <div className="flex items-start gap-3 sm:gap-4 w-full">
+          {/* Logo de la tienda */}
+          <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-background border-4 border-background flex-shrink-0 relative -mt-10 sm:-mt-16 z-10">
+            {catalog.logo_url ? (
+              <img 
+                src={catalog.logo_url} 
+                alt="Logo Tienda" 
+                className="w-full h-full object-cover animate-in fade-in duration-300"
+              />
+            ) : (
+              /* Logo con inicial por defecto */
+              <div className="w-full h-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent)]/40 flex items-center justify-center text-[var(--accent-text,black)] font-black text-2xl sm:text-4xl select-none">
+                {catalog.name.charAt(0).toUpperCase()}
+              </div>
+            )}
           </div>
 
-          {/* Botones de acción: Contactar + Compartir (siempre visibles, alineados a la derecha) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 mt-1 sm:mt-2">
-            {vendorPhone && (
-              <a 
-                href={`https://wa.me/${vendorPhone.replace(/\D/g, '')}`} 
-                target="_blank" 
-                rel="noreferrer"
-                className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 bg-green-600 hover:bg-green-500 text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border border-green-600/20 active:scale-95 shadow-sm cursor-pointer"
-              >
-                <Smartphone size={10} /> Contactar
-              </a>
+          {/* Nombre, Slogan y Botones */}
+          <div className="pb-1 min-w-0 flex-1">
+            <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-4 w-full">
+              <h1 className="text-sm sm:text-2xl font-black text-primary uppercase tracking-tight break-words flex-shrink">
+                {catalog.name}
+              </h1>
+
+              {/* Botones de acción: Contactar + Compartir */}
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+                {vendorPhone && (
+                  <a 
+                    href={`https://wa.me/${vendorPhone.replace(/\D/g, '')}`} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 bg-green-600 hover:bg-green-500 text-white text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border border-green-600/20 active:scale-95 shadow-sm cursor-pointer"
+                  >
+                    <Smartphone size={10} /> Contactar
+                  </a>
+                )}
+                <button 
+                  onClick={handleShareCatalog}
+                  className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border border-[var(--accent)]/20 active:scale-95 shadow-sm cursor-pointer"
+                >
+                  <Share2 size={10} /> Compartir
+                </button>
+              </div>
+            </div>
+
+            {catalog.slogan && (
+              <p className="text-secondary text-[10px] sm:text-sm mt-1.5 max-w-2xl leading-relaxed whitespace-pre-line italic break-words">
+                {catalog.slogan}
+              </p>
             )}
-            <button 
-              onClick={handleShareCatalog}
-              className="inline-flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all border border-[var(--accent)]/20 active:scale-95 shadow-sm cursor-pointer"
-            >
-              <Share2 size={10} /> Compartir
-            </button>
           </div>
         </div>
 
@@ -1010,9 +1147,18 @@ export const PublicCatalogPage = () => {
                     {/* Detalles del Producto */}
                     <div className="flex flex-col justify-between flex-grow min-w-0">
                       <div>
-                        <h3 className="text-xs sm:text-sm font-bold text-primary truncate uppercase">
-                          {product.name}
-                        </h3>
+                        <div className="flex justify-between items-start gap-2 relative">
+                          <h3 className="text-xs sm:text-sm font-bold text-primary truncate uppercase pr-8">
+                            {product.name}
+                          </h3>
+                          <button
+                            onClick={(e) => handleShareProduct(product, e)}
+                            className="absolute top-0 right-0 p-1 rounded-lg text-secondary hover:text-[var(--accent)] hover:bg-[var(--surface-hover)] transition-all border border-transparent hover:border-accent/15 z-10"
+                            title="Compartir producto"
+                          >
+                            <Share2 size={13} />
+                          </button>
+                        </div>
                         {product.description && (
                           <p className="text-[10px] sm:text-xs text-secondary mt-1 line-clamp-2 leading-relaxed">
                             {product.description}
@@ -1021,9 +1167,16 @@ export const PublicCatalogPage = () => {
                       </div>
 
                       <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
-                        <span className="text-xs sm:text-sm font-black text-[var(--accent)]">
-                          {getProductDisplayPrice(product.price, product.currency, product.price_cup, product.price_usd)}
-                        </span>
+                        {renderProductPrice(
+                          product.price,
+                          product.currency,
+                          product.price_cup,
+                          product.price_usd,
+                          {
+                            main: "text-xs sm:text-sm font-black text-[var(--accent)]",
+                            sub: "text-[10px] sm:text-xs font-normal opacity-60 text-secondary ml-1"
+                          }
+                        )}
 
                         {/* Control de cantidades */}
                         <div 
@@ -1403,12 +1556,24 @@ export const PublicCatalogPage = () => {
                       <div>
                         <h4 className="text-xs font-bold text-primary truncate uppercase">{item.product.name}</h4>
                         <p className="text-[10px] text-secondary mt-0.5">
-                          {getProductDisplayPrice(item.product.price, item.product.currency, item.product.price_cup, item.product.price_usd)}
+                          {renderProductPrice(
+                            item.product.price,
+                            item.product.currency,
+                            item.product.price_cup,
+                            item.product.price_usd,
+                            {
+                              main: "text-[10px] font-medium text-secondary",
+                              sub: "text-[9px] font-normal opacity-60 text-secondary ml-0.5"
+                            }
+                          )}
                         </p>
                       </div>
                       <div className="flex items-center justify-between mt-2">
-                        <span className="text-[10px] font-bold text-secondary">
-                          Subtotal: {getSubtotalDisplay(item)}
+                        <span className="text-[10px] text-secondary">
+                          Subtotal: {renderSubtotalDisplay(item, {
+                            main: "font-bold text-secondary",
+                            sub: "font-normal opacity-60 text-secondary ml-0.5"
+                          })}
                         </span>
                         
                         <div className="flex items-center gap-1 bg-surface p-0.5 rounded-md border border-border">
@@ -1499,13 +1664,22 @@ export const PublicCatalogPage = () => {
             {/* Grab handle para móviles */}
             <div className="w-12 h-1 bg-border rounded-full mx-auto my-2.5 md:hidden flex-shrink-0" />
 
-            {/* Header / Botón Cerrar */}
-            <button 
-              onClick={() => setSelectedProduct(null)}
-              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-md transition-colors"
-            >
-              <X size={18} />
-            </button>
+            {/* Header / Botón Cerrar e Compartir */}
+            <div className="absolute top-4 right-4 z-10 flex gap-2">
+              <button 
+                onClick={(e) => handleShareProduct(selectedProduct, e)}
+                className="p-2 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-md transition-colors"
+                title="Compartir producto"
+              >
+                <Share2 size={18} />
+              </button>
+              <button 
+                onClick={() => setSelectedProduct(null)}
+                className="p-2 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-md transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
 
             {/* Contenido con scroll */}
             <div className="overflow-y-auto flex-1">
@@ -1532,14 +1706,16 @@ export const PublicCatalogPage = () => {
                     {selectedProduct.name}
                   </h2>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-base sm:text-lg font-black text-[var(--accent)]">
-                      {getProductDisplayPrice(
-                        selectedProduct.price,
-                        selectedProduct.currency,
-                        selectedProduct.price_cup,
-                        selectedProduct.price_usd
-                      )}
-                    </span>
+                    {renderProductPrice(
+                      selectedProduct.price,
+                      selectedProduct.currency,
+                      selectedProduct.price_cup,
+                      selectedProduct.price_usd,
+                      {
+                        main: "text-base sm:text-lg font-black text-[var(--accent)]",
+                        sub: "text-xs sm:text-sm font-normal opacity-60 text-secondary ml-1"
+                      }
+                    )}
                   </div>
                 </div>
 
@@ -1613,7 +1789,8 @@ export const PublicCatalogPage = () => {
                     messageText += `💵 *Precio:* ${displayPrice}\n`;
                   }
                   if (slug) {
-                    messageText += `🔗 *Enlace:* matum.com/${slug}\n`;
+                    const currentHost = typeof window !== 'undefined' ? window.location.host : 'matum.vercel.app';
+                    messageText += `🔗 *Enlace:* ${currentHost}/${slug}\n`;
                   }
                   messageText += `\n¿Tienen disponibilidad?`;
 
