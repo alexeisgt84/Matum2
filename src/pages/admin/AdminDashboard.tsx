@@ -4,7 +4,8 @@ import {
   Users, 
   CreditCard, 
   ChevronRight, 
-  Settings 
+  Settings,
+  Server 
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 
@@ -90,6 +91,13 @@ export const AdminDashboard = () => {
       icon: Settings,
       path: '/admin/settings',
       color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+    },
+    {
+      title: 'Servidores Evolution',
+      description: 'Configurar credenciales, URLs y límites de capacidad',
+      icon: Server,
+      path: '/admin/servers',
+      color: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400'
     }
   ];
 
