@@ -166,7 +166,13 @@ export const EvolutionServersPage = () => {
         await fetchServers();
       } catch (err: any) {
         console.error('Error al eliminar servidor:', err);
-        toast.error('Error al eliminar: ' + (err.message || 'Intente de nuevo'), { id: toastId });
+        let errorDetail = err.message || 'Intente de nuevo';
+        if (err.code === '23503') {
+          errorDetail = 'No se puede eliminar el servidor porque tiene instancias de WhatsApp activas. Por favor, desconéctalas primero.';
+        } else if (err.details) {
+          errorDetail = err.details;
+        }
+        toast.error('Error al eliminar: ' + errorDetail, { id: toastId });
       }
     }
   };

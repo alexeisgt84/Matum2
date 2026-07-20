@@ -68,11 +68,33 @@ Deno.serve(async (req: Request) => {
       headers['Content-Type'] = 'application/json';
     }
     
-    const response = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : null
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    let response;
+    try {
+      response = await fetch(url, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : null,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchErr: any) {
+      clearTimeout(timeoutId);
+      if (fetchErr.name === 'AbortError') {
+        console.error(`Timeout fetching from Evolution Server: ${url}`);
+        return new Response(JSON.stringify({ 
+          error: "El servidor de Evolution API no responde (Timeout). Es posible que esté durmiendo o cargando en su hosting gratuito. Intente nuevamente en unos instantes.",
+          url: url,
+          debug: "Timeout de 15 segundos excedido"
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 504
+        });
+      }
+      throw fetchErr;
+    }
     
     if (!response.ok) {
       const respText = await response.text();

@@ -157,11 +157,19 @@ export const useEvolution = (catalogId?: string) => {
     try {
       await callProxy(instance.server_id, `/instance/logout`, 'DELETE', null, instance.name).catch(() => {});
       await callProxy(instance.server_id, `/instance/delete`, 'DELETE', null, instance.name).catch(() => {});
-      await supabase.from('evolution_instances').delete().eq('id', instance.id);
+      
+      const { error: dbError } = await supabase
+        .from('evolution_instances')
+        .delete()
+        .eq('id', instance.id);
+
+      if (dbError) throw dbError;
+
       setInstance(key, null);
       toast.success('Desconectado');
     } catch (err: any) {
-      toast.error(err.message);
+      console.error('Error al desconectar instancia:', err);
+      toast.error(err.message || 'Error al eliminar la instancia de la base de datos');
     } finally {
       setLoading(false);
     }
