@@ -15,79 +15,155 @@ const DEFAULT_CONFIG: OptimizeConfig = {
 };
 
 /**
- * Obtiene dimensiones de una imagen sin decodificarla (lectura binaria de cabecera)
+ * Pre-escala una imagen si su tamaño en archivo es mayor a 800KB o su resolución es muy alta.
+ * Esto evita cuelgues por consumo masivo de memoria RAM en navegadores y WebViews de teléfonos móviles.
  */
-const getImageDimensions = async (file: Blob): Promise<{width: number, height: number}> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const buffer = new Uint8Array(reader.result as ArrayBuffer);
-      
-      // JPEG
-      if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
-        let pos = 2;
-        while (pos < buffer.length - 8) {
-          if (buffer[pos] === 0xFF && (buffer[pos+1] >= 0xC0 && buffer[pos+1] <= 0xC3)) {
-            resolve({
-              height: (buffer[pos + 5] << 8) | buffer[pos + 6],
-              width: (buffer[pos + 7] << 8) | buffer[pos + 8]
-            });
-            return;
-          }
-          const length = (buffer[pos+2] << 8) | buffer[pos+3];
-          pos += 2 + length;
-          if (length < 2) break; // Evitar loops infinitos en archivos corruptos
-        }
-      }
-      
-      // PNG
-      if (buffer[0] === 0x89 && buffer[1] === 0x50) {
-        resolve({
-          width: (buffer[16] << 24) | (buffer[17] << 16) | (buffer[18] << 8) | buffer[19],
-          height: (buffer[20] << 24) | (buffer[21] << 16) | (buffer[22] << 8) | buffer[23]
-        });
+export const preScaleImage = async (
+  file: Blob | File,
+  maxDimension = 1200
+): Promise<Blob> => {
+  if (!file || !(file instanceof Blob)) return file;
+  
+  // Si el archivo es de menos de 800KB, no hace falta pre-escalar
+  if (file.size < 800 * 1024) {
+    return file;
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    const cleanup = () => {
+      URL.revokeObjectURL(url);
+    };
+
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+
+      if (width <= maxDimension && height <= maxDimension) {
+        cleanup();
+        resolve(file);
         return;
       }
 
-      // WebP
-      if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[8] === 0x57 && buffer[9] === 0x45) {
-        // WebP VP8 (Simple)
-        if (buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x20) {
-           resolve({
-             width: (buffer[26] | (buffer[27] << 8)) & 0x3FFF,
-             height: (buffer[28] | (buffer[29] << 8)) & 0x3FFF
-           });
-           return;
+      if (width > height) {
+        height = Math.round((height * maxDimension) / width);
+        width = maxDimension;
+      } else {
+        width = Math.round((width * maxDimension) / height);
+        height = maxDimension;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, width);
+      canvas.height = Math.max(1, height);
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        cleanup();
+        resolve(file);
+        return;
+      }
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, width, height);
+
+      cleanup();
+      canvas.toBlob(
+        (blob) => {
+          resolve(blob || file);
+        },
+        'image/jpeg',
+        0.85
+      );
+    };
+
+    img.onerror = () => {
+      cleanup();
+      resolve(file); // En caso de cualquier fallo, retornar el archivo original
+    };
+
+    img.src = url;
+  });
+};
+
+/**
+ * Obtiene dimensiones de una imagen sin decodificarla (lectura binaria de cabecera)
+ */
+const getImageDimensions = async (file: Blob): Promise<{width: number, height: number}> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const buffer = new Uint8Array(reader.result as ArrayBuffer);
+        
+        // JPEG
+        if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
+          let pos = 2;
+          while (pos < buffer.length - 8) {
+            if (buffer[pos] === 0xFF && (buffer[pos+1] >= 0xC0 && buffer[pos+1] <= 0xCF && buffer[pos+1] !== 0xC4 && buffer[pos+1] !== 0xC8 && buffer[pos+1] !== 0xCC)) {
+              resolve({
+                height: (buffer[pos + 5] << 8) | buffer[pos + 6],
+                width: (buffer[pos + 7] << 8) | buffer[pos + 8]
+              });
+              return;
+            }
+            if (buffer[pos] !== 0xFF) break;
+            const length = (buffer[pos+2] << 8) | buffer[pos+3];
+            pos += 2 + length;
+            if (length < 2) break; // Evitar loops infinitos en archivos corruptos
+          }
         }
-        // WebP VP8X (Extended)
-        if (buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x58) {
+        
+        // PNG
+        if (buffer[0] === 0x89 && buffer[1] === 0x50) {
           resolve({
-            width: 1 + (buffer[24] | (buffer[25] << 8) | (buffer[26] << 16)),
-            height: 1 + (buffer[27] | (buffer[28] << 8) | (buffer[29] << 16))
+            width: (buffer[16] << 24) | (buffer[17] << 16) | (buffer[18] << 8) | buffer[19],
+            height: (buffer[20] << 24) | (buffer[21] << 16) | (buffer[22] << 8) | buffer[23]
           });
           return;
         }
+
+        // WebP
+        if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[8] === 0x57 && buffer[9] === 0x45) {
+          // WebP VP8 (Simple)
+          if (buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x20) {
+             resolve({
+               width: (buffer[26] | (buffer[27] << 8)) & 0x3FFF,
+               height: (buffer[28] | (buffer[29] << 8)) & 0x3FFF
+             });
+             return;
+          }
+          // WebP VP8X (Extended)
+          if (buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x58) {
+            resolve({
+              width: 1 + (buffer[24] | (buffer[25] << 8) | (buffer[26] << 16)),
+              height: 1 + (buffer[27] | (buffer[28] << 8) | (buffer[29] << 16))
+            });
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Error leyendo dimensiones binarias:', e);
       }
 
-      // Fallback a método tradicional solo si es pequeño, para evitar crash
-      if (file.size < 20 * 1024 * 1024) {
-        const img = new Image();
-        const url = URL.createObjectURL(file);
-        img.onload = () => {
-          const dims = { width: img.width, height: img.height };
-          URL.revokeObjectURL(url);
-          resolve(dims);
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(url);
-          reject(new Error('Formato no reconocido o archivo dañado'));
-        };
-        img.src = url;
-      } else {
-        reject(new Error('No se pudo leer la cabecera de esta imagen grande'));
-      }
+      // Fallback seguro a HTMLImageElement
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const dims = { width: img.width || 800, height: img.height || 800 };
+        URL.revokeObjectURL(url);
+        resolve(dims);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve({ width: 800, height: 800 });
+      };
+      img.src = url;
     };
-    reader.onerror = () => reject(new Error('Error al leer archivo'));
+    reader.onerror = () => resolve({ width: 800, height: 800 });
     reader.readAsArrayBuffer(file);
   });
 };
@@ -105,7 +181,8 @@ export const optimizeImage = async (
     throw new Error('Archivo no válido');
   }
 
-  let processingFile = file;
+  // Pre-escalar si es muy pesada para asegurar estabilidad en celulares
+  let processingFile = await preScaleImage(file, Math.max(settings.maxWidth || 800, settings.maxHeight || 800, 1200));
   const fileName = (file as File).name || 'image.jpg';
   const extension = fileName.split('.').pop()?.toLowerCase();
   
@@ -113,7 +190,7 @@ export const optimizeImage = async (
   if (file.type.includes('heic') || file.type.includes('heif') || extension === 'heic' || extension === 'heif') {
     try {
       const converted = await heic2any({
-        blob: file,
+        blob: processingFile,
         toType: 'image/jpeg',
         quality: 0.8
       });
@@ -128,8 +205,7 @@ export const optimizeImage = async (
   try {
     orig = await getImageDimensions(processingFile);
   } catch (e: any) {
-    const sizeMB = (processingFile.size / (1024 * 1024)).toFixed(2);
-    throw new Error(`Error al leer imagen (${processingFile.type || 'tipo desconocido'}, ${sizeMB}MB): ${e.message || 'Error de formato'}`);
+    orig = { width: 800, height: 800 };
   }
 
   // 2. Calcular dimensiones finales

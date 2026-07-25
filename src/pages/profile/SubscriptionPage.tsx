@@ -23,8 +23,9 @@ import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
+import { optimizeImage, blobToFile } from '../../lib/imageOptimizer';
 
-export const SubscriptionPage = () => {
+export const SubscriptionPage: React.FC = () => {
   const { user, loadUser } = useAuthStore();
   const { plans, getPlans } = usePlanStore();
   const { 
@@ -63,15 +64,29 @@ export const SubscriptionPage = () => {
   // Transacción pendiente si existe
   const pendingTransaction = transactions.find(t => t.status === 'pending');
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setReceiptFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setReceiptPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      const toastId = toast.loading('Procesando imagen del comprobante...');
+      try {
+        const optimizedBlob = await optimizeImage(file, {
+          maxWidth: 1200,
+          maxHeight: 1200,
+          quality: 0.75,
+        });
+        const optimizedFile = blobToFile(optimizedBlob, file.name || 'receipt.jpg');
+        setReceiptFile(optimizedFile);
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setReceiptPreview(reader.result as string);
+        };
+        reader.readAsDataURL(optimizedFile);
+        toast.success('Comprobante listo', { id: toastId });
+      } catch (err: any) {
+        console.error('Error al procesar el comprobante:', err);
+        toast.error('Error al procesar la imagen del comprobante', { id: toastId });
+      }
     }
   };
 

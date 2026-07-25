@@ -9,7 +9,7 @@ import { Camera, Save, Tag, Send, ImagePlus, Sparkles, Crown, Calculator, Link2O
 import { CalculatorModal } from '../ui/CalculatorModal';
 import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { ImageCropperModal } from '../ui/ImageCropperModal';
-import { blobToFile } from '../../lib/imageOptimizer';
+import { blobToFile, preScaleImage } from '../../lib/imageOptimizer';
 import heic2any from 'heic2any';
 import { toast } from 'react-hot-toast';
 import { useProfile } from '../../hooks/useProfile';
@@ -23,6 +23,7 @@ interface ProductFormModalProps {
   loading?: boolean;
   prefilledData?: { description?: string; file?: File; preview?: string } | null;
   categories?: Category[];
+  catalogId?: string;
   onUnlink?: (product: Product) => Promise<boolean>;
 }
 
@@ -31,9 +32,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   onClose,
   onSave,
   product,
-  loading = false,
-  prefilledData = null,
+  loading,
+  prefilledData,
   categories = [],
+  catalogId,
   onUnlink,
 }) => {
   const { profile } = useProfile();
@@ -46,7 +48,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     category_id: null,
     is_active: true,
   });
-  const [file, setFile] = useState<File | undefined>();
+  const [file, setFile] = useState<File | undefined>(undefined);
   const [preview, setPreview] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isCropperOpen, setIsCropperOpen] = useState(false);
@@ -204,6 +206,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       } finally {
         setIsConverting(false);
       }
+    }
+
+    // Pre-escalar si es muy pesada (>800KB / resolución gigante) antes de pasar al recortador
+    try {
+      fileToProcess = await preScaleImage(fileToProcess, 1200);
+    } catch (scaleErr) {
+      console.warn('Pre-escalado omitido:', scaleErr);
     }
 
     const url = URL.createObjectURL(fileToProcess);
