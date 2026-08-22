@@ -323,28 +323,47 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             />
           </div>
           
-          {/* Banner de invitación o botón de IA */}
-          {preview && profile?.gemini_api_key && (
-            <div className="mt-3">
-              {isPremium ? (
-                <button
-                  type="button"
-                  onClick={handleAIClick}
-                  disabled={isAnalyzing}
-                  className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md shadow-purple-500/10 active:scale-95 transition-all"
-                >
-                  <Sparkles size={13} className="text-purple-200 animate-pulse" />
-                  <span>Autocompletar con IA ✨</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleAIClick}
-                  className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-surface-hover border border-border hover:bg-surface text-secondary transition-all"
-                >
-                  <Crown size={13} className="text-amber-400" />
-                  <span>Autocompletar con IA (Premium 👑)</span>
-                </button>
+          {/* Banner de invitación o botón de IA y Studio */}
+          {preview && (
+            <div className="mt-3 flex flex-wrap gap-2 items-center">
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedImage) {
+                    setIsCropperOpen(true);
+                  } else if (preview) {
+                    setSelectedImage(preview);
+                    setIsCropperOpen(true);
+                  }
+                }}
+                className="flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-bold bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 active:scale-95 transition-all"
+                title="Editar, recortar y optimizar formato/megapíxeles"
+              >
+                <Sparkles size={13} className="text-emerald-400" />
+                <span>Studio de Imagen 🎨</span>
+              </button>
+
+              {profile?.gemini_api_key && (
+                isPremium ? (
+                  <button
+                    type="button"
+                    onClick={handleAIClick}
+                    disabled={isAnalyzing}
+                    className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md shadow-purple-500/10 active:scale-95 transition-all"
+                  >
+                    <Sparkles size={13} className="text-purple-200 animate-pulse" />
+                    <span>Autocompletar con IA ✨</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleAIClick}
+                    className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-surface-hover border border-border hover:bg-surface text-secondary transition-all"
+                  >
+                    <Crown size={13} className="text-amber-400" />
+                    <span>Autocompletar con IA (Premium 👑)</span>
+                  </button>
+                )
               )}
             </div>
           )}

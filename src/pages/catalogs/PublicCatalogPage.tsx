@@ -680,6 +680,7 @@ export const PublicCatalogPage = () => {
         --accent: ${primaryColor} !important;
         --accent-hover: ${primaryColor}cc !important;
         --accent-text: ${accentText} !important;
+        font-family: 'Poppins', sans-serif !important;
       }
     `;
 
@@ -854,7 +855,7 @@ export const PublicCatalogPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 font-poppins">
         <div className="w-10 h-10 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-secondary text-xs uppercase tracking-widest animate-pulse">Cargando tienda...</p>
       </div>
@@ -863,7 +864,7 @@ export const PublicCatalogPage = () => {
 
   if (error || !catalog) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center font-poppins">
         <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-500 mb-6">
           <AlertTriangle size={32} />
         </div>
@@ -928,7 +929,7 @@ export const PublicCatalogPage = () => {
   const hasCatalogRole = !!user && (user.id === catalog?.user_id || user.role === 'admin');
 
   return (
-    <div style={themeStyles} className={`flex flex-col min-h-screen bg-[var(--background)] text-[var(--text-primary)] ${totalItemsCount > 0 ? 'pb-28' : ''}`}>
+    <div style={themeStyles} className={`font-poppins flex flex-col min-h-screen bg-[var(--background)] text-[var(--text-primary)] ${totalItemsCount > 0 ? 'pb-28' : ''}`}>
       {/* Banner de Portada */}
       <div className="relative h-28 sm:h-40 w-full bg-cover bg-center overflow-hidden border-b border-border">
         {catalog.cover_url ? (
