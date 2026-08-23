@@ -83,6 +83,7 @@ interface PublicCatalog {
   background_color: string | null;
   surface_color: string | null;
   text_color?: string | null;
+  title_color?: string | null;
   follow_code?: string | null;
   footer_address?: string | null;
   footer_phone?: string | null;
@@ -190,7 +191,7 @@ export const PublicCatalogPage = () => {
       // 1. Obtener catálogo público y activo por su slug (consulta ultra rápida indexada)
       const { data: catData, error: catError } = await supabase
         .from('catalogs')
-        .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template')
+        .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template')
         .eq('slug', slug)
         .single();
 
@@ -662,6 +663,7 @@ export const PublicCatalogPage = () => {
     const textSecondary = catalog.text_color 
       ? `${catalog.text_color}b3` 
       : getSecondaryTextColorLocal(backgroundColor);
+    const titleColor = catalog.title_color || textPrimary;
     const accentText = getContrastColorLocal(primaryColor);
     
     const borderVal = surfaceColor === '#1a1a1a' ? '#2a2a2a' : surfaceColor === '#ffffff' ? '#e5e7eb' : `${surfaceColor}33`;
@@ -675,6 +677,7 @@ export const PublicCatalogPage = () => {
         --surface: ${surfaceColor} !important;
         --surface-hover: ${surfaceHover} !important;
         --border: ${borderVal} !important;
+        --title-color: ${titleColor} !important;
         --text-primary: ${textPrimary} !important;
         --text-secondary: ${textSecondary} !important;
         --accent: ${primaryColor} !important;
@@ -907,6 +910,7 @@ export const PublicCatalogPage = () => {
   const textSecondary = catalog.text_color 
     ? `${catalog.text_color}b3` 
     : getSecondaryTextColor(backgroundColor);
+  const titleColor = catalog.title_color || textPrimary;
 
   // Colores para contrastar texto del botón y tarjetas
   const accentText = getContrastColor(primaryColor);
@@ -919,6 +923,7 @@ export const PublicCatalogPage = () => {
     '--surface': surfaceColor,
     '--surface-hover': surfaceColor === '#1a1a1a' ? '#242424' : surfaceColor === '#ffffff' ? '#f3f4f6' : `${surfaceColor}dd`,
     '--border': borderVal,
+    '--title-color': titleColor,
     '--text-primary': textPrimary,
     '--text-secondary': textSecondary,
     '--accent': primaryColor,
@@ -969,7 +974,10 @@ export const PublicCatalogPage = () => {
           {/* Nombre, Slogan y Botones */}
           <div className="pb-1 min-w-0 flex-1">
             <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-4 w-full">
-              <h1 className="text-sm sm:text-2xl font-black text-primary uppercase tracking-tight break-words flex-shrink">
+              <h1 
+                style={{ color: titleColor }}
+                className="text-sm sm:text-2xl font-black uppercase tracking-tight break-words flex-shrink"
+              >
                 {catalog.name}
               </h1>
 
@@ -1010,7 +1018,18 @@ export const PublicCatalogPage = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             icon={Search}
-            className="!h-12 py-0"
+            className="!h-12 py-0 !text-xs font-bold placeholder:!text-xs placeholder:font-bold"
+            rightElement={
+              searchQuery ? (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="text-secondary hover:text-primary transition-colors p-1 cursor-pointer"
+                  title="Limpiar búsqueda"
+                >
+                  <X size={16} />
+                </button>
+              ) : undefined
+            }
           />
 
           <DropdownMenu
@@ -1286,7 +1305,7 @@ export const PublicCatalogPage = () => {
                 <div className="w-8 h-8 rounded-lg bg-[var(--accent)] text-[var(--accent-text)] flex items-center justify-center font-black text-sm uppercase">
                   {catalog.name.charAt(0)}
                 </div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-primary">{catalog.name}</h4>
+                <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: titleColor }}>{catalog.name}</h4>
               </div>
               {catalog.description && (
                 <div className="text-[10px] text-secondary leading-relaxed whitespace-pre-line">

@@ -13,6 +13,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: 'danger' | 'primary';
   loading?: boolean;
+  zIndex?: string;
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -25,12 +26,14 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   cancelLabel = 'Cancelar',
   variant = 'danger',
   loading = false,
+  zIndex = 'z-[70]',
 }) => {
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title={title}
+      zIndex={zIndex}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={loading}>

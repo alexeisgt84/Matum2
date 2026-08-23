@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useCategories } from '../../hooks/useCategories';
 import type { Category } from '../../types/category';
-import { Plus, Trash2, Edit2, Save, ArrowUp, ArrowDown, X, Folder, HelpCircle } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, ArrowUp, ArrowDown, X, Folder, Check } from 'lucide-react';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { CategoryIcon } from '../ui/CategoryIcon';
 
@@ -13,13 +13,17 @@ interface ManageCategoriesModalProps {
   onClose: () => void;
   catalogId: string;
   onCategoriesChange?: () => void;
+  onCategoryCreated?: (category: Category) => void;
+  zIndex?: string;
 }
 
 export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
   isOpen,
   onClose,
   catalogId,
-  onCategoriesChange
+  onCategoriesChange,
+  onCategoryCreated,
+  zIndex = 'z-50',
 }) => {
   const {
     categories,
@@ -34,7 +38,8 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
   const [newIcon, setNewIcon] = useState('Folder'); // Icono por defecto (Lucide Folder)
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
-  const [editIcon, setEditIcon] = useState('');
+  const [editIcon, setEditIcon] = useState('Folder');
+  const [showEditIconPicker, setShowEditIconPicker] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
 
   // Cargar categorías al abrir el modal
@@ -48,16 +53,17 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
     e.preventDefault();
     if (!newName.trim()) return;
 
-    const success = await saveCategory({
+    const result = await saveCategory({
       name: newName,
       icon: newIcon || 'Folder',
       is_active: true
     });
 
-    if (success) {
+    if (result) {
       setNewName('');
       setNewIcon('Folder');
       if (onCategoriesChange) onCategoriesChange();
+      if (onCategoryCreated) onCategoryCreated(result);
     }
   };
 
@@ -65,12 +71,14 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
     setEditingId(cat.id);
     setEditName(cat.name);
     setEditIcon(cat.icon || 'Folder');
+    setShowEditIconPicker(false);
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditName('');
-    setEditIcon('');
+    setEditIcon('Folder');
+    setShowEditIconPicker(false);
   };
 
   const handleSaveEdit = async (id: number) => {
@@ -83,6 +91,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
 
     if (success) {
       setEditingId(null);
+      setShowEditIconPicker(false);
       if (onCategoriesChange) onCategoriesChange();
     }
   };
@@ -107,14 +116,6 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
 
     await updateCategoriesOrder(reordered);
     if (onCategoriesChange) onCategoriesChange();
-  };
-
-  const handleSelectIcon = (iconValue: string) => {
-    if (editingId !== null) {
-      setEditIcon(iconValue);
-    } else {
-      setNewIcon(iconValue);
-    }
   };
 
   const popularIcons = [
@@ -146,88 +147,60 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title="Gestionar Categorías"
+        zIndex={zIndex}
       >
         <div className="space-y-6">
-          {/* Formulario para agregar */}
+          {/* Formulario para agregar nueva categoría */}
           <form onSubmit={handleAdd} className="space-y-4 bg-surface-hover/50 p-4 rounded-2xl border border-border">
             <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--accent)]">
-              {editingId !== null ? 'Editando Categoría' : 'Nueva Categoría'}
+              Nueva Categoría
             </h3>
             
             <div className="flex gap-3 items-end">
               <div className="flex flex-col gap-1.5 flex-shrink-0">
                 <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Icono</span>
                 <div className="w-10 h-10 bg-background border border-border rounded-xl flex items-center justify-center text-[var(--accent)] shadow-inner">
-                  <CategoryIcon name={activeIcon} size={20} />
+                  <CategoryIcon name={newIcon} size={20} />
                 </div>
               </div>
               <div className="flex-1">
                 <Input
                   label="Nombre de Categoría"
-                  value={editingId !== null ? editName : newName}
-                  onChange={(e) => {
-                    if (editingId !== null) {
-                      setEditName(e.target.value);
-                    } else {
-                      setNewName(e.target.value);
-                    }
-                  }}
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
                   placeholder="Ej: Bebidas, Postres..."
                   required
                 />
               </div>
-              {editingId !== null ? (
-                <div className="flex gap-1.5 mb-[2px]">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => handleSaveEdit(editingId)}
-                    loading={loading}
-                    icon={Save}
-                    className="h-10 px-3"
-                  >
-                    Guardar
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={handleCancelEdit}
-                    className="h-10 px-3 border border-border"
-                  >
-                    <X size={16} />
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  type="submit"
-                  loading={loading}
-                  icon={Plus}
-                  className="h-10 px-4 mb-[2px]"
-                >
-                  Añadir
-                </Button>
-              )}
+              <Button
+                type="submit"
+                loading={loading}
+                icon={Plus}
+                className="h-10 px-4 mb-[2px]"
+              >
+                Añadir
+              </Button>
             </div>
 
-            {/* Selector de iconos sugeridos de la app */}
+            {/* Selector de iconos sugeridos para nueva categoría */}
             <div className="flex flex-col gap-1.5 pt-1">
               <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-                Selecciona un icono para la categoría:
+                Selecciona un icono:
               </span>
-              <div className="grid grid-cols-6 gap-2">
+              <div className="grid grid-cols-6 sm:grid-cols-9 gap-1.5">
                 {popularIcons.map(icon => (
                   <button
                     key={icon.value}
                     type="button"
-                    onClick={() => handleSelectIcon(icon.value)}
-                    className={`h-9 rounded-lg flex items-center justify-center transition-all border ${
-                      activeIcon === icon.value 
+                    onClick={() => setNewIcon(icon.value)}
+                    className={`h-8 rounded-lg flex items-center justify-center transition-all border ${
+                      newIcon === icon.value 
                         ? 'bg-[var(--accent)]/15 border-[var(--accent)] text-[var(--accent)] scale-105 shadow-sm shadow-accent/10' 
                         : 'bg-background border-border hover:bg-surface-hover text-secondary hover:text-primary'
                     }`}
                     title={icon.label}
                   >
-                    <CategoryIcon name={icon.value} size={18} />
+                    <CategoryIcon name={icon.value} size={15} />
                   </button>
                 ))}
               </div>
@@ -253,88 +226,166 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
                 {categories.map((cat, index) => {
                   const isEditing = editingId === cat.id;
+
+                  if (isEditing) {
+                    return (
+                      <div
+                        key={cat.id}
+                        className="p-3 border border-accent/40 rounded-xl bg-surface-hover/80 shadow-md space-y-2.5 transition-all animate-in fade-in duration-150"
+                      >
+                        <div className="flex items-center gap-2">
+                          {/* Botón de icono editable */}
+                          <div className="relative flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setShowEditIconPicker(prev => !prev)}
+                              className="w-10 h-10 rounded-xl bg-background border-2 border-accent/60 flex items-center justify-center text-accent hover:border-accent transition-all shadow-inner active:scale-95"
+                              title="Cambiar icono"
+                            >
+                              <CategoryIcon name={editIcon} size={18} />
+                            </button>
+                          </div>
+
+                          {/* Campo de texto editable en línea */}
+                          <div className="flex-1 min-w-0">
+                            <input
+                              type="text"
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleSaveEdit(cat.id);
+                                } else if (e.key === 'Escape') {
+                                  handleCancelEdit();
+                                }
+                              }}
+                              placeholder="Nombre de la categoría"
+                              className="w-full h-10 px-3 rounded-xl bg-background border border-accent/40 text-primary text-sm focus:outline-none focus:border-accent"
+                              autoFocus
+                            />
+                          </div>
+
+                          {/* Botones de acción en la misma fila */}
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <Button
+                              type="button"
+                              onClick={() => handleSaveEdit(cat.id)}
+                              loading={loading}
+                              icon={Check}
+                              className="h-10 px-3 text-xs"
+                            >
+                              <span className="hidden sm:inline">Guardar</span>
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={handleCancelEdit}
+                              className="h-10 px-2.5 border border-border"
+                              title="Cancelar"
+                            >
+                              <X size={16} />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Selector de icono desplegable en la fila */}
+                        {showEditIconPicker && (
+                          <div className="pt-2 border-t border-border/50 animate-in fade-in duration-150">
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">
+                                Elige un icono para esta categoría:
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setShowEditIconPicker(false)}
+                                className="text-[10px] text-accent hover:underline font-bold"
+                              >
+                                Ocultar
+                              </button>
+                            </div>
+                            <div className="grid grid-cols-6 sm:grid-cols-9 gap-1.5">
+                              {popularIcons.map(icon => (
+                                <button
+                                  key={icon.value}
+                                  type="button"
+                                  onClick={() => {
+                                    setEditIcon(icon.value);
+                                    setShowEditIconPicker(false);
+                                  }}
+                                  className={`h-8 rounded-lg flex items-center justify-center transition-all border ${
+                                    editIcon === icon.value 
+                                      ? 'bg-accent/15 border-accent text-accent scale-105 shadow-sm' 
+                                      : 'bg-background border-border hover:bg-surface text-secondary hover:text-primary'
+                                  }`}
+                                  title={icon.label}
+                                >
+                                  <CategoryIcon name={icon.value} size={15} />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
 
                   return (
                     <div
                       key={cat.id}
-                      className={`p-3 border rounded-xl flex items-center justify-between gap-3 transition-all ${
-                        isEditing 
-                          ? 'border-[var(--accent)]/30 bg-[var(--accent)]/[0.02]' 
-                          : 'border-border bg-surface-hover/40 hover:bg-surface-hover'
-                      }`}
+                      className="p-3 border border-border bg-surface-hover/40 hover:bg-surface-hover rounded-xl flex items-center justify-between gap-3 transition-all"
                     >
-                      {isEditing ? (
-                        /* Modo Edición (Se edita arriba en el formulario unificado) */
-                        <div className="flex items-center justify-between flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-[var(--accent)] animate-pulse">
-                              Editando en el panel superior...
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={handleCancelEdit}
-                            className="p-1 px-2.5 bg-surface border border-border text-xs rounded-lg hover:bg-surface-hover text-secondary hover:text-primary font-bold transition-all"
-                          >
-                            Cancelar
-                          </button>
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center text-accent flex-shrink-0">
+                          <CategoryIcon name={cat.icon} size={16} />
                         </div>
-                      ) : (
-                        /* Modo Vista */
-                        <>
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center text-accent">
-                              <CategoryIcon name={cat.icon} size={16} />
-                            </div>
-                            <span className="text-xs font-bold text-primary truncate">
-                              {cat.name}
-                            </span>
-                          </div>
+                        <span className="text-xs font-bold text-primary truncate">
+                          {cat.name}
+                        </span>
+                      </div>
 
-                          <div className="flex items-center gap-1">
-                            {/* Ordenar */}
-                            <button
-                              type="button"
-                              onClick={() => handleMove(index, 'up')}
-                              disabled={index === 0}
-                              className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                              title="Subir"
-                            >
-                              <ArrowUp size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleMove(index, 'down')}
-                              disabled={index === categories.length - 1}
-                              className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
-                              title="Bajar"
-                            >
-                              <ArrowDown size={14} />
-                            </button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {/* Ordenar */}
+                        <button
+                          type="button"
+                          onClick={() => handleMove(index, 'up')}
+                          disabled={index === 0}
+                          className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                          title="Subir"
+                        >
+                          <ArrowUp size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMove(index, 'down')}
+                          disabled={index === categories.length - 1}
+                          className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-all disabled:opacity-30 disabled:hover:bg-transparent"
+                          title="Bajar"
+                        >
+                          <ArrowDown size={14} />
+                        </button>
 
-                            {/* Acciones */}
-                            <button
-                              type="button"
-                              onClick={() => handleStartEdit(cat)}
-                              className="p-1.5 text-secondary hover:text-accent hover:bg-surface-hover rounded-lg transition-all ml-1"
-                              title="Editar"
-                            >
-                              <Edit2 size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setCategoryToDelete(cat)}
-                              className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                              title="Eliminar categoría"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </>
-                      )}
+                        {/* Acciones */}
+                        <button
+                          type="button"
+                          onClick={() => handleStartEdit(cat)}
+                          className="p-1.5 text-secondary hover:text-accent hover:bg-surface-hover rounded-lg transition-all ml-1"
+                          title="Editar en esta fila"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCategoryToDelete(cat)}
+                          className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                          title="Eliminar categoría"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}

@@ -321,6 +321,7 @@ export const CatalogSettingsPage = () => {
     background_color: '#0a0a0a',
     surface_color: '#1a1a1a',
     text_color: '#ffffff',
+    title_color: '#ffffff',
     footer_address: '',
     footer_phone: '',
     footer_email: '',
@@ -458,6 +459,7 @@ export const CatalogSettingsPage = () => {
           background_color: data.background_color || '#0a0a0a',
           surface_color: data.surface_color || '#1a1a1a',
           text_color: data.text_color || '#ffffff',
+          title_color: data.title_color || '#ffffff',
           footer_address: data.footer_address || '',
           footer_phone: data.footer_phone || '',
           footer_email: data.footer_email || '',
@@ -1217,6 +1219,7 @@ export const CatalogSettingsPage = () => {
                       primary_color: '#ff782e',
                       background_color: '#0a0a0a',
                       surface_color: '#1a1a1a',
+                      title_color: '#ffffff',
                       text_color: '#ffffff'
                     }));
                     toast.success('Colores restablecidos a los predeterminados');
@@ -1227,68 +1230,129 @@ export const CatalogSettingsPage = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-border/40 pt-4">
+              <div className="grid grid-cols-2 gap-3 border-t border-border/40 pt-4">
                 {/* Color Primario */}
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-bold text-secondary uppercase tracking-wider block ml-0.5">Acento / Botones</label>
-                  <div className="flex items-center gap-2 bg-surface-hover/50 p-2 rounded-xl border border-border">
+                  <div className="flex items-center gap-2 bg-surface-hover/50 p-2 rounded-xl border border-border focus-within:border-[var(--accent)] transition-colors">
                     <input
                       type="color"
-                      value={storeForm.primary_color}
+                      value={/^#[0-9A-Fa-f]{6}$/i.test(storeForm.primary_color) ? storeForm.primary_color : '#ff782e'}
                       onChange={(e) => setStoreForm(prev => ({ ...prev, primary_color: e.target.value }))}
-                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg"
+                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0 flex-shrink-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg"
                     />
-                    <span className="text-[10px] font-mono font-bold uppercase text-primary select-all">
-                      {storeForm.primary_color}
-                    </span>
+                    <input
+                      type="text"
+                      value={storeForm.primary_color}
+                      onChange={(e) => {
+                        let val = e.target.value.trim();
+                        if (val.length > 0 && !val.startsWith('#')) val = '#' + val;
+                        setStoreForm(prev => ({ ...prev, primary_color: val }));
+                      }}
+                      placeholder="#FF782E"
+                      maxLength={7}
+                      className="w-full bg-transparent font-mono text-[11px] font-bold uppercase text-primary border-none p-0 focus:outline-none focus:ring-0 placeholder:text-secondary/40"
+                    />
                   </div>
                 </div>
 
                 {/* Color de Fondo */}
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-bold text-secondary uppercase tracking-wider block ml-0.5">Fondo Tienda</label>
-                  <div className="flex items-center gap-2 bg-surface-hover/50 p-2 rounded-xl border border-border">
+                  <div className="flex items-center gap-2 bg-surface-hover/50 p-2 rounded-xl border border-border focus-within:border-[var(--accent)] transition-colors">
                     <input
                       type="color"
-                      value={storeForm.background_color}
+                      value={/^#[0-9A-Fa-f]{6}$/i.test(storeForm.background_color) ? storeForm.background_color : '#0a0a0a'}
                       onChange={(e) => setStoreForm(prev => ({ ...prev, background_color: e.target.value }))}
-                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg"
+                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0 flex-shrink-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg"
                     />
-                    <span className="text-[10px] font-mono font-bold uppercase text-primary select-all">
-                      {storeForm.background_color}
-                    </span>
+                    <input
+                      type="text"
+                      value={storeForm.background_color}
+                      onChange={(e) => {
+                        let val = e.target.value.trim();
+                        if (val.length > 0 && !val.startsWith('#')) val = '#' + val;
+                        setStoreForm(prev => ({ ...prev, background_color: val }));
+                      }}
+                      placeholder="#0A0A0A"
+                      maxLength={7}
+                      className="w-full bg-transparent font-mono text-[11px] font-bold uppercase text-primary border-none p-0 focus:outline-none focus:ring-0 placeholder:text-secondary/40"
+                    />
                   </div>
                 </div>
 
                 {/* Color de Tarjeta */}
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-bold text-secondary uppercase tracking-wider block ml-0.5">Tarjetas / Cajas</label>
-                  <div className="flex items-center gap-2 bg-surface-hover/50 p-2 rounded-xl border border-border">
+                  <div className="flex items-center gap-2 bg-surface-hover/50 p-2 rounded-xl border border-border focus-within:border-[var(--accent)] transition-colors">
                     <input
                       type="color"
-                      value={storeForm.surface_color}
+                      value={/^#[0-9A-Fa-f]{6}$/i.test(storeForm.surface_color) ? storeForm.surface_color : '#1a1a1a'}
                       onChange={(e) => setStoreForm(prev => ({ ...prev, surface_color: e.target.value }))}
-                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg"
+                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0 flex-shrink-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg"
                     />
-                    <span className="text-[10px] font-mono font-bold uppercase text-primary select-all">
-                      {storeForm.surface_color}
-                    </span>
+                    <input
+                      type="text"
+                      value={storeForm.surface_color}
+                      onChange={(e) => {
+                        let val = e.target.value.trim();
+                        if (val.length > 0 && !val.startsWith('#')) val = '#' + val;
+                        setStoreForm(prev => ({ ...prev, surface_color: val }));
+                      }}
+                      placeholder="#1A1A1A"
+                      maxLength={7}
+                      className="w-full bg-transparent font-mono text-[11px] font-bold uppercase text-primary border-none p-0 focus:outline-none focus:ring-0 placeholder:text-secondary/40"
+                    />
+                  </div>
+                </div>
+
+                {/* Color de Título Tienda */}
+                <div className="space-y-1.5">
+                  <label className="text-[9px] font-bold text-secondary uppercase tracking-wider block ml-0.5">Título Tienda</label>
+                  <div className="flex items-center gap-2 bg-surface-hover/50 p-2 rounded-xl border border-border focus-within:border-[var(--accent)] transition-colors">
+                    <input
+                      type="color"
+                      value={/^#[0-9A-Fa-f]{6}$/i.test(storeForm.title_color || '') ? (storeForm.title_color || '#ffffff') : '#ffffff'}
+                      onChange={(e) => setStoreForm(prev => ({ ...prev, title_color: e.target.value }))}
+                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0 flex-shrink-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg"
+                    />
+                    <input
+                      type="text"
+                      value={storeForm.title_color || '#ffffff'}
+                      onChange={(e) => {
+                        let val = e.target.value.trim();
+                        if (val.length > 0 && !val.startsWith('#')) val = '#' + val;
+                        setStoreForm(prev => ({ ...prev, title_color: val }));
+                      }}
+                      placeholder="#FFFFFF"
+                      maxLength={7}
+                      className="w-full bg-transparent font-mono text-[11px] font-bold uppercase text-primary border-none p-0 focus:outline-none focus:ring-0 placeholder:text-secondary/40"
+                    />
                   </div>
                 </div>
 
                 {/* Color de Textos */}
                 <div className="space-y-1.5">
                   <label className="text-[9px] font-bold text-secondary uppercase tracking-wider block ml-0.5">Color de Textos</label>
-                  <div className="flex items-center gap-2 bg-surface-hover/50 p-2 rounded-xl border border-border">
+                  <div className="flex items-center gap-2 bg-surface-hover/50 p-2 rounded-xl border border-border focus-within:border-[var(--accent)] transition-colors">
                     <input
                       type="color"
-                      value={storeForm.text_color}
+                      value={/^#[0-9A-Fa-f]{6}$/i.test(storeForm.text_color) ? storeForm.text_color : '#ffffff'}
                       onChange={(e) => setStoreForm(prev => ({ ...prev, text_color: e.target.value }))}
-                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg"
+                      className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0 flex-shrink-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg"
                     />
-                    <span className="text-[10px] font-mono font-bold uppercase text-primary select-all">
-                      {storeForm.text_color}
-                    </span>
+                    <input
+                      type="text"
+                      value={storeForm.text_color}
+                      onChange={(e) => {
+                        let val = e.target.value.trim();
+                        if (val.length > 0 && !val.startsWith('#')) val = '#' + val;
+                        setStoreForm(prev => ({ ...prev, text_color: val }));
+                      }}
+                      placeholder="#FFFFFF"
+                      maxLength={7}
+                      className="w-full bg-transparent font-mono text-[11px] font-bold uppercase text-primary border-none p-0 focus:outline-none focus:ring-0 placeholder:text-secondary/40"
+                    />
                   </div>
                 </div>
               </div>
@@ -1300,8 +1364,35 @@ export const CatalogSettingsPage = () => {
                 {/* Contenedor del mockup */}
                 <div 
                   style={{ backgroundColor: storeForm.background_color }}
-                  className="p-4 rounded-xl border border-border/60 transition-all flex flex-col items-center justify-center min-h-[160px]"
+                  className="p-4 rounded-xl border border-border/60 transition-all flex flex-col items-center justify-center min-h-[190px]"
                 >
+                  {/* Mock Store Header */}
+                  <div className="w-full max-w-[280px] mb-3 flex items-center gap-2.5 pb-2.5 border-b border-white/10">
+                    <div 
+                      style={{ 
+                        backgroundColor: storeForm.primary_color, 
+                        color: getContrastColor(storeForm.primary_color) 
+                      }}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shadow-sm flex-shrink-0"
+                    >
+                      {(storeForm.nombre || 'T').charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div 
+                        style={{ color: storeForm.title_color || '#ffffff' }}
+                        className="text-xs font-black uppercase tracking-tight truncate"
+                      >
+                        {storeForm.nombre || 'Nombre de la Tienda'}
+                      </div>
+                      <div 
+                        style={{ color: storeForm.text_color ? `${storeForm.text_color}b3` : getSecondaryTextColor(storeForm.background_color) }}
+                        className="text-[9px] truncate"
+                      >
+                        {storeForm.descripcion || 'Eslogan o descripción de la tienda'}
+                      </div>
+                    </div>
+                  </div>
+
                   <div 
                     style={{ backgroundColor: storeForm.surface_color, borderColor: `${storeForm.primary_color}33` }}
                     className="w-full max-w-[280px] rounded-2xl p-3 border transition-all flex gap-3 shadow-md"

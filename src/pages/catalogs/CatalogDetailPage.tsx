@@ -1443,7 +1443,18 @@ export const CatalogDetailPage = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 icon={Search}
-                className="!h-12 py-0"
+                className="!h-12 py-0 !text-xs font-bold placeholder:!text-xs placeholder:font-bold"
+                rightElement={
+                  searchQuery ? (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="text-secondary hover:text-primary transition-colors p-1 cursor-pointer"
+                      title="Limpiar búsqueda"
+                    >
+                      <X size={16} />
+                    </button>
+                  ) : undefined
+                }
               />
               
               <DropdownMenu
@@ -1963,6 +1974,10 @@ export const CatalogDetailPage = () => {
         product={editingProduct}
         prefilledData={prefillIndex !== null ? sharedContentList[prefillIndex] : null}
         categories={categories}
+        catalogId={catalogId}
+        onCategoryCreated={() => {
+          getCategories();
+        }}
         onUnlink={handleUnlinkProduct}
         onSave={async (form, id, file, shouldSend) => {
           try {

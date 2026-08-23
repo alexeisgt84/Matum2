@@ -5,7 +5,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import type { Product, ProductForm } from '../../types/product';
 import type { Category } from '../../types/category';
-import { Camera, Save, Tag, Send, ImagePlus, Sparkles, Crown, Calculator, Link2Off } from 'lucide-react';
+import { Camera, Save, Tag, Send, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings } from 'lucide-react';
 import { CalculatorModal } from '../ui/CalculatorModal';
 import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { ImageCropperModal } from '../ui/ImageCropperModal';
@@ -14,6 +14,9 @@ import heic2any from 'heic2any';
 import { toast } from 'react-hot-toast';
 import { useProfile } from '../../hooks/useProfile';
 import { analyzeProductImage } from '../../lib/aiService';
+import { supabase } from '../../lib/supabase';
+import { CategoryIcon } from '../ui/CategoryIcon';
+import { ManageCategoriesModal } from './ManageCategoriesModal';
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -25,6 +28,7 @@ interface ProductFormModalProps {
   categories?: Category[];
   catalogId?: string;
   onUnlink?: (product: Product) => Promise<boolean>;
+  onCategoryCreated?: (category: Category) => void;
 }
 
 export const ProductFormModal: React.FC<ProductFormModalProps> = ({
@@ -37,6 +41,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   categories = [],
   catalogId,
   onUnlink,
+  onCategoryCreated,
 }) => {
   const { profile } = useProfile();
   const [form, setForm] = useState<ProductForm>({
@@ -48,6 +53,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     category_id: null,
     is_active: true,
   });
+  const [localCategories, setLocalCategories] = useState<Category[]>(categories);
+  const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
+
   const [file, setFile] = useState<File | undefined>(undefined);
   const [preview, setPreview] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -57,6 +67,61 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [parentProductId, setParentProductId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setLocalCategories(categories);
+  }, [categories]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    if (isCategoryDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isCategoryDropdownOpen]);
+
+  const handleCategoriesChanged = async () => {
+    if (!catalogId) return;
+    try {
+      const { data } = await supabase
+        .from('categories')
+        .select('*')
+        .eq('catalog_id', catalogId)
+        .order('display_order', { ascending: true });
+      if (data) {
+        setLocalCategories(data);
+        if (form.category_id && !data.some(c => c.id === form.category_id)) {
+          setForm(prev => ({ ...prev, category_id: null }));
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    if (onCategoryCreated) {
+      onCategoryCreated({} as any);
+    }
+  };
+
+  const handleCategoryCreatedFromModal = (newCategory: Category) => {
+    setLocalCategories(prev => {
+      if (prev.some(c => c.id === newCategory.id)) {
+        return prev.map(c => c.id === newCategory.id ? newCategory : c);
+      }
+      return [...prev, newCategory];
+    });
+    setForm(prev => ({ ...prev, category_id: newCategory.id }));
+    if (onCategoryCreated) {
+      onCategoryCreated(newCategory);
+    }
+  };
+
+  const selectedCategory = localCategories.find(c => c.id === form.category_id);
 
   const handleUnlink = async () => {
     if (!product || !onUnlink) return;
@@ -164,6 +229,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setFile(undefined);
       setParentProductId(null);
     }
+    setIsCategoryDropdownOpen(false);
+    setIsManageCategoriesOpen(false);
   }, [product, prefilledData, isOpen]);
 
   useEffect(() => {
@@ -467,19 +534,135 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
           </div>
 
-          <Select
-            label="Categoría (Opcional)"
-            value={form.category_id || ''}
-            onChange={(e) => setForm({ ...form, category_id: e.target.value ? Number(e.target.value) : null })}
-            disabled={isAnalyzing}
-          >
-            <option value="" className="bg-surface text-primary">Sin categoría</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id} className="bg-surface text-primary">
-                {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
-              </option>
-            ))}
-          </Select>
+          {/* Selector de Categoría con Icono */}
+          <div className="space-y-2 relative" ref={categoryDropdownRef}>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-secondary ml-1">Categoría (Opcional)</label>
+              {catalogId && (
+                <button
+                  type="button"
+                  onClick={() => setIsManageCategoriesOpen(true)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-accent hover:underline active:scale-95 transition-all"
+                >
+                  <Settings size={13} />
+                  <span>Gestionar categorías</span>
+                </button>
+              )}
+            </div>
+
+            {/* Trigger del Selector */}
+            <div
+              onClick={() => {
+                if (!isAnalyzing) {
+                  setIsCategoryDropdownOpen(prev => !prev);
+                }
+              }}
+              className={`w-full h-[58px] bg-surface-hover border rounded-xl px-4 flex items-center justify-between cursor-pointer transition-all duration-200 ${
+                isCategoryDropdownOpen ? 'border-accent bg-surface shadow-sm' : 'border-border hover:bg-surface'
+              }`}
+            >
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                {selectedCategory ? (
+                  <>
+                    <div className="w-8 h-8 rounded-lg bg-surface border border-border flex items-center justify-center text-accent flex-shrink-0 shadow-sm">
+                      <CategoryIcon name={selectedCategory.icon} size={16} />
+                    </div>
+                    <span className="text-sm font-medium text-primary truncate">
+                      {selectedCategory.name}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-8 h-8 rounded-lg bg-surface/50 border border-border/50 flex items-center justify-center text-secondary/50 flex-shrink-0">
+                      <Tag size={16} />
+                    </div>
+                    <span className="text-sm text-secondary truncate">
+                      Sin categoría
+                    </span>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 text-secondary ml-2">
+                <ChevronDown
+                  size={18}
+                  className={`transition-transform duration-200 ${isCategoryDropdownOpen ? 'rotate-180 text-accent' : ''}`}
+                />
+              </div>
+            </div>
+
+            {/* Menú Desplegable con Iconos y Opción de Crear / Editar en Modal */}
+            {isCategoryDropdownOpen && (
+              <div className="absolute left-0 right-0 top-full mt-1.5 z-40 bg-surface border border-border rounded-2xl shadow-2xl p-1.5 space-y-1 max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+                {/* Opción Sin Categoría */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForm(prev => ({ ...prev, category_id: null }));
+                    setIsCategoryDropdownOpen(false);
+                  }}
+                  className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors text-left ${
+                    form.category_id === null
+                      ? 'bg-accent/10 text-accent font-bold'
+                      : 'hover:bg-surface-hover text-secondary hover:text-primary'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-surface border border-border flex items-center justify-center text-secondary/60">
+                      <Tag size={14} />
+                    </div>
+                    <span className="text-sm">Sin categoría</span>
+                  </div>
+                  {form.category_id === null && <Check size={16} className="text-accent" />}
+                </button>
+
+                {/* Lista de Categorías con sus Iconos */}
+                {localCategories.map(cat => {
+                  const isSelected = form.category_id === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => {
+                        setForm(prev => ({ ...prev, category_id: cat.id }));
+                        setIsCategoryDropdownOpen(false);
+                      }}
+                      className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between transition-colors text-left ${
+                        isSelected
+                          ? 'bg-accent/10 text-accent font-bold'
+                          : 'hover:bg-surface-hover text-secondary hover:text-primary'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                        <div className="w-7 h-7 rounded-lg bg-surface border border-border flex items-center justify-center text-accent flex-shrink-0">
+                          <CategoryIcon name={cat.icon} size={15} />
+                        </div>
+                        <span className="text-sm truncate">{cat.name}</span>
+                      </div>
+                      {isSelected && <Check size={16} className="text-accent flex-shrink-0" />}
+                    </button>
+                  );
+                })}
+
+                {/* Botón para Abrir Modal de Creación / Edición */}
+                {catalogId && (
+                  <div className="pt-1 mt-1 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCategoryDropdownOpen(false);
+                        setIsManageCategoriesOpen(true);
+                      }}
+                      className="w-full px-3 py-2.5 rounded-xl flex items-center gap-2 text-accent bg-accent/5 hover:bg-accent/15 font-bold text-xs transition-colors"
+                    >
+                      <Plus size={15} />
+                      <span>Crear o editar categorías...</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           <Input
             label="Descripción (Opcional)"
@@ -524,6 +707,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         onConfirm={(val) => setForm(prev => ({ ...prev, price: val.toString() }))}
         initialValue={parseFloat(form.price.toString()) || 0}
       />
+
+      {catalogId && (
+        <ManageCategoriesModal
+          isOpen={isManageCategoriesOpen}
+          onClose={() => setIsManageCategoriesOpen(false)}
+          catalogId={catalogId}
+          zIndex="z-[60]"
+          onCategoriesChange={handleCategoriesChanged}
+          onCategoryCreated={handleCategoryCreatedFromModal}
+        />
+      )}
     </Modal>
   );
 };
