@@ -17,6 +17,7 @@ import { analyzeProductImage } from '../../lib/aiService';
 import { supabase } from '../../lib/supabase';
 import { CategoryIcon } from '../ui/CategoryIcon';
 import { ManageCategoriesModal } from './ManageCategoriesModal';
+import { parseProductText, type DetectedPrice } from '../../lib/priceParser';
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -66,6 +67,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [isConverting, setIsConverting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [parentProductId, setParentProductId] = useState<string | null>(null);
+  const [detectedPrices, setDetectedPrices] = useState<DetectedPrice[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -208,23 +210,27 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         category_id: product.category_id || null,
         is_active: product.is_active ?? true,
       });
+      setDetectedPrices([]);
       setPreview(product.imagen_url);
       setParentProductId(product.parent_product_id || null);
     } else if (prefilledData) {
+      const parsed = parseProductText(prefilledData.description || '');
       setForm({
-        name: '',
+        name: parsed.suggestedTitle || '',
         description: prefilledData.description || '',
-        price: '',
-        currency: 'USD',
+        price: parsed.bestPrice ? parsed.bestPrice.price.toString() : '',
+        currency: parsed.bestPrice ? parsed.bestPrice.currency : 'USD',
         imagen_url: null,
         category_id: null,
         is_active: true,
       });
+      setDetectedPrices(parsed.allPrices);
       setPreview(prefilledData.preview || null);
       setFile(prefilledData.file);
       setParentProductId(null);
     } else {
       setForm({ name: '', description: '', price: '', currency: 'USD', imagen_url: null, category_id: null, is_active: true });
+      setDetectedPrices([]);
       setPreview(null);
       setFile(undefined);
       setParentProductId(null);
@@ -533,6 +539,45 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               </Select>
             </div>
           </div>
+
+          {/* Sugerencias de Precios Detectados del Texto Compartido */}
+          {detectedPrices.length > 0 && (
+            <div className="flex flex-col gap-2 p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-xs animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-purple-300 font-bold text-[11px]">
+                  <Sparkles size={13} className="text-purple-400" />
+                  Precios detectados en el texto:
+                </span>
+                <span className="text-[10px] text-gray-400 font-medium">Toca para aplicar</span>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-0.5">
+                {detectedPrices.map((item, idx) => {
+                  const isSelected = form.price.toString() === item.price.toString() && form.currency === item.currency;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setForm(prev => ({
+                          ...prev,
+                          price: item.price.toString(),
+                          currency: item.currency,
+                        }));
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 ${
+                        isSelected
+                          ? 'bg-purple-500 text-white shadow-sm shadow-purple-500/30 ring-2 ring-purple-400/50'
+                          : 'bg-surface hover:bg-surface-hover text-secondary border border-border/80'
+                      }`}
+                    >
+                      <span>{item.price.toLocaleString()} {item.currency}</span>
+                      {isSelected && <Check size={12} className="stroke-[3]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Selector de Categoría con Icono */}
           <div className="space-y-2 relative" ref={categoryDropdownRef}>
