@@ -154,7 +154,7 @@ export const CatalogDetailPage = () => {
   const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, updateMessagesOrder, toggleMessageSequence } = useMessages(catalogId);
   
   // Hooks de Grupos (Seguimos usándolos para el modal de grupos)
-  const { linkedGroups, availableGroups, loading: groupsLoading, getLinkedGroups, fetchAvailableGroups, linkGroup, unlinkGroup, toggleGroupStatus, applyGroupPreset } = useWhatsAppGroups(catalogId);
+  const { linkedGroups, availableGroups, loading: groupsLoading, fetchError: groupsError, getLinkedGroups, fetchAvailableGroups, linkGroup, unlinkGroup, toggleGroupStatus, applyGroupPreset } = useWhatsAppGroups(catalogId);
 
 
   // Motor de Envío
@@ -2063,6 +2063,7 @@ export const CatalogDetailPage = () => {
           // Opcional: toast.success('Grupo vinculado');
         }}
         loading={groupsLoading}
+        error={groupsError}
       />
 
       <ConfirmDialog

@@ -3,7 +3,7 @@ import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import type { EvolutionGroup } from '../../types/whatsappGroup';
-import { Users, Search, Plus, RefreshCw } from 'lucide-react';
+import { Users, Search, Plus, RefreshCw, AlertCircle } from 'lucide-react';
 
 interface LinkGroupsModalProps {
   isOpen: boolean;
@@ -12,6 +12,7 @@ interface LinkGroupsModalProps {
   onFetch: (force?: boolean) => Promise<EvolutionGroup[]>;
   onLink: (group: EvolutionGroup) => Promise<void>;
   loading?: boolean;
+  error?: string | null;
 }
 
 export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
@@ -21,6 +22,7 @@ export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
   onFetch,
   onLink,
   loading = false,
+  error = null,
 }) => {
   const [search, setSearch] = useState('');
 
@@ -48,11 +50,21 @@ export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
           icon={RefreshCw}
           loading={loading}
         >
-          Actualizar Lista
+          {error ? 'Reintentar sincronización' : 'Actualizar Lista'}
         </Button>
       }
     >
       <div className="space-y-4">
+        {error && (
+          <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs flex items-start gap-2.5">
+            <AlertCircle size={18} className="flex-shrink-0 mt-0.5 text-red-400" />
+            <div className="flex-1 space-y-1">
+              <p className="font-bold text-red-300">No se pudieron cargar los grupos</p>
+              <p className="text-[11px] text-red-200/90 leading-relaxed break-words">{error}</p>
+            </div>
+          </div>
+        )}
+
         <Input
           type="text"
           placeholder="Buscar grupo..."
@@ -72,7 +84,9 @@ export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
             </div>
           ) : filteredGroups.length === 0 ? (
             <div className="text-center py-12 text-[var(--text-secondary)]">
-              <p className="text-sm">No se encontraron grupos disponibles.</p>
+              <p className="text-sm">
+                {error ? 'Hubo un problema al sincronizar. Por favor, reintenta.' : 'No se encontraron grupos disponibles.'}
+              </p>
             </div>
           ) : (
             filteredGroups.map((group) => (

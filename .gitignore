@@ -30,3 +30,7 @@ Matum-signed.apk
 # Gemini/Agent configurations
 .agents/
 skills-lock.json
+coverage/
+scratch/
+supabase/.temp/
+

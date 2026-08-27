@@ -6,7 +6,7 @@ import { BackButton } from '../ui/BackButton';
 export const AppHeader = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { title: contextTitle, subtitle, rightAction } = useHeader();
+  const { title: contextTitle, subtitle, rightAction, onBack } = useHeader();
 
   const getTitle = (path: string) => {
     if (path === '/catalogs') return 'Tus Catálogos';
@@ -23,7 +23,7 @@ export const AppHeader = () => {
     <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border h-20 px-4 transition-colors duration-300">
       <div className="max-w-lg mx-auto h-full flex items-center gap-3">
         {!isHome && (
-          <BackButton variant="minimal" className="-ml-2" />
+          <BackButton variant="minimal" className="-ml-2" onClick={onBack || undefined} />
         )}
         
         <div className="flex-1 min-w-0">

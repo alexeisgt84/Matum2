@@ -78,14 +78,41 @@ export const useEvolution = (catalogId?: string) => {
           integration: 'WHATSAPP-BAILEYS'
         });
       } catch (err: any) {
-        console.warn('Intento de recreación por error:', err);
-        await callProxy(serverId, `/instance/delete`, 'DELETE', null, cleanName).catch(() => {});
-        data = await callProxy(serverId, '/instance/create', 'POST', {
-          instanceName: cleanName,
-          token: instanceToken,
-          qrcode: true,
-          integration: 'WHATSAPP-BAILEYS'
-        });
+        const isAlreadyInUse = err.message?.includes('403') || err.message?.includes('already in use');
+        
+        if (isAlreadyInUse) {
+          // La instancia ya existe en Evolution API. Intentar conectarse a ella directamente.
+          console.log(`Instancia "${cleanName}" ya existe. Intentando conectar a la existente...`);
+          try {
+            const connectData = await callProxy(serverId, '/instance/connect', 'GET', null, cleanName);
+            // Si la conexión funciona, usar los datos existentes
+            data = { instance: { instanceName: cleanName }, hash: instanceToken };
+            toast.success('Instancia existente recuperada. Escanea el QR para conectar.');
+          } catch (connectErr) {
+            console.warn('No se pudo conectar a la instancia existente, intentando recrear...', connectErr);
+            // Solo si conectar falla, intentar delete + create
+            await callProxy(serverId, `/instance/delete`, 'DELETE', null, cleanName).catch(() => {});
+            // Esperar un momento para que el servidor se estabilice
+            await new Promise(r => setTimeout(r, 2000));
+            data = await callProxy(serverId, '/instance/create', 'POST', {
+              instanceName: cleanName,
+              token: instanceToken,
+              qrcode: true,
+              integration: 'WHATSAPP-BAILEYS'
+            });
+          }
+        } else {
+          // Error diferente (timeout, 502, etc): intentar delete + create como fallback
+          console.warn('Intento de recreación por error:', err);
+          await callProxy(serverId, `/instance/delete`, 'DELETE', null, cleanName).catch(() => {});
+          await new Promise(r => setTimeout(r, 2000));
+          data = await callProxy(serverId, '/instance/create', 'POST', {
+            instanceName: cleanName,
+            token: instanceToken,
+            qrcode: true,
+            integration: 'WHATSAPP-BAILEYS'
+          });
+        }
       }
 
       const apiKey = data?.hash || data?.instance?.token || data?.apikey;

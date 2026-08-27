@@ -381,6 +381,7 @@ export const CatalogSettingsPage = () => {
     linkedGroups, 
     availableGroups,
     loading: groupsLoading, 
+    fetchError: groupsError,
     getLinkedGroups, 
     fetchAvailableGroups,
     linkGroup,
@@ -1004,16 +1005,8 @@ export const CatalogSettingsPage = () => {
       <PageHeader 
         title={activeTab === 'menu' ? "Configuración" : tabs.find(t => t.id === activeTab)?.label || "Configuración"} 
         subtitle={catalog?.name || 'Ajustes de Catálogo'}
+        onBack={activeTab !== 'menu' ? () => setActiveTab('menu') : null}
       />
-
-      {activeTab !== 'menu' && (
-        <button
-          onClick={() => setActiveTab('menu')}
-          className="inline-flex items-center gap-1.5 text-xs text-secondary hover:text-primary transition-colors font-bold uppercase tracking-wider mb-5"
-        >
-          ← Volver al Menú
-        </button>
-      )}
 
       {activeTab === 'menu' ? (
         <div className="space-y-6 animate-in fade-in duration-300">
@@ -2242,6 +2235,7 @@ export const CatalogSettingsPage = () => {
         onFetch={fetchAvailableGroups}
         onLink={linkGroup}
         loading={groupsLoading}
+        error={groupsError}
       />
 
       {/* Confirmar Desvincular Grupo */}

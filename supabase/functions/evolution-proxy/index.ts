@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
     }
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
 
     let response;
     try {
@@ -87,7 +87,7 @@ Deno.serve(async (req: Request) => {
         return new Response(JSON.stringify({ 
           error: "El servidor de Evolution API no responde (Timeout). Es posible que esté durmiendo o cargando en su hosting gratuito. Intente nuevamente en unos instantes.",
           url: url,
-          debug: "Timeout de 15 segundos excedido"
+          debug: "Timeout de 90 segundos excedido"
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 504

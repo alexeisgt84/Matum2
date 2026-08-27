@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 
 interface HeaderContextType {
@@ -8,6 +8,8 @@ interface HeaderContextType {
   setSubtitle: (subtitle: string | null) => void;
   rightAction: ReactNode | null;
   setRightAction: (action: ReactNode | null) => void;
+  onBack: (() => void) | null;
+  setOnBack: (cb: (() => void) | null) => void;
 }
 
 const HeaderContext = createContext<HeaderContextType | undefined>(undefined);
@@ -16,9 +18,16 @@ export const HeaderProvider = ({ children }: { children: ReactNode }) => {
   const [title, setTitle] = useState<string | null>(null);
   const [subtitle, setSubtitle] = useState<string | null>(null);
   const [rightAction, setRightAction] = useState<ReactNode | null>(null);
+  const onBackRef = useRef<(() => void) | null>(null);
+  const [, forceRender] = useState(0);
+
+  const setOnBack = useCallback((cb: (() => void) | null) => {
+    onBackRef.current = cb;
+    forceRender(n => n + 1);
+  }, []);
 
   return (
-    <HeaderContext.Provider value={{ title, setTitle, subtitle, setSubtitle, rightAction, setRightAction }}>
+    <HeaderContext.Provider value={{ title, setTitle, subtitle, setSubtitle, rightAction, setRightAction, onBack: onBackRef.current, setOnBack }}>
       {children}
     </HeaderContext.Provider>
   );

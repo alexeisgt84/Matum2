@@ -32,6 +32,7 @@ export const useWhatsAppGroups = (catalogId?: string) => {
   const [linkedGroups, setLinkedGroups] = useState<WhatsAppGroup[]>([]);
   const [availableGroups, setAvailableGroups] = useState<EvolutionGroup[]>([]);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const getLinkedGroups = useCallback(async () => {
     if (!catalogId) return;
@@ -45,7 +46,7 @@ export const useWhatsAppGroups = (catalogId?: string) => {
       if (error) throw error;
       setLinkedGroups(data || []);
     } catch (err: any) {
-      toast.error('Error al cargar grupos vinculados');
+      toast.error(err.message || 'Error al cargar grupos vinculados');
     } finally {
       setLoading(false);
     }
@@ -53,7 +54,9 @@ export const useWhatsAppGroups = (catalogId?: string) => {
 
   const fetchAvailableGroups = async (forceRefresh = false): Promise<EvolutionGroup[]> => {
     if (!instance || instance.status !== 'connected' || !instance.server_id) {
-      toast.error('WhatsApp no está conectado');
+      const msg = 'WhatsApp no está conectado';
+      setFetchError(msg);
+      toast.error(msg);
       return [];
     }
 
@@ -63,11 +66,13 @@ export const useWhatsAppGroups = (catalogId?: string) => {
     // Si no es un refresco forzado y tenemos caché, la usamos
     if (!forceRefresh && instanceCache && instanceCache.groups.length > 0) {
       console.log('Usando grupos desde caché persistente para:', instance.name);
+      setFetchError(null);
       setAvailableGroups(instanceCache.groups);
       return instanceCache.groups;
     }
 
     setLoading(true);
+    setFetchError(null);
     try {
       console.log('Fetching groups from Evolution Proxy for:', instance.name);
       
@@ -87,9 +92,11 @@ export const useWhatsAppGroups = (catalogId?: string) => {
       
       setAvailableGroups(groups);
       return groups;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetchAvailableGroups:', err);
-      toast.error('Error al obtener grupos de WhatsApp');
+      const errorMsg = err.message || 'Error al obtener grupos de WhatsApp';
+      setFetchError(errorMsg);
+      toast.error(errorMsg, { duration: 7000 });
       const cachedGroups = instanceCache?.groups || [];
       setAvailableGroups(cachedGroups);
       return cachedGroups; 
@@ -190,6 +197,7 @@ export const useWhatsAppGroups = (catalogId?: string) => {
     linkedGroups, 
     availableGroups, 
     loading, 
+    fetchError,
     getLinkedGroups, 
     fetchAvailableGroups, 
     linkGroup, 

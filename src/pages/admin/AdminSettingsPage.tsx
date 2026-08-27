@@ -5,7 +5,7 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { toast } from 'react-hot-toast';
-import { Settings, Save, Globe, ArrowLeft } from 'lucide-react';
+import { Settings, Save, Globe } from 'lucide-react';
 
 export const AdminSettingsPage = () => {
   const { settings, loading, updateSetting, refresh } = useSystemSettings();
@@ -51,17 +51,6 @@ export const AdminSettingsPage = () => {
       <PageHeader
         title="Configuración"
         subtitle="Ajustes Globales del Sistema"
-        rightAction={
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={ArrowLeft}
-            onClick={() => navigate('/admin')}
-            className="rounded-xl px-3 border border-border"
-          >
-            Volver
-          </Button>
-        }
       />
 
       <form onSubmit={handleSubmit} className="space-y-6">
