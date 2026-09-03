@@ -5,12 +5,12 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { RichTextarea } from '../ui/RichTextarea';
 import type { WhatsAppMessage, MessageForm, MessageType } from '../../types/message';
-import { Save, Clock, X, ImagePlus, Sparkles, Crown, Plus } from 'lucide-react';
-import heic2any from 'heic2any';
+import { Save, Clock, X, Sparkles, Crown, Plus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { useProfile } from '../../hooks/useProfile';
 import { useEvolution } from '../../hooks/useEvolution';
 import { analyzeProductImage } from '../../lib/aiService';
+import { ImageUpload } from '../ui/ImageUpload';
 
 
 interface MessageFormModalProps {
@@ -50,7 +50,6 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showSchedule, setShowSchedule] = useState(false);
   const [newTime, setNewTime] = useState('');
-  const [isConverting, setIsConverting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const isPremium = profile?.plan === 'premium';
@@ -161,46 +160,13 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
     }
   }, [message, isOpen, hasInstance]);
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      let fileToProcess = file;
-      const fileName = file.name || 'image.jpg';
-      const extension = fileName.split('.').pop()?.toLowerCase();
-
-      // Soporte HEIC
-      if (file.type === 'image/heic' || file.type === 'image/heif' || extension === 'heic' || extension === 'heif') {
-        setIsConverting(true);
-        const toastId = toast.loading('Convirtiendo formato de iPhone...');
-        try {
-          const converted = await heic2any({
-            blob: file,
-            toType: 'image/jpeg',
-            quality: 0.8
-          });
-          fileToProcess = (Array.isArray(converted) ? converted[0] : converted) as File;
-          if (!(fileToProcess instanceof File)) {
-            fileToProcess = new File([fileToProcess], fileName.replace(/\.(heic|heif)$/i, '.jpg'), { type: 'image/jpeg' });
-          }
-          toast.success('Imagen convertida', { id: toastId });
-        } catch (err) {
-          console.error('Error al convertir HEIC:', err);
-          toast.error('No se pudo convertir el formato HEIC', { id: toastId });
-        } finally {
-          setIsConverting(false);
-        }
-      }
-
-      setImageFile(fileToProcess as File);
-      setPreviewUrl(URL.createObjectURL(fileToProcess));
-      setForm({ ...form, type: 'image' });
-    }
-  };
-
   const handleRemoveImage = () => {
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl);
+    }
     setImageFile(null);
     setPreviewUrl(null);
-    setForm({ ...form, image_url: null, type: 'text' });
+    setForm(prev => ({ ...prev, image_url: null, type: 'text' }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -279,73 +245,55 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
 
             {/* 1. Imagen (Primero) */}
             <div className="space-y-2">
-              <label className="text-sm font-bold text-gray-500 uppercase tracking-widest block">Imagen</label>
-              <div className="flex items-center gap-4">
-                {previewUrl ? (
-                  <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-border flex-shrink-0">
-                    <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
-                    <button 
-                      type="button"
-                      onClick={handleRemoveImage}
-                      className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-500/80 rounded-full text-white transition-all"
-                      disabled={isAnalyzing}
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="w-20 h-20 rounded-2xl border-2 border-dashed border-border hover:border-[var(--accent)]/30 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all hover:bg-surface-hover flex-shrink-0 relative overflow-hidden">
-                    {isConverting ? (
-                      <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+              <label className="text-sm font-bold text-gray-500 uppercase tracking-widest block text-center">Foto / Imagen</label>
+              <ImageUpload
+                value={previewUrl}
+                onChange={(file, url) => {
+                  setImageFile(file);
+                  setPreviewUrl(url);
+                  setForm(prev => ({ ...prev, type: 'image' }));
+                }}
+                onRemove={handleRemoveImage}
+                disabled={isAnalyzing}
+                label="Añadir Foto"
+                filePrefix="message"
+                title="Studio de Imágenes"
+                extraActions={
+                  previewUrl && profile?.gemini_api_key ? (
+                    isPremium ? (
+                      <button
+                        type="button"
+                        onClick={handleAIClick}
+                        disabled={isAnalyzing}
+                        className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md shadow-purple-500/10 active:scale-95 transition-all"
+                      >
+                        <Sparkles size={13} className="text-purple-200 animate-pulse" />
+                        <span>Redactar con IA ✨</span>
+                      </button>
                     ) : (
-                      <>
-                        <ImagePlus size={18} className="text-gray-500" />
-                        <span className="text-[10px] font-bold text-gray-500 uppercase">Subir</span>
-                      </>
-                    )}
-                    <input type="file" className="hidden" accept="image/jpeg,image/jpg,image/png,image/heic,image/heif,image/*" onChange={handleImageChange} disabled={isConverting || isAnalyzing} />
-                  </label>
-                )}
-                <div className="flex-1 space-y-2">
-                  <p className="text-[11px] text-gray-500 leading-relaxed italic">
-                    Opcional. Si agregas una imagen, el mensaje se enviará como imagen con el texto como descripción.
-                  </p>
-                  
-                  {/* Botón premium de Redactar con IA que aparece al subir imagen y si la IA está configurada */}
-                  {previewUrl && profile?.gemini_api_key && (
-                    <div className="pt-1">
-                      {isPremium ? (
-                        <button
-                          type="button"
-                          onClick={handleAIClick}
-                          disabled={isAnalyzing}
-                          className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md shadow-purple-500/10 active:scale-95 transition-all"
-                        >
-                          <Sparkles size={13} className="text-purple-200 animate-pulse" />
-                          <span>Redactar con IA ✨</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleAIClick}
-                          className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-surface-hover border border-border hover:bg-surface text-secondary transition-all"
-                        >
-                          <Crown size={13} className="text-amber-400" />
-                          <span>Redactar con IA (Premium 👑)</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Banner descriptivo si no hay imagen seleccionada y si la IA está configurada */}
-                  {!previewUrl && profile?.gemini_api_key && (
-                    <div className="py-1.5 px-3.5 rounded-full bg-emerald-500/5 border border-emerald-500/10 text-[9px] text-emerald-400 font-medium flex items-center gap-1.5 w-fit">
+                      <button
+                        type="button"
+                        onClick={handleAIClick}
+                        className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-surface-hover border border-border hover:bg-surface text-secondary transition-all"
+                      >
+                        <Crown size={13} className="text-amber-400" />
+                        <span>Redactar con IA (Premium 👑)</span>
+                      </button>
+                    )
+                  ) : null
+                }
+                bottomContent={
+                  !previewUrl && profile?.gemini_api_key ? (
+                    <div className="mt-3 py-1.5 px-3.5 rounded-full bg-emerald-500/5 border border-emerald-500/10 text-[9px] text-emerald-400 font-medium flex items-center gap-1.5 w-fit">
                       <Sparkles size={11} className="text-emerald-400 animate-pulse" />
                       <span>Sube una imagen para habilitar la IA ✨</span>
                     </div>
-                  )}
-                </div>
-              </div>
+                  ) : null
+                }
+              />
+              <p className="text-[11px] text-gray-500 text-center italic mt-1">
+                Opcional. Si agregas una imagen, el mensaje se enviará como imagen con el texto como descripción.
+              </p>
             </div>
 
             {/* 2. Identificador del Mensaje (Segundo) */}

@@ -1,6 +1,7 @@
 /**
  * Utilidad para extraer precios, monedas y títulos sugeridos de textos compartidos
- * (WhatsApp, Telegram, Facebook Marketplace, etc.) con soporte para formatos cubanos e internacionales.
+ * (WhatsApp, Telegram, Facebook Marketplace, etc.) con soporte completo para markdown de WhatsApp (*bold*, _italic_),
+ * emojis y formatos cubanos/internacionales.
  */
 
 export interface DetectedPrice {
@@ -16,8 +17,10 @@ export interface ParsedProductText {
   allPrices: DetectedPrice[];
 }
 
-// Unidades y especificaciones a ignorar como precios (cuando van antes o después del número)
+// Unidades y especificaciones a ignorar como precios (cuando van después del número)
 const EXCLUDED_UNITS_AFTER = /^(gb|tb|mb|kb|w|watt|watts|kw|v|voltios|volts|hz|ghz|mhz|mah|ah|kg|g|gr|grs|gramos|lb|lbs|libras|oz|ml|l|litros|cm|mm|m|metros|pulgadas|pulg|"|'|fps|unidades|piezas|uds|pcs|dias|días|meses|anos|años|horas|h)\b/i;
+
+// Palabras clave que indican especificaciones previas al número (ignorar)
 const EXCLUDED_KEYWORDS_BEFORE = /(talla|size|calzado|número|numero|capacidad|almacenamiento|ram|rom|bateria|batería|version|versión|puerto|puertos|modelo|garantia|garantía)\s*[:\-]?\s*$/i;
 
 // Palabras de contacto que preceden números de teléfono
@@ -27,7 +30,8 @@ const PHONE_KEYWORDS = /(tel|telefono|teléfono|whatsapp|cel|celular|movil|móvi
  * Normaliza una cadena de número (maneja "1,500", "1.500", "120k", "12.50", "12,50", "12500")
  */
 function parseNumberString(numStr: string, hasKMultiplier: boolean = false): number | null {
-  let cleaned = numStr.trim().replace(/\s+/g, '');
+  if (!numStr) return null;
+  let cleaned = numStr.trim().replace(/\s+/g, '').replace(/[\$*~_]/g, '');
   
   if (hasKMultiplier || /k$/i.test(cleaned)) {
     cleaned = cleaned.replace(/k$/i, '');
@@ -62,8 +66,8 @@ function parseNumberString(numStr: string, hasKMultiplier: boolean = false): num
  */
 function normalizeCurrency(currStr?: string): 'USD' | 'CUP' {
   if (!currStr) return 'USD';
-  const c = currStr.toLowerCase().trim();
-  if (c === 'cup' || c === 'pesos' || c === 'peso' || c === 'mn' || c === 'moneda nacional') {
+  const c = currStr.toLowerCase().replace(/[\$*~_\s]/g, '').trim();
+  if (c === 'cup' || c === 'pesos' || c === 'peso' || c === 'mn' || c === 'monedanacional') {
     return 'CUP';
   }
   // USD, MLC, EUR, DOLARES, $, FULAS, VERDES -> por defecto USD en el sistema
@@ -84,14 +88,14 @@ export function parseProductText(text: string): ParsedProductText {
   let suggestedTitle = '';
   for (const line of lines) {
     const cleanLine = line
-      .replace(/^[\*\-•#_~✨🔥🛍️🎉⚡📢👉📦🏷️]+\s*/u, '')
+      .replace(/^[\*\-•#_~✨🔥🛍️🎉⚡📢👉📦🏷️💵💰]+\s*/u, '')
       .replace(/[\*\-•_~]+$/g, '')
       .trim();
     
     // Ignorar si es solo "Precio: $..." o "Contacto: ..." o muy corta
     if (
       cleanLine.length >= 3 &&
-      !/^precio\s*[:=]/i.test(cleanLine) &&
+      !/^[*_~]*\s*precio\s*[:=\->]/i.test(cleanLine) &&
       !PHONE_KEYWORDS.test(cleanLine) &&
       !/^(\$?\d+[\d\s,.]*(usd|cup|mlc|\$)?)$/i.test(cleanLine)
     ) {
@@ -125,13 +129,13 @@ export function parseProductText(text: string): ParsedProductText {
     }
   };
 
-  // --- PATRÓN 1: Menciones con prefijo explícito (Confianza Muy Alta: 10) ---
-  // Ej: "Precio: $45", "💵 Precio: 12500 cup", "Valor: 35 usd", "Cuesta 50$", "A solo 1200 cup"
-  const explicitPrefixRegex = /(?:(?:💵|💰|🏷️|💲)\s*)?(?:precio|valor|cuesta|costo|a\s+solo)\s*[:\-]?\s*(\$?\s*(?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)\s*(usd|cup|mlc|eur|euros?|dolares|dólares|pesos|mn|\$)?/gi;
+  // --- PATRÓN 1: Menciones con prefijo explícito y soporte para markdown de WhatsApp (Confianza Muy Alta: 10) ---
+  // Ej: "*Precio:* 45 USD", "💵 *Precio:* $50", "Precio: 12000 CUP", "*PRECIO :* $ 35.00", "_Precio:_ 25 MLC"
+  const robustPrefixRegex = /(?:(?:💵|💰|🏷️|💲)\s*)?(?:[*_~]*\s*(?:precio|valor|cuesta|costo|a\s+solo)[*_~]*)\s*[:=\->]*\s*[*_~]*\s*(\$?\s*(?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)\s*[*_~]*\s*(usd|cup|mlc|eur|euros?|dolares|dólares|pesos|mn|\$)?/gi;
   let match: RegExpExecArray | null;
-  while ((match = explicitPrefixRegex.exec(text)) !== null) {
-    const rawVal = match[1].replace('$', '').trim();
-    const curr = match[2] || (match[1].includes('$') ? '$' : undefined);
+  while ((match = robustPrefixRegex.exec(text)) !== null) {
+    const rawVal = match[1];
+    const curr = match[2] || (rawVal.includes('$') ? '$' : undefined);
     const hasK = /k$/i.test(rawVal);
     const num = parseNumberString(rawVal, hasK);
     if (num !== null) {
@@ -139,11 +143,11 @@ export function parseProductText(text: string): ParsedProductText {
     }
   }
 
-  // Emojis solos como prefijos: 💵 45, 💰 12000 cup
-  const emojiPrefixRegex = /(?:💵|💰|🏷️|💲)\s*[:\-]?\s*(\$?\s*(?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)\s*(usd|cup|mlc|eur|euros?|dolares|dólares|pesos|mn|\$)?/gi;
-  while ((match = emojiPrefixRegex.exec(text)) !== null) {
-    const rawVal = match[1].replace('$', '').trim();
-    const curr = match[2] || (match[1].includes('$') ? '$' : undefined);
+  // --- PATRÓN 2: Emojis solos como prefijos directos: 💵 45, 💰 12000 cup, 🏷️ 35 USD ---
+  const emojiOnlyRegex = /(?:💵|💰|🏷️|💲)\s*[:=\->]*\s*[*_~]*\s*(\$?\s*(?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)\s*[*_~]*\s*(usd|cup|mlc|eur|euros?|dolares|dólares|pesos|mn|\$)?/gi;
+  while ((match = emojiOnlyRegex.exec(text)) !== null) {
+    const rawVal = match[1];
+    const curr = match[2] || (rawVal.includes('$') ? '$' : undefined);
     const hasK = /k$/i.test(rawVal);
     const num = parseNumberString(rawVal, hasK);
     if (num !== null) {
@@ -151,8 +155,8 @@ export function parseProductText(text: string): ParsedProductText {
     }
   }
 
-  // --- PATRÓN 2: Precios compuestos con barra "/" (ej: "40 usd / 14000 cup", "$35 / $12000") ---
-  const slashPairsRegex = /((?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)\s*(usd|cup|mlc|\$)?\s*\/\s*((?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)\s*(usd|cup|mlc|\$)?/gi;
+  // --- PATRÓN 3: Precios compuestos con barra "/" (ej: "40 usd / 14000 cup", "$35 / $12000") ---
+  const slashPairsRegex = /((?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)\s*[*_~]*\s*(usd|cup|mlc|\$)?\s*[*_~]*\s*\/\s*[*_~]*\s*((?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)\s*[*_~]*\s*(usd|cup|mlc|\$)?/gi;
   while ((match = slashPairsRegex.exec(text)) !== null) {
     const val1 = parseNumberString(match[1], /k$/i.test(match[1]));
     const curr1 = match[2];
@@ -167,9 +171,9 @@ export function parseProductText(text: string): ParsedProductText {
     }
   }
 
-  // --- PATRÓN 3: Número con símbolo de moneda pegado o con moneda explícita (Confianza Alta: 8) ---
-  // Ej: "$45", "45$", "650 usd", "220000 cup", "35.50 USD", "14k cup", "1500 pesos"
-  const symbolOrCurrencyRegex = /(?:(\$)\s*((?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)|\b((?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)\s*(\$|usd|cup|mlc|eur|euros?|dolares|dólares|pesos|mn)\b)/gi;
+  // --- PATRÓN 4: Número con símbolo de moneda o moneda pegada/separada (Confianza Alta: 8) ---
+  // Ej: "$45", "45$", "650 usd", "220000 cup", "45usd", "14000cup", "35.50 USD", "14k cup", "1500 pesos"
+  const symbolOrCurrencyRegex = /(?:(\$)\s*[*_~]*\s*((?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)|\b((?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?\s*k?)\s*[*_~]*\s*(\$|usd|cup|mlc|eur|euros?|dolares|dólares|pesos|mn)\b)/gi;
   while ((match = symbolOrCurrencyRegex.exec(text)) !== null) {
     const isPrefixDollar = match[1] === '$';
     const rawVal = isPrefixDollar ? match[2] : match[3];
@@ -189,9 +193,9 @@ export function parseProductText(text: string): ParsedProductText {
     }
   }
 
-  // --- PATRÓN 4: Palabras contextuales "a/en/por" (Confianza Media: 6) ---
+  // --- PATRÓN 5: Palabras contextuales "a/en/por" (Confianza Media: 6) ---
   // Ej: "en 45 te lo dejo", "a 3500 cada uno"
-  const contextualRegex = /(?:a|en|por)\s+(\$?\s*(?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?)\s*(usd|cup|mlc|pesos|dolares|\$)?\b/gi;
+  const contextualRegex = /(?:a|en|por)\s+(\$?\s*(?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{1,2})?)\s*[*_~]*\s*(usd|cup|mlc|pesos|dolares|\$)?\b/gi;
   while ((match = contextualRegex.exec(text)) !== null) {
     const rawVal = match[1].replace('$', '').trim();
     const curr = match[2];

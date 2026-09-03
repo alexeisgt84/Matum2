@@ -5,12 +5,9 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import type { Product, ProductForm } from '../../types/product';
 import type { Category } from '../../types/category';
-import { Camera, Save, Tag, Send, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings } from 'lucide-react';
+import { Save, Tag, Send, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings } from 'lucide-react';
 import { CalculatorModal } from '../ui/CalculatorModal';
-import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { ImageCropperModal } from '../ui/ImageCropperModal';
-import { blobToFile, preScaleImage } from '../../lib/imageOptimizer';
-import heic2any from 'heic2any';
+import { ImageUpload } from '../ui/ImageUpload';
 import { toast } from 'react-hot-toast';
 import { useProfile } from '../../hooks/useProfile';
 import { analyzeProductImage } from '../../lib/aiService';
@@ -61,14 +58,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const [file, setFile] = useState<File | undefined>(undefined);
   const [preview, setPreview] = useState<string | null>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [isCropperOpen, setIsCropperOpen] = useState(false);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
-  const [isConverting, setIsConverting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [parentProductId, setParentProductId] = useState<string | null>(null);
   const [detectedPrices, setDetectedPrices] = useState<DetectedPrice[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLocalCategories(categories);
@@ -247,90 +240,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     };
   }, [preview]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      await processAndOpenCropper(selectedFile);
-      // Reset input so the same file can be selected again if needed
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const processAndOpenCropper = async (file: File | Blob) => {
-    let fileToProcess = file;
-    const fileName = (file as File).name || 'image.jpg';
-    const extension = fileName.split('.').pop()?.toLowerCase();
-
-    // Soporte HEIC
-    if (file.type === 'image/heic' || file.type === 'image/heif' || extension === 'heic' || extension === 'heif') {
-      setIsConverting(true);
-      const toastId = toast.loading('Convirtiendo formato de iPhone...');
-      try {
-        const converted = await heic2any({
-          blob: file,
-          toType: 'image/jpeg',
-          quality: 0.8
-        });
-        fileToProcess = Array.isArray(converted) ? converted[0] : converted;
-        toast.success('Imagen convertida', { id: toastId });
-      } catch (err) {
-        console.error('Error al convertir HEIC:', err);
-        toast.error('No se pudo convertir el formato HEIC', { id: toastId });
-      } finally {
-        setIsConverting(false);
-      }
-    }
-
-    // Pre-escalar si es muy pesada (>800KB / resolución gigante) antes de pasar al recortador
-    try {
-      fileToProcess = await preScaleImage(fileToProcess, 1200);
-    } catch (scaleErr) {
-      console.warn('Pre-escalado omitido:', scaleErr);
-    }
-
-    const url = URL.createObjectURL(fileToProcess);
-    setSelectedImage(url);
-    setIsCropperOpen(true);
-  };
-
-  const handleSelectImage = async () => {
-    try {
-      const image = await CapCamera.getPhoto({
-        quality: 90,
-        allowEditing: false, 
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Prompt, 
-        promptLabelHeader: 'Añadir Foto',
-        promptLabelPhoto: 'Elegir de la Galería',
-        promptLabelPicture: 'Tomar Foto',
-        promptLabelCancel: 'Cancelar'
-      });
-
-      if (image.webPath) {
-        // En Capacitor, el webPath suele ser ya un formato compatible, 
-        // pero por si acaso lo pasamos por el procesador
-        const response = await fetch(image.webPath);
-        const blob = await response.blob();
-        await processAndOpenCropper(blob);
-      }
-    } catch (err) {
-      // Fallback to traditional file input if Camera fails (common on some browsers/PC)
-      console.log('Capacitor Camera error, falling back to file input', err);
-      fileInputRef.current?.click();
-    }
-  };
-
-  const handleCropComplete = (croppedBlob: Blob) => {
-    if (preview && preview.startsWith('blob:')) {
-      URL.revokeObjectURL(preview);
-    }
-    const croppedFile = blobToFile(croppedBlob, `product_${Date.now()}.jpg`);
-    setFile(croppedFile);
-    const url = URL.createObjectURL(croppedBlob);
-    setPreview(url);
-    setIsCropperOpen(false);
-  };
-
   const handleSubmit = async (e: React.FormEvent, shouldSend = false) => {
     e?.preventDefault();
     const success = await onSave(form, product?.id, file, shouldSend);
@@ -367,87 +276,56 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       }
     >
       <form id="product-form" onSubmit={handleSubmit} className="space-y-6">
-        <div className="flex flex-col items-center mb-4">
-          <div 
-            className="w-32 h-32 rounded-2xl bg-surface-hover border-2 border-dashed border-border flex items-center justify-center relative overflow-hidden group hover:border-[var(--accent)]/50 transition-colors cursor-pointer"
-            onClick={handleSelectImage}
-          >
-            {preview ? (
-              <img src={preview} alt="Preview" className="w-full h-full object-cover" />
-            ) : (
-              <div className="flex flex-col items-center gap-2 text-gray-500 group-hover:text-[var(--accent)]">
-                {isConverting ? (
-                  <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Camera size={32} />
-                )}
-                <span className="text-[10px] font-bold uppercase tracking-widest">
-                  {isConverting ? 'Convirtiendo...' : 'Añadir Foto'}
-                </span>
+        <ImageUpload
+          value={preview}
+          onChange={(newFile, newPreview) => {
+            setFile(newFile);
+            setPreview(newPreview);
+          }}
+          onRemove={() => {
+            if (preview && preview.startsWith('blob:')) {
+              URL.revokeObjectURL(preview);
+            }
+            setFile(undefined);
+            setPreview(null);
+          }}
+          disabled={isAnalyzing}
+          label="Añadir Foto"
+          filePrefix="product"
+          className="mb-4"
+          extraActions={
+            profile?.gemini_api_key && preview ? (
+              isPremium ? (
+                <button
+                  type="button"
+                  onClick={handleAIClick}
+                  disabled={isAnalyzing}
+                  className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md shadow-purple-500/10 active:scale-95 transition-all"
+                >
+                  <Sparkles size={13} className="text-purple-200 animate-pulse" />
+                  <span>Autocompletar con IA ✨</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleAIClick}
+                  className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-surface-hover border border-border hover:bg-surface text-secondary transition-all"
+                >
+                  <Crown size={13} className="text-amber-400" />
+                  <span>Autocompletar con IA (Premium 👑)</span>
+                </button>
+              )
+            ) : null
+          }
+          bottomContent={
+            !preview && profile?.gemini_api_key ? (
+              <div className="mt-3 py-1.5 px-4 rounded-full bg-emerald-500/5 border border-emerald-500/10 text-[10px] text-emerald-400 font-medium flex items-center gap-1.5 justify-center">
+                <Sparkles size={12} className="text-emerald-400 animate-pulse" />
+                <span>Añade una foto para habilitar la IA ✨</span>
               </div>
-            )}
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept="image/jpeg,image/jpg,image/png,image/heic,image/heif,image/*"
-              onChange={handleFileChange}
-              disabled={isConverting || isAnalyzing}
-            />
-          </div>
-          
-          {/* Banner de invitación o botón de IA y Studio */}
-          {preview && (
-            <div className="mt-3 flex flex-wrap gap-2 items-center">
-              <button
-                type="button"
-                onClick={() => {
-                  if (selectedImage) {
-                    setIsCropperOpen(true);
-                  } else if (preview) {
-                    setSelectedImage(preview);
-                    setIsCropperOpen(true);
-                  }
-                }}
-                className="flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-bold bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 active:scale-95 transition-all"
-                title="Editar, recortar y optimizar formato/megapíxeles"
-              >
-                <Sparkles size={13} className="text-emerald-400" />
-                <span>Studio de Imagen 🎨</span>
-              </button>
-
-              {profile?.gemini_api_key && (
-                isPremium ? (
-                  <button
-                    type="button"
-                    onClick={handleAIClick}
-                    disabled={isAnalyzing}
-                    className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white shadow-md shadow-purple-500/10 active:scale-95 transition-all"
-                  >
-                    <Sparkles size={13} className="text-purple-200 animate-pulse" />
-                    <span>Autocompletar con IA ✨</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleAIClick}
-                    className="flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-surface-hover border border-border hover:bg-surface text-secondary transition-all"
-                  >
-                    <Crown size={13} className="text-amber-400" />
-                    <span>Autocompletar con IA (Premium 👑)</span>
-                  </button>
-                )
-              )}
-            </div>
-          )}
-
-          {!preview && profile?.gemini_api_key && (
-            <div className="mt-3 py-1.5 px-4 rounded-full bg-emerald-500/5 border border-emerald-500/10 text-[10px] text-emerald-400 font-medium flex items-center gap-1.5 justify-center">
-              <Sparkles size={12} className="text-emerald-400 animate-pulse" />
-              <span>Añade una foto para habilitar la IA ✨</span>
-            </div>
-          )}
-        </div>
+            ) : null
+          }
+        />
 
         <div className="relative space-y-4 p-1">
           {/* Overlay de Carga Premium de la IA */}
@@ -715,7 +593,29 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             multiline
             rows={3}
             value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            onChange={(e) => {
+              const newDesc = e.target.value;
+              setForm(prev => {
+                const updated = { ...prev, description: newDesc };
+                if (newDesc && (!prev.price || prev.price === '')) {
+                  const parsed = parseProductText(newDesc);
+                  if (parsed.bestPrice) {
+                    updated.price = parsed.bestPrice.price.toString();
+                    updated.currency = parsed.bestPrice.currency;
+                  }
+                  if (parsed.suggestedTitle && (!prev.name || prev.name === '')) {
+                    updated.name = parsed.suggestedTitle;
+                  }
+                  setDetectedPrices(parsed.allPrices);
+                } else if (newDesc) {
+                  const parsed = parseProductText(newDesc);
+                  if (parsed.allPrices.length > 0) {
+                    setDetectedPrices(parsed.allPrices);
+                  }
+                }
+                return updated;
+              });
+            }}
             disabled={isAnalyzing}
           />
 
@@ -739,12 +639,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         </div>
       </form>
 
-      <ImageCropperModal
-        isOpen={isCropperOpen}
-        onClose={() => setIsCropperOpen(false)}
-        image={selectedImage}
-        onCropComplete={handleCropComplete}
-      />
 
       <CalculatorModal
         isOpen={calculatorOpen}

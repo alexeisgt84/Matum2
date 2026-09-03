@@ -38,24 +38,34 @@ public class MainActivity extends BridgeActivity {
 
         Log.d("MatumShare", "handleIntent action: " + action + ", type: " + type);
 
-        if (Intent.ACTION_SEND.equals(action) && type != null) {
+        if (Intent.ACTION_SEND.equals(action)) {
             JSObject data = new JSObject();
 
-            if (type.startsWith("text/")) {
-                String text = intent.getStringExtra(Intent.EXTRA_TEXT);
-                data.put("text", text);
-                sharedData = data;
-            } else if (type.startsWith("image/")) {
+            if (type != null && type.startsWith("image/")) {
                 Uri imageUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
                 String caption = intent.getStringExtra(Intent.EXTRA_TEXT);
-
-                data.put("text", caption);
+                if (caption == null) {
+                    CharSequence cs = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+                    if (cs != null) caption = cs.toString();
+                }
+                data.put("text", caption != null ? caption : "");
                 if (imageUri != null) {
                     String localPath = saveImageToCache(imageUri);
                     if (localPath != null) {
                         data.put("imagePath", localPath);
                     }
                 }
+                sharedData = data;
+            } else {
+                String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+                if (text == null) {
+                    CharSequence cs = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+                    if (cs != null) text = cs.toString();
+                }
+                if (text == null) {
+                    text = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+                }
+                data.put("text", text != null ? text : "");
                 sharedData = data;
             }
         }
