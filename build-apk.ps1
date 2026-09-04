@@ -5,6 +5,16 @@ $BuildToolsPath = "C:\Users\Alexeis\AppData\Local\Android\Sdk\build-tools\36.0.0
 $ZipalignTool = Join-Path $BuildToolsPath "zipalign.exe"
 $ApksignerTool = Join-Path $BuildToolsPath "apksigner.bat"
 
+# Asegurar JAVA_HOME y Java en PATH
+if (-not $env:JAVA_HOME -or -not (Test-Path $env:JAVA_HOME)) {
+    if (Test-Path "C:\Program Files\Android\Android Studio\jbr") {
+        $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+    }
+}
+if ($env:JAVA_HOME -and (Test-Path "$env:JAVA_HOME\bin")) {
+    $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
+}
+
 Write-Host "--- Iniciando proceso integral de construccion y firma para Matum2 ---" -ForegroundColor Cyan
 
 # Cargar variables de entorno si existe .env

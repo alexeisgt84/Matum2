@@ -34,20 +34,20 @@ export const Input: React.FC<InputProps> = ({
     w-full bg-surface-hover border rounded-xl text-primary placeholder:text-secondary/50 text-sm
     outline-none transition-all duration-200
     ${error ? 'border-danger/50 focus:border-danger' : 'border-border focus:border-accent focus:bg-surface'}
-    ${multiline ? 'p-4' : 'h-[58px] py-0 px-4'}
-    ${Icon ? 'pl-12' : ''}
-    ${(isPasswordType && showPasswordToggle) || rightElement ? 'pr-12' : ''}
+    ${multiline ? 'p-3.5' : 'h-11 py-0 px-3.5'}
+    ${Icon ? 'pl-10' : ''}
+    ${(isPasswordType && showPasswordToggle) || rightElement ? 'pr-11' : ''}
     ${className}
   `;
 
   return (
-    <div className="w-full space-y-2 text-primary">
+    <div className="w-full space-y-1.5 text-primary">
       {label && <label className="text-sm font-medium text-secondary ml-1">{label}</label>}
       
       <div className="relative flex items-center">
         {Icon && (
-          <div className="absolute left-4 text-secondary/50 pointer-events-none">
-            <Icon size={20} />
+          <div className="absolute left-3.5 text-secondary/50 pointer-events-none flex items-center justify-center">
+            <Icon size={18} />
           </div>
         )}
 
@@ -69,14 +69,14 @@ export const Input: React.FC<InputProps> = ({
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-4 text-secondary/50 hover:text-primary transition-colors focus:outline-none"
+            className="absolute right-3.5 text-secondary/50 hover:text-primary transition-colors focus:outline-none flex items-center justify-center"
           >
-            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         )}
 
         {rightElement && !isPasswordType && (
-          <div className="absolute right-3 flex items-center justify-center">
+          <div className="absolute right-2 flex items-center justify-center">
             {rightElement}
           </div>
         )}

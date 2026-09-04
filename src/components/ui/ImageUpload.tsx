@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Camera, Sparkles, X } from 'lucide-react';
 import heic2any from 'heic2any';
@@ -41,6 +42,11 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // Limpiar cualquier pwa-action-sheet residual si existiera en el DOM
+    const orphanSheet = document.querySelector('pwa-action-sheet');
+    if (orphanSheet) {
+      orphanSheet.remove();
+    }
     return () => {
       if (selectedImage && selectedImage.startsWith('blob:')) {
         URL.revokeObjectURL(selectedImage);
@@ -96,28 +102,42 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
 
   const handleSelectImage = async () => {
     if (disabled || isConverting) return;
-    try {
-      const image = await CapCamera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.Uri,
-        source: CameraSource.Prompt,
-        promptLabelHeader: label,
-        promptLabelPhoto: 'Elegir de la Galería',
-        promptLabelPicture: 'Tomar Foto',
-        promptLabelCancel: 'Cancelar',
-      });
 
-      if (image.webPath) {
-        const response = await fetch(image.webPath);
-        const blob = await response.blob();
-        await processAndOpenCropper(blob);
+    // Solo usar Capacitor Camera en plataformas móviles nativas (Android/iOS app instalada)
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const image = await CapCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.Uri,
+          source: CameraSource.Prompt,
+          promptLabelHeader: label,
+          promptLabelPhoto: 'Elegir de la Galería',
+          promptLabelPicture: 'Tomar Foto',
+          promptLabelCancel: 'Cancelar',
+        });
+
+        if (image.webPath) {
+          const response = await fetch(image.webPath);
+          const blob = await response.blob();
+          await processAndOpenCropper(blob);
+        }
+      } catch (err: any) {
+        const msg = String(err?.message || err || '').toLowerCase();
+        // Si el usuario canceló explícitamente, respetamos la cancelación
+        if (msg.includes('cancel') || msg.includes('dismiss')) {
+          return;
+        }
+        console.warn('Cámara nativa no disponible, recurriendo al selector de archivos:', err);
+        fileInputRef.current?.click();
       }
-    } catch (err) {
-      // Fallback para navegadores o plataformas donde no esté disponible la cámara nativa
-      console.log('Capacitor Camera no disponible o cancelado, usando selector de archivos', err);
-      fileInputRef.current?.click();
+      return;
     }
+
+    // En navegador Web / Desktop / PWA:
+    // Abrir directamente el selector de archivos del navegador nativo.
+    // Esto se puede cerrar/cancelar limpiamente con Cancelar, Esc o haciendo clic fuera.
+    fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

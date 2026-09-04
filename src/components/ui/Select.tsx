@@ -21,19 +21,19 @@ export const Select: React.FC<SelectProps> = ({
     w-full bg-surface-hover border rounded-xl text-primary text-sm
     outline-none transition-all duration-200 appearance-none cursor-pointer pr-10
     ${error ? 'border-danger/50 focus:border-danger' : 'border-border focus:border-accent focus:bg-surface'}
-    h-[58px] py-0 px-4
-    ${Icon ? 'pl-12' : ''}
+    h-11 py-0 px-3.5
+    ${Icon ? 'pl-10' : ''}
     ${className}
   `;
 
   return (
-    <div className="w-full space-y-2 text-primary">
+    <div className="w-full space-y-1.5 text-primary">
       {label && <label className="text-sm font-medium text-secondary ml-1 block">{label}</label>}
       
       <div className="relative flex items-center">
         {Icon && (
-          <div className="absolute left-4 text-secondary/50 pointer-events-none">
-            <Icon size={20} />
+          <div className="absolute left-3.5 text-secondary/50 pointer-events-none flex items-center justify-center">
+            <Icon size={18} />
           </div>
         )}
 
@@ -44,8 +44,8 @@ export const Select: React.FC<SelectProps> = ({
           {children}
         </select>
 
-        <div className="absolute right-4 text-secondary/50 pointer-events-none">
-          <ChevronDown size={20} />
+        <div className="absolute right-3.5 text-secondary/50 pointer-events-none flex items-center justify-center">
+          <ChevronDown size={18} />
         </div>
       </div>
 

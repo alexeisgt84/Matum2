@@ -1679,10 +1679,10 @@ export const PublicCatalogPage = () => {
           />
 
           {/* Caja del Modal */}
-          <div className="relative w-full md:max-w-lg bg-background border-t md:border border-border rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom md:zoom-in-95 duration-300 md:duration-200">
+          <div className="relative w-full md:max-w-lg bg-background rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] animate-in slide-in-from-bottom md:zoom-in-95 duration-300 md:duration-200">
             
             {/* Grab handle para móviles */}
-            <div className="w-12 h-1 bg-border rounded-full mx-auto my-2.5 md:hidden flex-shrink-0" />
+            <div className="w-12 h-1 bg-secondary/20 rounded-full mx-auto my-2.5 md:hidden flex-shrink-0" />
 
             {/* Header / Botón Cerrar e Compartir */}
             <div className="absolute top-4 right-4 z-10 flex gap-2">
@@ -1704,7 +1704,7 @@ export const PublicCatalogPage = () => {
             {/* Contenido con scroll */}
             <div className="overflow-y-auto flex-1">
               {/* Imagen del Producto */}
-              <div className="h-64 sm:h-80 w-full bg-surface-hover relative overflow-hidden flex items-center justify-center border-b border-border">
+              <div className="w-full aspect-square bg-surface-hover/30 relative overflow-hidden flex items-center justify-center">
                 {selectedProduct.imagen_url ? (
                   <img 
                     src={selectedProduct.imagen_url} 
@@ -1712,7 +1712,7 @@ export const PublicCatalogPage = () => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="text-secondary flex flex-col items-center gap-2">
+                  <div className="text-secondary flex flex-col items-center gap-2 py-12">
                     <ShoppingBag size={48} />
                     <span className="text-[10px] uppercase tracking-wider font-bold text-gray-500">Sin Imagen</span>
                   </div>
@@ -1740,9 +1740,9 @@ export const PublicCatalogPage = () => {
                 </div>
 
                 {selectedProduct.description && (
-                  <div className="border-t border-border pt-4">
+                  <div className="pt-2">
                     <h3 className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-1.5">Descripción</h3>
-                    <p className="text-xs sm:text-sm text-primary leading-relaxed whitespace-pre-line bg-surface-hover/30 p-3 rounded-xl border border-border/50">
+                    <p className="text-xs sm:text-sm text-primary leading-relaxed whitespace-pre-line bg-surface-hover/30 p-3 rounded-xl">
                       {selectedProduct.description}
                     </p>
                   </div>
@@ -1751,22 +1751,22 @@ export const PublicCatalogPage = () => {
             </div>
 
             {/* Footer con Acciones */}
-            <div className="p-4 sm:p-6 border-t border-border bg-surface flex flex-col sm:flex-row gap-3">
+            <div className="p-4 sm:p-6 bg-surface flex flex-col sm:flex-row gap-3">
               {/* Control de cantidad para agregar al carrito */}
               {getProductQuantity(selectedProduct.id) > 0 ? (
-                <div className="flex items-center justify-between bg-surface-hover px-4 py-2.5 rounded-xl border border-border sm:flex-1 h-[46px]">
+                <div className="flex items-center justify-between bg-surface-hover px-4 py-2.5 rounded-xl sm:flex-1 h-[46px]">
                   <span className="text-xs font-bold text-secondary">En el pedido:</span>
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={() => removeFromCart(selectedProduct.id)}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface active:scale-90 transition-all text-secondary hover:text-primary border border-border/50"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface active:scale-90 transition-all text-secondary hover:text-primary"
                     >
                       <Minus size={14} />
                     </button>
                     <input 
                       type="number"
                       min="0"
-                      className="w-12 text-center text-xs sm:text-sm font-bold text-primary bg-transparent outline-none focus:ring-1 focus:ring-accent rounded border border-border/30 h-8 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-12 text-center text-xs sm:text-sm font-bold text-primary bg-transparent outline-none focus:ring-1 focus:ring-accent rounded h-8 tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       value={getProductQuantity(selectedProduct.id)}
                       onChange={(e) => {
                         const val = parseInt(e.target.value, 10);
@@ -1775,7 +1775,7 @@ export const PublicCatalogPage = () => {
                     />
                     <button 
                       onClick={() => addToCart(selectedProduct)}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface active:scale-90 transition-all text-secondary hover:text-primary border border-border/50"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface active:scale-90 transition-all text-secondary hover:text-primary"
                     >
                       <Plus size={14} />
                     </button>
@@ -1822,7 +1822,7 @@ export const PublicCatalogPage = () => {
                   const whatsappUrl = `https://wa.me/${formattedPhone}?text=${encodeURIComponent(messageText)}`;
                   window.open(whatsappUrl, '_blank');
                 }}
-                className="bg-green-600 hover:bg-green-500 border-green-600 hover:border-green-500 text-white sm:flex-1 py-3"
+                className="bg-green-600 hover:bg-green-500 text-white sm:flex-1 py-3"
               >
                 Preguntar por WhatsApp
               </Button>

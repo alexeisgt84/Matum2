@@ -2,6 +2,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ImageUpload } from '../ImageUpload';
 
+// Mock Capacitor Core
+vi.mock('@capacitor/core', () => ({
+  Capacitor: {
+    isNativePlatform: vi.fn().mockReturnValue(false),
+  },
+}));
+
 // Mock Capacitor Camera
 vi.mock('@capacitor/camera', () => ({
   Camera: {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Cropper from 'react-easy-crop';
 import { Modal } from './Modal';
 import { Button } from './Button';
@@ -44,6 +44,13 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({
   const [aspect, setAspect] = useState<number | undefined>(defaultAspect);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
   
+  // Tamaño para modo Libre y redimensión
+  const [freeCropSize, setFreeCropSize] = useState<{ width: number; height: number }>({ width: 260, height: 260 });
+  const [containerDimensions, setContainerDimensions] = useState<{ width: number; height: number }>({ width: 350, height: 350 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lastCropSizeRef = useRef<{ width: number; height: number }>({ width: 260, height: 260 });
+  const [_isResizing, setIsResizing] = useState(false);
+  
   // Opciones de formateo
   const [format, setFormat] = useState<'image/webp' | 'image/jpeg' | 'image/png'>('image/webp');
   const [quality, setQuality] = useState<number>(0.85);
@@ -54,6 +61,29 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({
   const [estimatedMetadata, setEstimatedMetadata] = useState<ImageMetaData | null>(null);
   const [loading, setLoading] = useState(false);
   const [_estimating, setEstimating] = useState(false);
+
+  // Observar dimensiones del contenedor del cropper
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setContainerDimensions({ width, height });
+          // Inicializar freeCropSize si aún no se ha establecido
+          setFreeCropSize((prev) => {
+            if (prev.width === 260 && prev.height === 260) {
+              const defaultSize = Math.round(Math.min(width, height) * 0.8);
+              return { width: defaultSize, height: defaultSize };
+            }
+            return prev;
+          });
+        }
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Cargar metadatos originales al recibir la imagen
   useEffect(() => {
@@ -97,6 +127,85 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({
   const onCropAreaComplete = useCallback((_croppedArea: any, croppedAreaPixels: any) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
+
+  const handleCropSizeChange = useCallback((size: { width: number; height: number }) => {
+    lastCropSizeRef.current = size;
+  }, []);
+
+  const handleSelectAspect = (val: number | undefined) => {
+    if (val === undefined && aspect !== undefined) {
+      // Al cambiar a modo libre, inicializamos freeCropSize con el último tamaño calculado
+      if (lastCropSizeRef.current.width > 0 && lastCropSizeRef.current.height > 0) {
+        setFreeCropSize({
+          width: Math.round(lastCropSizeRef.current.width),
+          height: Math.round(lastCropSizeRef.current.height),
+        });
+      }
+    }
+    setAspect(val);
+  };
+
+  // Manejador de redimensión interactiva en modo libre
+  const startResize = (
+    e: React.PointerEvent,
+    direction: 'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r'
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!containerRef.current) return;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const centerX = containerRect.left + containerRect.width / 2;
+    const centerY = containerRect.top + containerRect.height / 2;
+
+    const maxW = Math.max(80, containerRect.width - 24);
+    const maxH = Math.max(80, containerRect.height - 24);
+    const minSize = 60;
+
+    setIsResizing(true);
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      moveEvent.preventDefault();
+      const pointerX = moveEvent.clientX;
+      const pointerY = moveEvent.clientY;
+
+      setFreeCropSize((prev) => {
+        let newW = prev.width;
+        let newH = prev.height;
+
+        // Horizontales
+        if (direction === 'tl' || direction === 'bl' || direction === 'l') {
+          const distFromCenter = Math.max(minSize / 2, centerX - pointerX);
+          newW = Math.min(maxW, Math.round(distFromCenter * 2));
+        } else if (direction === 'tr' || direction === 'br' || direction === 'r') {
+          const distFromCenter = Math.max(minSize / 2, pointerX - centerX);
+          newW = Math.min(maxW, Math.round(distFromCenter * 2));
+        }
+
+        // Verticales
+        if (direction === 'tl' || direction === 'tr' || direction === 't') {
+          const distFromCenter = Math.max(minSize / 2, centerY - pointerY);
+          newH = Math.min(maxH, Math.round(distFromCenter * 2));
+        } else if (direction === 'bl' || direction === 'br' || direction === 'b') {
+          const distFromCenter = Math.max(minSize / 2, pointerY - centerY);
+          newH = Math.min(maxH, Math.round(distFromCenter * 2));
+        }
+
+        return { width: newW, height: newH };
+      });
+    };
+
+    const onPointerUp = () => {
+      setIsResizing(false);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  };
 
   // Actualizar estimación de peso y resolución en vivo cuando cambian las opciones
   useEffect(() => {
@@ -235,18 +344,116 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({
         </div>
 
         {/* Viewport del Cropper */}
-        <div className="relative w-full aspect-square bg-zinc-950 rounded-2xl overflow-hidden border border-white/10 shadow-inner group">
+        <div 
+          ref={containerRef}
+          className="relative w-full aspect-square bg-zinc-950 rounded-2xl overflow-hidden border border-white/10 shadow-inner group select-none"
+        >
           <Cropper
             image={image}
             crop={crop}
             zoom={zoom}
             rotation={rotation}
-            aspect={aspect}
+            aspect={aspect ?? (freeCropSize.width / freeCropSize.height)}
+            cropSize={aspect === undefined ? freeCropSize : undefined}
             onCropChange={setCrop}
             onCropComplete={onCropAreaComplete}
+            onCropSizeChange={handleCropSizeChange}
             onZoomChange={setZoom}
             objectFit="contain"
           />
+
+          {/* Manejadores de Redimensión en Modo Libre */}
+          {aspect === undefined && (
+            <div
+              style={{
+                width: freeCropSize.width,
+                height: freeCropSize.height,
+              }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20"
+            >
+              {/* Borde activo destacado */}
+              <div className="absolute inset-0 border-2 border-[var(--accent)] pointer-events-none rounded-sm" />
+
+              {/* Badge con dimensiones en tiempo real */}
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-black/85 backdrop-blur-md px-2 py-0.5 rounded-md text-[10px] font-mono font-bold text-[var(--accent)] border border-[var(--accent)]/40 pointer-events-none whitespace-nowrap shadow-lg">
+                {Math.round(freeCropSize.width)} × {Math.round(freeCropSize.height)} px
+              </div>
+
+              {/* Esquinas interactivas */}
+              {/* Superior Izquierda */}
+              <div
+                onPointerDown={(e) => startResize(e, 'tl')}
+                className="absolute -top-3 -left-3 w-6 h-6 rounded-full bg-[var(--accent)] border-2 border-white shadow-xl cursor-nwse-resize pointer-events-auto touch-none active:scale-125 transition-transform flex items-center justify-center"
+                title="Redimensionar esquina superior izquierda"
+              >
+                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+              </div>
+
+              {/* Superior Derecha */}
+              <div
+                onPointerDown={(e) => startResize(e, 'tr')}
+                className="absolute -top-3 -right-3 w-6 h-6 rounded-full bg-[var(--accent)] border-2 border-white shadow-xl cursor-nesw-resize pointer-events-auto touch-none active:scale-125 transition-transform flex items-center justify-center"
+                title="Redimensionar esquina superior derecha"
+              >
+                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+              </div>
+
+              {/* Inferior Izquierda */}
+              <div
+                onPointerDown={(e) => startResize(e, 'bl')}
+                className="absolute -bottom-3 -left-3 w-6 h-6 rounded-full bg-[var(--accent)] border-2 border-white shadow-xl cursor-nesw-resize pointer-events-auto touch-none active:scale-125 transition-transform flex items-center justify-center"
+                title="Redimensionar esquina inferior izquierda"
+              >
+                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+              </div>
+
+              {/* Inferior Derecha */}
+              <div
+                onPointerDown={(e) => startResize(e, 'br')}
+                className="absolute -bottom-3 -right-3 w-6 h-6 rounded-full bg-[var(--accent)] border-2 border-white shadow-xl cursor-nwse-resize pointer-events-auto touch-none active:scale-125 transition-transform flex items-center justify-center"
+                title="Redimensionar esquina inferior derecha"
+              >
+                <div className="w-1.5 h-1.5 bg-white rounded-full" />
+              </div>
+
+              {/* Bordes interactivos */}
+              {/* Superior */}
+              <div
+                onPointerDown={(e) => startResize(e, 't')}
+                className="absolute -top-2 left-1/2 -translate-x-1/2 w-14 h-4 cursor-ns-resize pointer-events-auto touch-none flex items-center justify-center"
+                title="Redimensionar alto (arriba)"
+              >
+                <div className="w-8 h-1 bg-white/90 rounded-full shadow border border-black/30" />
+              </div>
+
+              {/* Inferior */}
+              <div
+                onPointerDown={(e) => startResize(e, 'b')}
+                className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-14 h-4 cursor-ns-resize pointer-events-auto touch-none flex items-center justify-center"
+                title="Redimensionar alto (abajo)"
+              >
+                <div className="w-8 h-1 bg-white/90 rounded-full shadow border border-black/30" />
+              </div>
+
+              {/* Izquierdo */}
+              <div
+                onPointerDown={(e) => startResize(e, 'l')}
+                className="absolute top-1/2 -translate-y-1/2 -left-2 w-4 h-14 cursor-ew-resize pointer-events-auto touch-none flex items-center justify-center"
+                title="Redimensionar ancho (izquierda)"
+              >
+                <div className="w-1 h-8 bg-white/90 rounded-full shadow border border-black/30" />
+              </div>
+
+              {/* Derecho */}
+              <div
+                onPointerDown={(e) => startResize(e, 'r')}
+                className="absolute top-1/2 -translate-y-1/2 -right-2 w-4 h-14 cursor-ew-resize pointer-events-auto touch-none flex items-center justify-center"
+                title="Redimensionar ancho (derecha)"
+              >
+                <div className="w-1 h-8 bg-white/90 rounded-full shadow border border-black/30" />
+              </div>
+            </div>
+          )}
           
           {/* Botones Flotantes de Rotación */}
           <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-black/60 backdrop-blur-md border border-white/10 rounded-xl p-1 shadow-lg z-10">
@@ -271,22 +478,24 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({
 
         {/* Controles de Zoom & Aspect Ratio */}
         <div className="bg-zinc-900/60 border border-white/5 rounded-xl p-3 space-y-3">
-          <div className="flex items-center justify-between text-xs text-gray-400 font-medium">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-gray-400 font-medium">
             <span className="flex items-center gap-1.5">
-              <CropIcon size={14} className="text-[var(--accent)]" /> Recorte:
+              <CropIcon size={14} className="text-[var(--accent)]" /> Disposición:
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
               {[
                 { label: '1:1', val: 1 },
-                { label: '4:3', val: 4/3 },
-                { label: '16:9', val: 16/9 },
+                { label: '3:4', val: 3 / 4 },
+                { label: '4:3', val: 4 / 3 },
+                { label: '9:16', val: 9 / 16 },
+                { label: '16:9', val: 16 / 9 },
                 { label: 'Libre', val: undefined },
               ].map((item) => (
                 <button
                   key={item.label}
                   type="button"
-                  onClick={() => setAspect(item.val)}
-                  className={`px-2 py-1 text-[11px] rounded-md transition-all font-medium ${
+                  onClick={() => handleSelectAspect(item.val)}
+                  className={`px-2 py-1 text-[11px] rounded-md transition-all font-medium shrink-0 ${
                     aspect === item.val
                       ? 'bg-[var(--accent)] text-white shadow'
                       : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
@@ -297,6 +506,59 @@ export const ImageStudioModal: React.FC<ImageStudioModalProps> = ({
               ))}
             </div>
           </div>
+
+          {/* Controles de Redimensión Manual cuando está en modo Libre */}
+          {aspect === undefined && (
+            <div className="pt-2 border-t border-white/5 space-y-2.5">
+              <div className="flex items-center justify-between text-[11px] text-gray-300">
+                <span className="text-[var(--accent)] font-semibold flex items-center gap-1">
+                  ↔ ↕ Redimensión Libre:
+                </span>
+                <span className="font-mono text-gray-400">
+                  {Math.round(freeCropSize.width)} × {Math.round(freeCropSize.height)} px
+                </span>
+              </div>
+
+              {/* Sliders de Ancho y Alto */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-gray-400">
+                    <span>Ancho:</span>
+                    <span className="font-mono text-white">{Math.round(freeCropSize.width)}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    value={freeCropSize.width}
+                    min={60}
+                    max={Math.max(80, containerDimensions.width - 24)}
+                    step={2}
+                    onChange={(e) => setFreeCropSize((prev) => ({ ...prev, width: Number(e.target.value) }))}
+                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[10px] text-gray-400">
+                    <span>Alto:</span>
+                    <span className="font-mono text-white">{Math.round(freeCropSize.height)}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    value={freeCropSize.height}
+                    min={60}
+                    max={Math.max(80, containerDimensions.height - 24)}
+                    step={2}
+                    onChange={(e) => setFreeCropSize((prev) => ({ ...prev, height: Number(e.target.value) }))}
+                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+                  />
+                </div>
+              </div>
+
+              <p className="text-[10px] text-gray-400 italic">
+                * Consejo: Puedes arrastrar directamente las esquinas o bordes del recuadro sobre la imagen.
+              </p>
+            </div>
+          )}
 
           <div className="flex items-center gap-3 pt-1">
             <Maximize2 size={14} className="text-gray-400 shrink-0" />
