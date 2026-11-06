@@ -48,7 +48,9 @@ export const useAuthStore = create<AuthState>((set) => ({
           nombre: profile?.full_name || '', 
           avatar_url: profile?.avatar_url || null, 
           plan: profile?.plan || 'free',
-          role: profile?.role || 'user'
+            role: profile?.role || 'user',
+            referral_code: profile?.referral_code || null,
+            payout_info: profile?.payout_info || null
         }, 
         loading: false 
       });
@@ -152,6 +154,8 @@ export const useAuthStore = create<AuthState>((set) => ({
             avatar_url: profile?.avatar_url || null,
             plan: profile?.plan || 'free',
             role: profile?.role || 'user',
+            referral_code: profile?.referral_code || null,
+            payout_info: profile?.payout_info || null,
           },
         });
         console.log('[AuthStore] Estado del usuario actualizado en el store');
@@ -230,7 +234,9 @@ supabase.auth.onAuthStateChange(async (event, session) => {
               nombre: profile?.full_name || '',
               avatar_url: profile?.avatar_url || null,
               plan: profile?.plan || 'free',
-              role: profile?.role || 'user',
+            role: profile?.role || 'user',
+            referral_code: profile?.referral_code || null,
+            payout_info: profile?.payout_info || null,
             },
             loading: false,
             isInitialized: true

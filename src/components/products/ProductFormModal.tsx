@@ -5,7 +5,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import type { Product, ProductForm } from '../../types/product';
 import type { Category } from '../../types/category';
-import { Save, Tag, Send, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings, Package } from 'lucide-react';
+import { Save, Tag, Send, Coins, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings, Package } from 'lucide-react';
 import { CalculatorModal } from '../ui/CalculatorModal';
 import { ImageUpload } from '../ui/ImageUpload';
 import { toast } from 'react-hot-toast';
@@ -50,6 +50,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     imagen_url: null,
     category_id: null,
     is_active: true,
+    commission_amount: '',
+    commission_currency: 'CUP',
   });
   const [localCategories, setLocalCategories] = useState<Category[]>(categories);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
@@ -202,6 +204,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         imagen_url: product.imagen_url,
         category_id: product.category_id || null,
         is_active: product.is_active ?? true,
+        commission_amount: product.commission_amount !== null && product.commission_amount !== undefined ? product.commission_amount.toString() : '',
+        commission_currency: (product.commission_currency as 'CUP' | 'USD') || 'CUP',
       });
       setDetectedPrices([]);
       setPreview(product.imagen_url);
@@ -216,13 +220,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         imagen_url: null,
         category_id: null,
         is_active: true,
+        commission_amount: '',
+        commission_currency: 'CUP',
       });
       setDetectedPrices(parsed.allPrices);
       setPreview(prefilledData.preview || null);
       setFile(prefilledData.file);
       setParentProductId(null);
     } else {
-      setForm({ name: '', description: '', price: '', currency: 'USD', imagen_url: null, category_id: null, is_active: true });
+      setForm({ name: '', description: '', price: '', currency: 'USD', imagen_url: null, category_id: null, is_active: true, commission_amount: '', commission_currency: 'CUP' });
       setDetectedPrices([]);
       setPreview(null);
       setFile(undefined);
@@ -239,6 +245,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       }
     };
   }, [preview]);
+
+  const handleQuickAddPrice = (amount: number) => {
+    const currentVal = parseFloat(String(form.price));
+    const base = isNaN(currentVal) || currentVal < 0 ? 0 : currentVal;
+    const newVal = Math.round((base + amount) * 100) / 100;
+    setForm((prev) => ({ ...prev, price: newVal.toString() }));
+  };
 
   const handleSubmit = async (e: React.FormEvent, shouldSend = false) => {
     e?.preventDefault();
@@ -440,6 +453,25 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               </div>
             </div>
 
+            {/* Botones de acceso rápido debajo del precio */}
+            <div className="flex items-center gap-2 -mt-1">
+              <span className="text-[11px] text-secondary font-medium">Sumar al precio:</span>
+              <div className="flex items-center gap-1.5 flex-1">
+                {[10, 20, 50, 100].map((val) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => handleQuickAddPrice(val)}
+                    className="flex-1 py-1 px-2 text-xs font-bold rounded-lg bg-surface hover:bg-surface-hover border border-border text-primary hover:text-emerald-400 hover:border-emerald-500/40 transition-all shadow-sm active:scale-95 flex items-center justify-center gap-0.5"
+                    title={`Sumar ${val} al precio actual`}
+                  >
+                    <Plus size={12} className="text-emerald-500" />
+                    <span>{val}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Sugerencias de Precios Detectados */}
             {detectedPrices.length > 0 && (
               <div className="flex flex-col gap-2 p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-xs animate-in fade-in duration-200">
@@ -478,6 +510,40 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Comisión de Afiliado por Producto */}
+            <div className="p-3.5 bg-amber-500/5 border border-amber-500/20 rounded-2xl space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-500 uppercase tracking-wider">
+                <Coins size={14} className="text-amber-500" />
+                <span>Comisión de Afiliado (Opcional)</span>
+              </div>
+              <p className="text-[11px] text-secondary leading-relaxed">
+                Monto que ganará el promotor al vender este producto. <strong className="text-primary">No se le suma al cliente</strong>, sale de tu margen de venta.
+              </p>
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="col-span-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    step={form.commission_currency === 'USD' ? 0.25 : 10}
+                    placeholder="0"
+                    value={form.commission_amount || ''}
+                    onChange={(e) => setForm(prev => ({ ...prev, commission_amount: e.target.value }))}
+                    disabled={isAnalyzing}
+                  />
+                </div>
+                <div>
+                  <Select
+                    value={form.commission_currency || 'CUP'}
+                    onChange={(e) => setForm(prev => ({ ...prev, commission_currency: e.target.value as 'CUP' | 'USD' }))}
+                    disabled={isAnalyzing}
+                  >
+                    <option value="CUP" className="bg-surface text-primary">CUP</option>
+                    <option value="USD" className="bg-surface text-primary">USD</option>
+                  </Select>
+                </div>
+              </div>
+            </div>
 
             {/* Selector de Categoría con Icono */}
             <div className="space-y-1.5 relative" ref={categoryDropdownRef}>

@@ -5,6 +5,13 @@ export type AuthUser = {
   avatar_url: string | null;
   plan: string;
   role: 'user' | 'admin';
+  referral_code?: string | null;
+  payout_info?: {
+    method?: string;
+    account?: string;
+    phone?: string;
+    notes?: string;
+  } | null;
 };
 
 export type LoginForm = {

@@ -14,6 +14,7 @@ import { ProfilePage } from '../pages/profile/ProfilePage';
 import { EditProfilePage } from '../pages/profile/EditProfilePage';
 import { GeminiConfigPage } from '../pages/profile/GeminiConfigPage';
 import { SubscriptionPage } from '../pages/profile/SubscriptionPage';
+import { AffiliatesPage } from '../pages/profile/AffiliatesPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { AdminDashboard } from '../pages/admin/AdminDashboard';
 import { PlansPage } from '../pages/admin/PlansPage';
@@ -24,6 +25,7 @@ import { EvolutionServersPage } from '../pages/admin/EvolutionServersPage';
 import { useAuthStore } from '../store/authStore';
 import { ErrorPage } from '../pages/ErrorPage';
 import { PublicCatalogPage } from '../pages/catalogs/PublicCatalogPage';
+import { PublicProductPage } from '../pages/catalogs/PublicProductPage';
 
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
@@ -105,6 +107,10 @@ export const router = createBrowserRouter([
         element: <PrivateRoute><EditProfilePage /></PrivateRoute>,
       },
       {
+        path: 'profile/affiliates',
+        element: <PrivateRoute><AffiliatesPage /></PrivateRoute>,
+      },
+      {
         path: 'profile/ai-settings',
         element: <PrivateRoute><GeminiConfigPage /></PrivateRoute>,
       },
@@ -135,6 +141,14 @@ export const router = createBrowserRouter([
       {
         path: 'admin/servers',
         element: <AdminRoute><EvolutionServersPage /></AdminRoute>,
+      },
+      {
+        path: ':slug/p/:productId',
+        element: <PublicProductPage />,
+      },
+      {
+        path: ':slug/producto/:productId',
+        element: <PublicProductPage />,
       },
       {
         path: ':slug',

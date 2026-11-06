@@ -35,6 +35,7 @@
     "react-easy-crop": "^5.5.7",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^6.30.3",
+    "w3c-xmlserializer": "^5.0.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

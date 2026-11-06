@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useCatalogs } from '../../hooks/useCatalogs';
+import { usePublicCatalogs } from '../../hooks/usePublicCatalogs';
 import { usePlanLimits } from '../../hooks/usePlanLimits';
 import { useAuthStore } from '../../store/authStore';
 import { 
@@ -18,7 +19,9 @@ import {
   ShieldCheck,
   Sparkles,
   X,
-  MessageSquare
+  MessageSquare,
+  Store,
+  Search
 } from 'lucide-react';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Button } from '../../components/ui/Button';
@@ -30,13 +33,22 @@ export const DashboardPage = () => {
   const { user } = useAuthStore();
   const { theme, toggleTheme } = useStore();
   const { catalogs, loading, getCatalogs } = useCatalogs();
+  const { 
+    publicCatalogs, 
+    filteredCatalogs, 
+    loading: publicLoading, 
+    searchQuery, 
+    setSearchQuery, 
+    getPublicCatalogs 
+  } = usePublicCatalogs();
   const { counts, loading: limitsLoading } = usePlanLimits();
   const { sharedContentList, removeSharedContent } = useShareStore();
   const navigate = useNavigate();
 
   useEffect(() => {
     getCatalogs();
-  }, [getCatalogs]);
+    getPublicCatalogs();
+  }, [getCatalogs, getPublicCatalogs]);
 
   const stats = [
     { label: 'Catálogos', value: counts.catalogs, icon: LayoutGrid, color: 'text-accent', bg: 'bg-accent/10' },
@@ -126,6 +138,132 @@ export const DashboardPage = () => {
           </div>
         ))}
       </div>
+
+      {/* Public Catalogs (Catálogos Públicos) */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <Store size={15} className="text-accent" />
+            <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-secondary">Catálogos Públicos</h2>
+          </div>
+          {!publicLoading && publicCatalogs.length > 0 && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20">
+              {publicCatalogs.length} {publicCatalogs.length === 1 ? 'disponible' : 'disponibles'}
+            </span>
+          )}
+        </div>
+
+        {/* Búsqueda rápida si hay varios catálogos */}
+        {publicCatalogs.length > 3 && (
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary" size={14} />
+            <input
+              type="text"
+              placeholder="Buscar tienda o catálogo..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-surface border border-border rounded-xl text-xs text-primary placeholder:text-secondary focus:outline-none focus:border-accent transition-colors"
+            />
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {publicLoading && publicCatalogs.length === 0 ? (
+            [1, 2, 3].map((i) => (
+              <div key={i} className="card p-3.5 flex items-center gap-3.5 border-border">
+                <Skeleton className="w-12 h-12 rounded-xl flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-1/2" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+                <Skeleton className="h-8 w-20 rounded-xl" />
+              </div>
+            ))
+          ) : filteredCatalogs.length === 0 ? (
+            <div className="card p-6 border-dashed border-border text-center space-y-2">
+              <div className="w-10 h-10 rounded-2xl bg-surface-hover flex items-center justify-center mx-auto text-secondary">
+                <Store size={20} />
+              </div>
+              <p className="text-secondary text-xs">
+                {searchQuery ? 'No se encontraron catálogos con esa búsqueda' : 'No hay catálogos públicos disponibles actualmente'}
+              </p>
+            </div>
+          ) : (
+            filteredCatalogs.map((catalog) => (
+              <Link
+                key={catalog.id}
+                to={`/${catalog.slug || catalog.id}`}
+                className="card p-3.5 group hover:bg-surface-hover hover:border-accent/40 cursor-pointer transition-all border-border active:scale-[0.98] block relative overflow-hidden"
+              >
+                {/* Glow decorativo suave */}
+                <div 
+                  className="absolute top-0 right-0 w-28 h-28 rounded-full -mr-12 -mt-12 blur-2xl opacity-10 group-hover:opacity-25 transition-opacity pointer-events-none"
+                  style={{ backgroundColor: catalog.primary_color || 'var(--accent)' }}
+                />
+
+                <div className="flex items-center gap-3.5 relative z-10">
+                  {/* Logo o Inicial */}
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-surface-hover border border-border flex items-center justify-center flex-shrink-0 relative shadow-sm">
+                    {catalog.logo_url ? (
+                      <img 
+                        src={catalog.logo_url} 
+                        alt={catalog.name} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                      />
+                    ) : (
+                      <div 
+                        className="w-full h-full flex items-center justify-center font-black text-sm select-none"
+                        style={{
+                          backgroundColor: catalog.primary_color ? `${catalog.primary_color}25` : 'rgba(255, 120, 46, 0.15)',
+                          color: catalog.primary_color || 'var(--accent)'
+                        }}
+                      >
+                        {catalog.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Información */}
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <h3 className="font-bold text-sm text-primary truncate group-hover:text-accent transition-colors">
+                      {catalog.name}
+                    </h3>
+                    
+                    {catalog.slogan ? (
+                      <p className="text-xs text-secondary truncate italic">
+                        {catalog.slogan}
+                      </p>
+                    ) : catalog.description ? (
+                      <p className="text-xs text-secondary truncate">
+                        {catalog.description}
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-secondary/60 truncate">
+                        Tienda en línea
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-3 pt-0.5">
+                      <span className="text-[10px] font-semibold text-secondary flex items-center gap-1">
+                        <ShoppingBag size={11} className="text-accent" />
+                        {catalog.productCount} {catalog.productCount === 1 ? 'producto' : 'productos'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Botón Ver Tienda */}
+                  <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-surface-hover border border-border group-hover:border-accent/40 group-hover:bg-accent/10 transition-all flex-shrink-0">
+                    <span className="text-[10px] font-bold text-secondary group-hover:text-accent transition-colors">
+                      Ver tienda
+                    </span>
+                    <ChevronRight size={13} className="text-secondary group-hover:text-accent transition-colors" />
+                  </div>
+                </div>
+              </Link>
+            ))
+          )}
+        </div>
+      </section>
 
       {/* Recent Catalogs */}
       <section className="space-y-4">

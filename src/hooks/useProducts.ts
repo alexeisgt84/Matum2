@@ -137,7 +137,9 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
         currency: form.currency,
         imagen_url,
         category_id: form.category_id || null,
-        is_active: form.is_active !== undefined ? form.is_active : true
+        is_active: form.is_active !== undefined ? form.is_active : true,
+        commission_amount: form.commission_amount === '' || form.commission_amount === null || form.commission_amount === undefined ? 0 : Number(form.commission_amount),
+        commission_currency: form.commission_currency || 'CUP'
       };
 
       let result: Product | null = null;

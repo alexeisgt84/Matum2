@@ -1,3 +1,5 @@
+import { CatalogCommissionsModal } from '../../components/catalogs/CatalogCommissionsModal';
+import { useCommissions } from '../../hooks/useCommissions';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -53,6 +55,9 @@ import {
   DollarSign,
   ChevronRight,
   UserMinus,
+  UserCheck,
+  UserX,
+  UserPlus,
   Shield
 } from 'lucide-react';
 
@@ -110,7 +115,7 @@ const getSecondaryTextColor = (hexColor: string) => {
   return contrast === '#ffffff' ? '#a0a0a0' : '#4b5563';
 };
 
-type SettingsTab = 'menu' | 'store' | 'whatsapp' | 'groups' | 'automation' | 'templates' | 'history' | 'members';
+type SettingsTab = 'menu' | 'store' | 'whatsapp' | 'groups' | 'automation' | 'templates' | 'history' | 'members' | 'affiliates';
 
 interface TemplateSectionProps {
   id: string;
@@ -348,6 +353,33 @@ export const CatalogSettingsPage = () => {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const reservedRoutes = ['login', 'register', 'forgot-password', 'catalogs', 'history', 'profile', 'admin'];
+
+  // Estados de Afiliados y Comisiones
+  const [affiliatesForm, setAffiliatesForm] = useState({
+    enable_affiliates: false,
+    min_payout_amount_cup: 0,
+    min_payout_amount_usd: 0,
+  });
+  const [isCommissionsModalOpen, setIsCommissionsModalOpen] = useState(false);
+  const [savingAffiliates, setSavingAffiliates] = useState(false);
+
+  const { 
+    catalogAffiliates, 
+    loading: affiliatesLoading, 
+    getCatalogAffiliates, 
+    updateAffiliateStatus, 
+    addAffiliateByPhone, 
+    removeAffiliate 
+  } = useCommissions();
+  const [affiliatePhoneInput, setAffiliatePhoneInput] = useState('');
+  const [affiliateTabFilter, setAffiliateTabFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [addingAffiliateLoading, setAddingAffiliateLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'affiliates' && catalogId) {
+      getCatalogAffiliates(catalogId);
+    }
+  }, [activeTab, catalogId, getCatalogAffiliates]);
 
   // Estados del Formulario de Plantillas
   const [templatesForm, setTemplatesForm] = useState({
@@ -906,6 +938,30 @@ export const CatalogSettingsPage = () => {
   };
 
   // Guardar Plantillas
+  const handleSaveAffiliates = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catalogId) return;
+    setSavingAffiliates(true);
+    try {
+      const { error } = await supabase
+        .from('catalogs')
+        .update({
+          enable_affiliates: affiliatesForm.enable_affiliates,
+          min_payout_amount_cup: affiliatesForm.min_payout_amount_cup,
+          min_payout_amount_usd: affiliatesForm.min_payout_amount_usd,
+        })
+        .eq('id', catalogId);
+
+      if (error) throw error;
+      toast.success('Configuración de afiliados guardada');
+      await loadCatalog();
+    } catch (err: any) {
+      toast.error('Error al guardar: ' + err.message);
+    } finally {
+      setSavingAffiliates(false);
+    }
+  };
+
   const handleSaveTemplates = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!catalogId) return;
@@ -945,6 +1001,7 @@ export const CatalogSettingsPage = () => {
       { id: 'automation' as SettingsTab, label: 'Automatización', icon: Zap }
     ] : []),
     { id: 'templates' as SettingsTab, label: 'Plantillas', icon: Layout },
+    { id: 'affiliates' as SettingsTab, label: 'Afiliados y Comisiones', icon: Coins },
     { id: 'members' as SettingsTab, label: 'Miembros', icon: Users },
     { id: 'history' as SettingsTab, label: 'Historial', icon: Clock },
   ];
@@ -1028,6 +1085,13 @@ export const CatalogSettingsPage = () => {
                 value="Configura los precios de compra y venta del dólar (USD a CUP)"
                 onClick={() => setIsExchangeRatesOpen(true)}
                 iconBgColorClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              />
+              <MenuItem
+                icon={Coins}
+                label="Afiliados y Comisiones"
+                value="Configura comisiones para usuarios que promocionan y comparten tus productos"
+                onClick={() => setActiveTab('affiliates')}
+                iconBgColorClass="bg-amber-500/10 text-amber-600 dark:text-amber-400"
               />
               <MenuItem
                 icon={Layout}
@@ -2082,6 +2146,292 @@ export const CatalogSettingsPage = () => {
           </form>
         )}
 
+        {/* PESTAÑA: AFILIADOS Y COMISIONES */}
+        {activeTab === 'affiliates' && (
+          <form onSubmit={handleSaveAffiliates} className="space-y-6 animate-in fade-in duration-300">
+            <div className="card space-y-5 border-border">
+              <div className="flex items-center justify-between pb-3 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Coins size={18} className="text-accent" />
+                  <h3 className="font-bold text-primary text-sm uppercase tracking-wider">
+                    Sistema de Afiliados y Comisiones
+                  </h3>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsCommissionsModalOpen(true)}
+                  className="text-xs font-bold text-accent border-accent/30 hover:bg-accent/10"
+                >
+                  Ver Comisiones Registradas
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-surface-hover rounded-xl border border-border">
+                <div>
+                  <h4 className="font-bold text-xs text-primary">Habilitar Programa de Afiliados</h4>
+                  <p className="text-[11px] text-secondary mt-0.5">
+                    Permite que usuarios registrados compartan productos y ganen comisiones cuando se concreten ventas.
+                  </p>
+                </div>
+                <Switch
+                  checked={affiliatesForm.enable_affiliates}
+                  onChange={(val) => setAffiliatesForm(prev => ({ ...prev, enable_affiliates: val }))}
+                />
+              </div>
+
+              {affiliatesForm.enable_affiliates && (
+                <div className="space-y-4 pt-2 border-t border-border">
+                  <div className="p-3.5 bg-blue-500/10 border border-blue-500/20 rounded-xl space-y-1">
+                    <p className="text-xs font-bold text-blue-400">💡 Comisión individual por producto</p>
+                    <p className="text-[11px] text-secondary leading-relaxed">
+                      Cada producto define su propia comisión (en CUP o USD) al crearlo o editarlo. La comisión se paga de tu margen de venta y <strong className="text-primary">no se suma al precio final del comprador</strong>.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <h5 className="text-[10px] font-bold text-secondary uppercase tracking-wider">
+                      Montos Mínimos de Retiro / Liquidación (Opcional)
+                    </h5>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-secondary uppercase tracking-wider block mb-1">
+                          Mínimo en CUP
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={50}
+                          value={affiliatesForm.min_payout_amount_cup || ''}
+                          onChange={(e) => setAffiliatesForm(prev => ({ ...prev, min_payout_amount_cup: parseFloat(e.target.value) || 0 }))}
+                          placeholder="Ej: 1000 CUP"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-secondary uppercase tracking-wider block mb-1">
+                          Mínimo en USD
+                        </label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          value={affiliatesForm.min_payout_amount_usd || ''}
+                          onChange={(e) => setAffiliatesForm(prev => ({ ...prev, min_payout_amount_usd: parseFloat(e.target.value) || 0 }))}
+                          placeholder="Ej: 10 USD"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-secondary leading-relaxed">
+                      El promotor solo podrá cobrar o liquidar cuando alcance estos montos mínimos acumulados en la moneda respectiva.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Gestión de Afiliados y Solicitudes */}
+            {affiliatesForm.enable_affiliates && (
+              <div className="card space-y-4 border-border p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <Users size={18} className="text-accent" />
+                    <div>
+                      <h3 className="font-bold text-primary text-sm uppercase tracking-wider">
+                        Afiliados y Solicitudes de Promotores
+                      </h3>
+                      <p className="text-[11px] text-secondary mt-0.5">
+                        Aprueba quién puede promocionar tu catálogo y ganar comisiones por ventas.
+                      </p>
+                    </div>
+                  </div>
+                  {/* Badge de solicitudes pendientes */}
+                  {catalogAffiliates.filter(a => a.status === 'pending').length > 0 && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-500 border border-amber-500/30 w-fit">
+                      {catalogAffiliates.filter(a => a.status === 'pending').length} por aprobar
+                    </span>
+                  )}
+                </div>
+
+                {/* Formulario rápido para afiliar por teléfono */}
+                <div className="p-3 bg-surface-hover/70 rounded-xl border border-border/80 space-y-2">
+                  <span className="text-[11px] font-bold text-primary block">
+                    Invitar o Aprobar Afiliado Directamente
+                  </span>
+                  <div className="flex gap-2">
+                    <Input
+                      type="tel"
+                      value={affiliatePhoneInput}
+                      onChange={(e) => setAffiliatePhoneInput(e.target.value)}
+                      placeholder="Teléfono (ej: +5351234567)"
+                      className="!h-9 !text-xs font-mono"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={addingAffiliateLoading || !affiliatePhoneInput.trim()}
+                      onClick={async () => {
+                        if (!catalogId || !affiliatePhoneInput.trim()) return;
+                        setAddingAffiliateLoading(true);
+                        const ok = await addAffiliateByPhone(catalogId, affiliatePhoneInput.trim());
+                        if (ok) setAffiliatePhoneInput('');
+                        setAddingAffiliateLoading(false);
+                      }}
+                      className="whitespace-nowrap text-xs font-bold bg-accent hover:bg-accent/90 text-accent-foreground px-3 h-9"
+                    >
+                      <UserPlus size={14} className="mr-1" />
+                      Agregar
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Filtros de Estado */}
+                <div className="flex gap-1.5 p-1 bg-surface-hover rounded-xl border border-border text-xs">
+                  {[
+                    { key: 'all', label: 'Todos' },
+                    { key: 'pending', label: 'Solicitudes' },
+                    { key: 'approved', label: 'Aprobados' },
+                    { key: 'rejected', label: 'Rechazados' },
+                  ].map((tab) => {
+                    const count = tab.key === 'all' 
+                      ? catalogAffiliates.length 
+                      : catalogAffiliates.filter(a => a.status === tab.key).length;
+                    const isActive = affiliateTabFilter === tab.key;
+                    return (
+                      <button
+                        type="button"
+                        key={tab.key}
+                        onClick={() => setAffiliateTabFilter(tab.key as any)}
+                        className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-[11px] transition-all flex items-center justify-center gap-1 ${
+                          isActive 
+                            ? 'bg-accent text-accent-foreground shadow-sm' 
+                            : 'text-secondary hover:text-primary'
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        <span className="text-[9px] opacity-75">({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Lista de afiliados */}
+                <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                  {affiliatesLoading ? (
+                    <div className="text-center py-8 text-secondary text-xs animate-pulse">
+                      Cargando afiliados...
+                    </div>
+                  ) : catalogAffiliates.filter(a => affiliateTabFilter === 'all' || a.status === affiliateTabFilter).length === 0 ? (
+                    <div className="text-center py-8 text-secondary text-xs">
+                      No hay registros en esta sección.
+                    </div>
+                  ) : (
+                    catalogAffiliates
+                      .filter(a => affiliateTabFilter === 'all' || a.status === affiliateTabFilter)
+                      .map((aff) => {
+                        const statusBadge = {
+                          pending: { label: 'Solicitud Pendiente', cls: 'bg-amber-500/15 text-amber-500 border-amber-500/30' },
+                          approved: { label: 'Afiliado Aprobado', cls: 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' },
+                          rejected: { label: 'Rechazado', cls: 'bg-rose-500/15 text-rose-500 border-rose-500/30' },
+                        }[aff.status];
+
+                        return (
+                          <div
+                            key={aff.id}
+                            className="p-3 bg-surface border border-border rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-xs text-primary truncate">
+                                  {aff.user?.full_name || 'Usuario'}
+                                </span>
+                                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${statusBadge.cls}`}>
+                                  {statusBadge.label}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-3 text-[11px] text-secondary mt-1">
+                                {aff.user?.phone && (
+                                  <span className="flex items-center gap-1 font-mono">
+                                    <Phone size={11} /> {aff.user.phone}
+                                  </span>
+                                )}
+                                {aff.user?.referral_code && (
+                                  <span className="text-[10px] bg-surface-hover px-1.5 py-0.5 rounded font-mono">
+                                    Cod: {aff.user.referral_code}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Acciones del Dueño */}
+                            <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                              {aff.status === 'pending' && (
+                                <>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={() => updateAffiliateStatus(aff.id, 'approved')}
+                                    className="h-7 px-2 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  >
+                                    <CheckCircle2 size={12} className="mr-1" /> Aprobar
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => updateAffiliateStatus(aff.id, 'rejected')}
+                                    className="h-7 px-2 text-[11px] font-bold text-rose-500 hover:bg-rose-500/10"
+                                  >
+                                    Rechazar
+                                  </Button>
+                                </>
+                              )}
+
+                              {aff.status === 'approved' && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => removeAffiliate(aff.id)}
+                                  className="h-7 px-2 text-[11px] font-bold text-rose-500 hover:bg-rose-500/10"
+                                  title="Desvincular afiliado"
+                                >
+                                  <UserMinus size={13} className="mr-1" /> Desvincular
+                                </Button>
+                              )}
+
+                              {aff.status === 'rejected' && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => updateAffiliateStatus(aff.id, 'approved')}
+                                  className="h-7 px-2 text-[11px] font-bold text-blue-500 hover:bg-blue-500/10"
+                                >
+                                  Reconsiderar y Aprobar
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                  )}
+                </div>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={savingAffiliates}
+              className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold py-3 rounded-xl shadow-lg shadow-accent/20 transition-all flex items-center justify-center gap-2"
+            >
+              {savingAffiliates ? 'Guardando...' : 'Guardar Configuración de Afiliados'}
+            </Button>
+          </form>
+        )}
+
         {/* PESTAÑA: HISTORIAL */}
         {activeTab === 'history' && (
           <HistoryTabContent catalogId={catalogId!} />
@@ -2284,6 +2634,14 @@ export const CatalogSettingsPage = () => {
           onSave={updateExchangeRates}
         />
       )}
+
+      {/* Modal de Comisiones del Catálogo */}
+      <CatalogCommissionsModal
+        isOpen={isCommissionsModalOpen}
+        onClose={() => setIsCommissionsModalOpen(false)}
+        catalogId={catalogId!}
+        catalogName={catalog?.name || ''}
+      />
 
       {/* Modal Vincular con Nemu */}
       <NemuImportModal

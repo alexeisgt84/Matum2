@@ -18,6 +18,8 @@ export interface Product {
   price_cup?: number | null;
   price_usd?: number | null;
   category_id?: number | null;
+  commission_amount?: number | null;
+  commission_currency?: 'CUP' | 'USD';
 }
 
 export interface ProductForm {
@@ -28,5 +30,6 @@ export interface ProductForm {
   imagen_url?: string | null;
   category_id?: number | null;
   is_active?: boolean;
+  commission_amount?: number | string;
+  commission_currency?: 'CUP' | 'USD';
 }
-

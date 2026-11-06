@@ -12,7 +12,8 @@ import {
   Moon, 
   ShieldCheck, 
   LogOut, 
-  ChevronRight 
+  ChevronRight,
+  Coins
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import { ChangePasswordModal } from '../../components/profile/ChangePasswordModal';
@@ -153,6 +154,13 @@ export const ProfilePage = () => {
                 value={hasGeminiApiKey ? 'Activo' : 'Inactivo'}
                 onClick={() => navigate('/profile/ai-settings')}
                 iconBgColorClass="bg-purple-500/10 text-purple-500 dark:text-purple-400"
+              />
+              <MenuItem
+                icon={Coins}
+                label="Mis Ganancias y Referidos"
+                value={user?.referral_code ? '@' + user.referral_code : undefined}
+                onClick={() => navigate('/profile/affiliates')}
+                iconBgColorClass="bg-amber-500/10 text-amber-500 dark:text-amber-400"
               />
               <MenuItem
                 icon={CreditCard}

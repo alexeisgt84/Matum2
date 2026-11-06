@@ -1,5 +1,6 @@
+import { useCommissions } from '../../hooks/useCommissions';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Input } from '../../components/ui/Input';
 import { supabase } from '../../lib/supabase';
 import { 
@@ -97,6 +98,7 @@ interface PublicCatalog {
   cup_to_usd_rate?: number;
   display_currency?: 'original' | 'usd' | 'cup' | 'both';
   share_template?: string | null;
+  enable_affiliates?: boolean;
 }
 
 interface PublicProduct {
@@ -111,6 +113,8 @@ interface PublicProduct {
   price_cup?: number | null;
   price_usd?: number | null;
   category_id?: number | null;
+  commission_amount?: number | null;
+  commission_currency?: 'CUP' | 'USD';
 }
 
 interface Category {
@@ -125,9 +129,36 @@ interface CartItem {
   quantity: number;
 }
 
-export const PublicCatalogPage = () => {
-  const { slug } = useParams<{ slug: string }>();
+export interface PublicCatalogPageProps {
+  slug?: string;
+  embedded?: boolean;
+  onBack?: () => void;
+}
+
+export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({ slug: propSlug, embedded = false, onBack }) => {
+  const navigate = useNavigate();
+  const { slug: routeSlug } = useParams<{ slug: string }>();
+  const slug = propSlug || routeSlug;
   const { user } = useAuthStore();
+  const { registerPendingCommission, checkAffiliateStatus, applyForAffiliation, myAffiliation, loading: affiliateActionLoading } = useCommissions();
+  const [applyingAffiliate, setApplyingAffiliate] = useState(false);
+  const [copiedAffiliateLink, setCopiedAffiliateLink] = useState(false);
+
+  // Capturar código de promotor/afiliado desde URL
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const refParam = params.get('ref');
+      if (refParam) {
+        localStorage.setItem('matum_active_ref', refParam);
+        if (slug) {
+          localStorage.setItem(`matum_ref_${slug}`, refParam);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not save referral code to localStorage', e);
+    }
+  }, [slug]);
   const [catalog, setCatalog] = useState<PublicCatalog | null>(null);
   const [products, setProducts] = useState<PublicProduct[]>([]);
   const [vendorPhone, setVendorPhone] = useState<string>('');
@@ -139,7 +170,17 @@ export const PublicCatalogPage = () => {
 
   // Estados de la UI del cliente
   const [searchQuery, setSearchQuery] = useState('');
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    if (typeof window !== 'undefined' && slug) {
+      try {
+        const saved = localStorage.getItem(`matum_cart_${slug}`);
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.warn('Error reading cart from localStorage', e);
+      }
+    }
+    return [];
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc'>('default');
@@ -183,17 +224,43 @@ export const PublicCatalogPage = () => {
     }
   }, [slug]);
 
+  useEffect(() => {
+    if (catalog?.id && user?.id) {
+      checkAffiliateStatus(catalog.id, user.id);
+    }
+  }, [catalog?.id, user?.id, checkAffiliateStatus]);
+
+  const isApprovedAffiliate = myAffiliation?.status === 'approved';
+  const isPendingAffiliate = myAffiliation?.status === 'pending';
+  const isRejectedAffiliate = myAffiliation?.status === 'rejected';
+  const isCatalogOwner = !!user && catalog?.user_id === user?.id;
+  const canSeeCommissions = isApprovedAffiliate || isCatalogOwner;
+
   const loadPublicCatalog = async () => {
+    if (!slug) return;
     setLoading(true);
     setProductsLoading(true);
     setError(null);
     try {
-      // 1. Obtener catálogo público y activo por su slug (consulta ultra rápida indexada)
-      const { data: catData, error: catError } = await supabase
+      // 1. Obtener catálogo público y activo por su slug (o por ID como fallback)
+      let { data: catData, error: catError } = await supabase
         .from('catalogs')
-        .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template')
+        .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount')
         .eq('slug', slug)
-        .single();
+        .maybeSingle();
+
+      if (!catData && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)) {
+        const { data: catById, error: idError } = await supabase
+          .from('catalogs')
+          .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount')
+          .eq('id', slug)
+          .maybeSingle();
+
+        if (catById) {
+          catData = catById;
+          catError = idError;
+        }
+      }
 
       if (catError || !catData) {
         setError('Catálogo no encontrado.');
@@ -217,7 +284,7 @@ export const PublicCatalogPage = () => {
         const [prodResult, catKeysResult, userResult] = await Promise.all([
           supabase
             .from('products')
-            .select('id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id')
+            .select('id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency')
             .eq('catalog_id', catData.id)
             .eq('is_active', true)
             .order('position', { ascending: true }),
@@ -325,9 +392,23 @@ export const PublicCatalogPage = () => {
     });
   };
 
+  // Guardar carrito en localStorage cuando cambie
+  useEffect(() => {
+    if (slug) {
+      try {
+        localStorage.setItem(`matum_cart_${slug}`, JSON.stringify(cart));
+      } catch (e) {
+        console.warn('Error saving cart to localStorage', e);
+      }
+    }
+  }, [cart, slug]);
+
   // Limpiar carrito
   const clearCart = () => {
     setCart([]);
+    if (slug) {
+      localStorage.removeItem(`matum_cart_${slug}`);
+    }
   };
 
   const getProductDisplayPrice = (
@@ -639,7 +720,7 @@ export const PublicCatalogPage = () => {
 
   // Efecto para inyectar dinámicamente el tema en :root
   useEffect(() => {
-    if (!catalog) return;
+    if (!catalog || embedded) return;
 
     const getContrastColorLocal = (hexColor: string) => {
       if (!hexColor || !/^#[0-9A-F]{6}$/i.test(hexColor)) return '#ffffff';
@@ -787,8 +868,50 @@ export const PublicCatalogPage = () => {
     Object.entries(totals).forEach(([curr, val]) => {
       messageText += `• *Total en ${curr}:* ${val.toFixed(2)} ${curr}\n`;
     });
-    messageText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+    messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
+
+    // Atribución de promotor/afiliado (NO se suma al total del cliente)
+    const activeRef = (slug ? localStorage.getItem(`matum_ref_${slug}`) : null) || localStorage.getItem('matum_active_ref');
+    const orderRef = 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+
+    if (activeRef) {
+      messageText += `🤝 *Referido por:* @${activeRef}\n`;
+      messageText += `🔖 *Ref. Pedido:* ${orderRef}\n`;
+      messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
+    }
+    messageText += `\n`;
     messageText += `¡Hola! Me gustaría coordinar este pedido de productos. ¿Están disponibles?`;
+
+    // Calcular comisiones específicas de los productos comprados
+    let commissionCup = 0;
+    let commissionUsd = 0;
+
+    cart.forEach(item => {
+      const comm = Number(item.product.commission_amount) || 0;
+      if (comm > 0) {
+        if (item.product.commission_currency === 'USD') {
+          commissionUsd += comm * item.quantity;
+        } else {
+          commissionCup += comm * item.quantity;
+        }
+      }
+    });
+
+    if (activeRef && catalog?.id && catalog.enable_affiliates && (commissionCup > 0 || commissionUsd > 0)) {
+      const primaryCurr = Object.keys(totals)[0] || 'CUP';
+      const saleTotal = totals[primaryCurr] || 0;
+      registerPendingCommission({
+        catalogId: catalog.id,
+        referralCode: activeRef,
+        orderRef,
+        saleTotal,
+        currency: primaryCurr,
+        buyerName: name,
+        buyerPhone: phone,
+        commissionCup,
+        commissionUsd,
+      });
+    }
 
     // Limpiar número de teléfono
     let formattedPhone = vendorPhone.replace(/\D/g, '');
@@ -816,10 +939,17 @@ export const PublicCatalogPage = () => {
   };
 
   const handleShareCatalog = async () => {
+    const affiliateParam = user?.referral_code ? `?ref=${user.referral_code}` : '';
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const shareUrl = slug ? `${baseUrl}/${slug}${affiliateParam}` : '';
+    const shareText = catalog?.slogan 
+      ? `${catalog.slogan}\n\n${shareUrl}` 
+      : `${catalog?.name || 'Tienda'}\n\n${shareUrl}`;
+
     await shareContent({
       title: catalog?.name || 'Tienda',
-      text: catalog?.slogan || '¡Mira esta tienda en Matum!',
-      url: window.location.href,
+      text: shareText,
+      url: shareUrl,
       imageUrl: catalog?.logo_url || undefined,
     });
   };
@@ -830,12 +960,13 @@ export const PublicCatalogPage = () => {
     }
     
     const priceText = getProductDisplayPrice(product.price, product.currency, product.price_cup, product.price_usd);
+    const affiliateParam = isApprovedAffiliate && user?.referral_code ? `?ref=${user.referral_code}` : '';
+    const baseUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
+    const productUrl = slug ? `${baseUrl}/${slug}/p/${product.id}${affiliateParam}` : '';
     
     let text = '';
     if (catalog?.share_template) {
       const contactPhone = vendorPhone || '';
-      const baseUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
-      const storeUrl = slug ? `${baseUrl}/${slug}` : '';
       text = catalog.share_template
         .replace(/{product_name}/g, (product.name || '').trim())
         .replace(/{product_description}/g, (product.description || '').trim())
@@ -843,14 +974,16 @@ export const PublicCatalogPage = () => {
         .replace(/{product_currency}/g, '')
         .replace(/{catalog_name}/g, (catalog.name || '').trim())
         .replace(/{contact_number}/g, contactPhone)
-        .replace(/{store_url}/g, storeUrl);
+        .replace(/{store_url}/g, productUrl)
+        .replace(/{product_url}/g, productUrl);
     } else {
-      text = `*${product.name}*\n\nPrecio: ${priceText}\n\n${product.description || ''}`.trim();
+      text = `*${product.name}*\n\nPrecio: ${priceText}\n\n${product.description || ''}\n\nVer producto: ${productUrl}`.trim();
     }
 
     await shareContent({
       title: product.name,
       text: text,
+      url: productUrl,
       imageUrl: product.imagen_url || undefined
     });
   };
@@ -937,6 +1070,17 @@ export const PublicCatalogPage = () => {
     <div style={themeStyles} className={`font-poppins flex flex-col min-h-screen bg-[var(--background)] text-[var(--text-primary)] ${totalItemsCount > 0 ? 'pb-28' : ''}`}>
       {/* Banner de Portada */}
       <div className="relative h-28 sm:h-40 w-full bg-cover bg-center overflow-hidden border-b border-border">
+        {!embedded && (
+          <button 
+            type="button"
+            onClick={() => onBack ? onBack() : navigate('/')}
+            className="absolute top-3 left-3 z-30 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-white text-xs font-semibold border border-white/15 transition-all shadow-md active:scale-95 cursor-pointer"
+            aria-label="Volver a Inicio"
+          >
+            <ArrowLeft size={14} />
+            <span>Volver</span>
+          </button>
+        )}
         {catalog.cover_url ? (
           <img 
             src={catalog.cover_url} 
@@ -1145,7 +1289,13 @@ export const PublicCatalogPage = () => {
                 return (
                   <div 
                     key={product.id} 
-                    onClick={() => setSelectedProduct(product)}
+                    onClick={() => {
+                      if (embedded) {
+                        setSelectedProduct(product);
+                      } else {
+                        navigate(`/${slug}/p/${product.id}${window.location.search}`);
+                      }
+                    }}
                     className="card relative flex gap-4 p-4 border border-border hover:border-accent/40 hover:bg-surface-hover/20 cursor-pointer transition-all active:scale-[0.99]"
                   >
                     {/* Imagen de Producto */}
@@ -1186,17 +1336,26 @@ export const PublicCatalogPage = () => {
                         )}
                       </div>
 
-                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
-                        {renderProductPrice(
-                          product.price,
-                          product.currency,
-                          product.price_cup,
-                          product.price_usd,
-                          {
-                            main: "text-xs sm:text-sm font-black text-[var(--accent)]",
-                            sub: "text-[10px] sm:text-xs font-normal opacity-60 text-secondary ml-1"
-                          }
-                        )}
+                      <div className="flex items-center justify-between mt-3 pt-2 border-t border-border gap-2">
+                        <div className="flex flex-col min-w-0">
+                          {renderProductPrice(
+                            product.price,
+                            product.currency,
+                            product.price_cup,
+                            product.price_usd,
+                            {
+                              main: "text-xs sm:text-sm font-black text-[var(--accent)]",
+                              sub: "text-[10px] sm:text-xs font-normal opacity-60 text-secondary ml-1"
+                            }
+                          )}
+                          {/* Comisión visible SOLO para afiliados aprobados o dueño del catálogo */}
+                          {canSeeCommissions && (product.commission_amount ?? 0) > 0 && (
+                            <div className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] w-fit">
+                              <Coins size={11} className="text-emerald-500 flex-shrink-0" />
+                              <span>Comisión: +{product.commission_amount} {product.commission_currency || 'CUP'}</span>
+                            </div>
+                          )}
+                        </div>
 
                         {/* Control de cantidades */}
                         <div 
@@ -1432,6 +1591,79 @@ export const PublicCatalogPage = () => {
               )}
             </div>
 
+            
+            {/* Sección de Afiliados en el Pie de Tienda */}
+            {catalog.enable_affiliates && (
+              <div className="space-y-3 min-w-[180px]">
+                <h5 className="text-[10px] font-bold text-secondary uppercase tracking-widest flex items-center gap-1.5">
+                  <Coins size={13} className="text-[var(--accent)]" />
+                  Programa de Afiliados
+                </h5>
+                <p className="text-[10px] text-secondary leading-relaxed max-w-[220px]">
+                  Gana comisiones promocionando los productos de esta tienda.
+                </p>
+
+                {isApprovedAffiliate && (
+                  <div className="space-y-2">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                      <Check size={12} />
+                      <span>Eres Afiliado Aprobado</span>
+                    </div>
+                    <div>
+                      <Link
+                        to="/profile/affiliates"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--surface-hover)] border border-border text-xs font-bold text-primary hover:border-[var(--accent)]/40 hover:text-[var(--accent)] transition-all"
+                      >
+                        Ver mis ganancias &rarr;
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
+                {isPendingAffiliate && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-500 text-[11px] font-bold">
+                    <Clock size={13} />
+                    <span>Solicitud en Revisión</span>
+                  </div>
+                )}
+
+                {isRejectedAffiliate && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-500 text-[10px] font-bold">
+                    <AlertTriangle size={12} />
+                    <span>Solicitud no aprobada</span>
+                  </div>
+                )}
+
+                {user && !isApprovedAffiliate && !isPendingAffiliate && !isRejectedAffiliate && !isCatalogOwner && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={async () => {
+                      if (!catalog?.id || !user?.id) return;
+                      setApplyingAffiliate(true);
+                      await applyForAffiliation(catalog.id, user.id);
+                      setApplyingAffiliate(false);
+                    }}
+                    disabled={applyingAffiliate || affiliateActionLoading}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] px-3.5 py-2 rounded-xl transition-all shadow-sm"
+                  >
+                    <Coins size={14} />
+                    {applyingAffiliate ? 'Enviando...' : 'Solicitar ser Afiliado'}
+                  </Button>
+                )}
+
+                {!user && (
+                  <Link
+                    to={`/login?redirect=/${slug}`}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold bg-[var(--surface-hover)] hover:bg-surface border border-border text-primary hover:text-[var(--accent)] px-3.5 py-2 rounded-xl transition-all"
+                  >
+                    <Coins size={14} className="text-[var(--accent)]" />
+                    <span>Solicitar ser Afiliado</span>
+                  </Link>
+                )}
+              </div>
+            )}
+
             {/* Acceso de Administración */}
             {hasCatalogRole && (
               <div className="space-y-3 min-w-[160px]">
@@ -1473,7 +1705,7 @@ export const PublicCatalogPage = () => {
 
       {/* Barra Inferior del Carrito Flotante */}
       {totalItemsCount > 0 && (
-        <div className="fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur border-t border-border px-4 py-4 shadow-2xl animate-in slide-in-from-bottom duration-300">
+        <div className={`fixed ${embedded ? "bottom-16" : "bottom-0"} inset-x-0 z-40 bg-background/95 backdrop-blur border-t border-border px-4 py-4 shadow-2xl animate-in slide-in-from-bottom duration-300`}>
           <div className="w-full max-w-4xl mx-auto flex items-center justify-between gap-4">
             <div className="flex items-center gap-2.5">
               <div className="relative bg-[var(--accent)]/15 p-2 rounded-xl border border-[var(--accent)]/20 text-[var(--accent)]">
@@ -1738,6 +1970,26 @@ export const PublicCatalogPage = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Comisión visible SOLO para afiliados aprobados o dueño del catálogo */}
+                {canSeeCommissions && (selectedProduct.commission_amount ?? 0) > 0 && (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center justify-between animate-in fade-in">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
+                        <Coins size={14} />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+                          Tu Ganancia de Promotor
+                        </span>
+                        <span className="text-[11px] text-secondary">Comisión por cada venta que logres</span>
+                      </div>
+                    </div>
+                    <span className="text-sm font-black text-emerald-500 tabular-nums">
+                      +{selectedProduct.commission_amount} {selectedProduct.commission_currency || 'CUP'}
+                    </span>
+                  </div>
+                )}
 
                 {selectedProduct.description && (
                   <div className="pt-2">

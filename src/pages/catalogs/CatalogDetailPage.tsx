@@ -1,3 +1,4 @@
+import { CatalogCommissionsModal } from '../../components/catalogs/CatalogCommissionsModal';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -100,6 +101,7 @@ export const CatalogDetailPage = () => {
 
   const view = currentView;
   const [catalog, setCatalog] = useState<any>(null);
+  const [isCommissionsModalOpen, setIsCommissionsModalOpen] = useState(false);
   const [catLoading, setCatLoading] = useState(true);
 
   const isOwner = catalog ? catalog.user_id === user?.id : false;
@@ -542,6 +544,17 @@ export const CatalogDetailPage = () => {
               className="p-2.5 rounded-xl bg-surface-hover hover:bg-surface text-secondary hover:text-primary transition-all active:scale-95 flex items-center justify-center border border-border select-none"
             >
               <Globe size={16} />
+            </button>
+          )}
+
+          {/* Botón Comisiones y Afiliados */}
+          {isOwner && (
+            <button
+              onClick={() => setIsCommissionsModalOpen(true)}
+              title="Comisiones y Afiliados"
+              className="p-2.5 rounded-xl bg-surface-hover hover:bg-amber-500/10 text-secondary hover:text-amber-500 transition-all active:scale-95 flex items-center justify-center border border-border"
+            >
+              <Coins size={16} />
             </button>
           )}
 
@@ -1237,6 +1250,16 @@ export const CatalogDetailPage = () => {
             <span>Código:</span>
             <span className="font-mono font-bold text-primary tracking-wider">{catalog.follow_code}</span>
           </div>
+          {isOwner && (
+            <div 
+              onClick={() => setIsCommissionsModalOpen(true)}
+              className="flex items-center gap-1.5 text-[10px] font-bold text-amber-500 uppercase tracking-wider cursor-pointer hover:text-amber-400 active:scale-95 transition-all py-0.5 rounded px-2 hover:bg-surface-hover/50 border border-amber-500/20 bg-amber-500/10"
+              title="Ver comisiones y afiliados del catálogo"
+            >
+              <Coins size={12} className="text-amber-500" />
+              <span>Comisiones</span>
+            </div>
+          )}
           <div 
             onClick={isOwner ? () => setIsExchangeRatesOpen(true) : undefined}
             className={`flex items-center gap-1.5 text-[10px] font-bold text-accent uppercase tracking-wider ${
@@ -2295,6 +2318,13 @@ export const CatalogDetailPage = () => {
         onClose={() => setIsNemuImportOpen(false)}
         catalogId={catalogId!}
         onSuccess={() => getProducts(true)}
+      />
+
+      <CatalogCommissionsModal
+        isOpen={isCommissionsModalOpen}
+        onClose={() => setIsCommissionsModalOpen(false)}
+        catalogId={catalogId || ''}
+        catalogName={catalog?.name || ''}
       />
 
       <ExchangeRatesModal

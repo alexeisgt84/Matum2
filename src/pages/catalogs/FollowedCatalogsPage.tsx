@@ -23,12 +23,15 @@ import {
   CheckCircle,
   Package,
   Layers,
+  Store,
+  ExternalLink,
   Search,
   ArrowUpDown,
   Sparkles,
   UserPlus
 } from 'lucide-react';
 import { useCollaboration } from '../../hooks/useCollaboration';
+import { PublicCatalogPage } from './PublicCatalogPage';
 import type { Catalog } from '../../types/catalog';
 import type { Product } from '../../types/product';
 
@@ -87,6 +90,7 @@ export const FollowedCatalogsPage = () => {
   // Estados para búsqueda y ordenamiento de productos (Vista B)
   const [searchQueryProduct, setSearchQueryProduct] = useState('');
   const [sortProductBy, setSortProductBy] = useState<'position' | 'name_asc' | 'name_desc' | 'price_asc' | 'price_desc'>('position');
+  const [catalogViewMode, setCatalogViewMode] = useState<'as_is' | 'store'>('as_is');
 
   useEffect(() => {
     fetchFollowedCatalogs();
@@ -262,8 +266,9 @@ export const FollowedCatalogsPage = () => {
   };
 
   // Cargar productos del catálogo seguido
-  const handleViewCatalogProducts = async (catalog: Catalog) => {
+  const handleViewCatalogProducts = async (catalog: Catalog, initialMode: 'as_is' | 'store' = 'as_is') => {
     setActiveCatalog(catalog);
+    setCatalogViewMode(initialMode);
     setProductsLoading(true);
     setSelectedProductIds([]);
     setSearchQueryProduct(''); // Limpiar búsqueda de productos al entrar
@@ -506,7 +511,7 @@ export const FollowedCatalogsPage = () => {
   };
 
   return (
-    <div className="p-4 max-w-lg mx-auto pb-24 space-y-6 w-full">
+    <div className={`p-4 ${activeCatalog && catalogViewMode === 'store' ? 'max-w-4xl' : 'max-w-lg'} mx-auto pb-24 space-y-6 w-full transition-all duration-300`}>
       
       {!activeCatalog ? (
         /* VISTA A: LISTADO DE CATÁLOGOS SEGUIDOS */
@@ -787,46 +792,91 @@ export const FollowedCatalogsPage = () => {
                     {filteredAndSortedFollowed.map((item) => (
                       <div 
                         key={item.id}
-                        onClick={() => handleViewCatalogProducts(item.catalogs)}
-                        className="card p-4 group hover:bg-surface-hover cursor-pointer transition-all border-border flex items-center justify-between active:scale-[0.99] relative overflow-hidden w-full"
+                        onClick={() => handleViewCatalogProducts(item.catalogs, 'as_is')}
+                        className="card p-4 group hover:bg-surface-hover cursor-pointer transition-all border-border flex flex-col gap-3 active:scale-[0.99] relative overflow-hidden w-full"
                       >
                         <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-accent/10 transition-colors" />
 
-                        <div className="flex items-center gap-4 flex-1 min-w-0 z-10">
-                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-transparent flex items-center justify-center text-accent border border-accent/10 flex-shrink-0">
-                            {item.catalogs.logo_url ? (
-                              <img src={item.catalogs.logo_url} alt="logo" className="w-full h-full object-cover rounded-xl" />
-                            ) : (
-                              <ShoppingBag size={22} />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-primary truncate group-hover:text-accent transition-colors">{item.catalogs.name}</h3>
-                            <p className="text-secondary text-xs truncate mb-1.5">{item.catalogs.description || 'Sin descripción'}</p>
-                            
-                            <div className="flex items-center gap-3 text-[10px] text-secondary font-bold uppercase tracking-wider">
-                              <span className="bg-surface border border-border px-2 py-0.5 rounded-lg text-primary tabular-nums">
-                                {item.catalogs.productCount || 0} Productos
-                              </span>
-                              <span className="font-mono text-accent">
-                                {item.catalogs.follow_code}
-                              </span>
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center gap-4 flex-1 min-w-0 z-10">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-accent/20 to-transparent flex items-center justify-center text-accent border border-accent/10 flex-shrink-0">
+                              {item.catalogs.logo_url ? (
+                                <img src={item.catalogs.logo_url} alt="logo" className="w-full h-full object-cover rounded-xl" />
+                              ) : (
+                                <ShoppingBag size={22} />
+                              )}
                             </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-bold text-primary truncate group-hover:text-accent transition-colors">{item.catalogs.name}</h3>
+                              <p className="text-secondary text-xs truncate mb-1.5">{item.catalogs.description || 'Sin descripción'}</p>
+                              
+                              <div className="flex items-center gap-3 text-[10px] text-secondary font-bold uppercase tracking-wider">
+                                <span className="bg-surface border border-border px-2 py-0.5 rounded-lg text-primary tabular-nums">
+                                  {item.catalogs.productCount || 0} Productos
+                                </span>
+                                <span className="font-mono text-accent">
+                                  {item.catalogs.follow_code}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 z-10 ml-3">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCatalogToUnfollow(item.catalog_id);
+                              }}
+                              className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                              title="Dejar de seguir"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                            <ChevronRight size={18} className="text-secondary group-hover:text-primary transition-colors" />
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1 z-10 ml-3">
-                          <button 
+                        {/* Accesos rápidos: Como está / Como tienda */}
+                        <div className="flex items-center gap-2 pt-2 border-t border-border/60 z-10">
+                          <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setCatalogToUnfollow(item.catalog_id);
+                              handleViewCatalogProducts(item.catalogs, 'as_is');
                             }}
-                            className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                            title="Dejar de seguir"
+                            className="flex-1 py-1.5 px-2.5 rounded-xl text-[11px] font-bold bg-surface hover:bg-surface-hover border border-border/80 text-secondary hover:text-primary flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                            title="Ver lista de productos para importar"
                           >
-                            <Trash2 size={18} />
+                            <Layers size={13} className="text-accent" />
+                            <span>Como está</span>
                           </button>
-                          <ChevronRight size={18} className="text-secondary group-hover:text-primary transition-colors" />
+                          
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleViewCatalogProducts(item.catalogs, 'store');
+                            }}
+                            className="flex-1 py-1.5 px-2.5 rounded-xl text-[11px] font-bold bg-accent/10 hover:bg-accent/20 border border-accent/25 text-accent flex items-center justify-center gap-1.5 transition-all active:scale-95"
+                            title="Ver como tienda online"
+                          >
+                            <Store size={13} />
+                            <span>Como tienda</span>
+                          </button>
+
+                          {item.catalogs.slug && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.open('/' + item.catalogs.slug, '_blank');
+                              }}
+                              className="p-1.5 rounded-xl text-secondary hover:text-accent hover:bg-surface border border-transparent hover:border-border transition-colors flex items-center justify-center"
+                              title="Abrir tienda en nueva pestaña"
+                            >
+                              <ExternalLink size={14} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -841,7 +891,7 @@ export const FollowedCatalogsPage = () => {
         <div className="space-y-6 animate-in fade-in duration-300">
           
           {/* Header de navegación interna */}
-          <div className="flex items-center justify-between border-b border-border pb-4 bg-background">
+          <div className="flex items-center justify-between border-b border-border pb-3 bg-background">
             <button 
               onClick={() => {
                 setActiveCatalog(null);
@@ -855,10 +905,73 @@ export const FollowedCatalogsPage = () => {
               <ArrowLeft size={16} />
               <span>Regresar</span>
             </button>
-            <span className="text-[10px] bg-accent/15 border border-accent/20 px-2.5 py-1 rounded-full text-accent font-mono font-bold">
-              {activeCatalog.follow_code}
-            </span>
+
+            <div className="flex items-center gap-2">
+              {activeCatalog.slug && (
+                <button
+                  type="button"
+                  onClick={() => window.open('/' + activeCatalog.slug, '_blank')}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-surface border border-border text-[10px] font-bold text-secondary hover:text-accent transition-colors"
+                  title="Abrir tienda en una nueva pestaña"
+                >
+                  <ExternalLink size={12} />
+                  <span className="hidden sm:inline">Nueva pestaña</span>
+                </button>
+              )}
+              <span className="text-[10px] bg-accent/15 border border-accent/20 px-2.5 py-1 rounded-full text-accent font-mono font-bold">
+                {activeCatalog.follow_code}
+              </span>
+            </div>
           </div>
+
+          {/* Selector de Pestañas: Como está / Como tienda */}
+          <div className="flex bg-surface p-1 rounded-2xl border border-border">
+            <button
+              type="button"
+              onClick={() => setCatalogViewMode('as_is')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                catalogViewMode === 'as_is'
+                  ? 'bg-accent text-black shadow-md'
+                  : 'text-secondary hover:text-primary hover:bg-surface-hover'
+              }`}
+            >
+              <Layers size={14} />
+              <span>Como está (Productos)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCatalogViewMode('store')}
+              className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                catalogViewMode === 'store'
+                  ? 'bg-accent text-black shadow-md'
+                  : 'text-secondary hover:text-primary hover:bg-surface-hover'
+              }`}
+            >
+              <Store size={14} />
+              <span>Como tienda</span>
+            </button>
+          </div>
+
+          {catalogViewMode === 'store' ? (
+            /* SUB-VISTA: COMO TIENDA */
+            activeCatalog.slug ? (
+              <div className="w-full overflow-hidden rounded-2xl border border-border shadow-2xl bg-background animate-in fade-in duration-200">
+                <PublicCatalogPage 
+                  slug={activeCatalog.slug} 
+                  embedded={true} 
+                  onBack={() => setCatalogViewMode('as_is')} 
+                />
+              </div>
+            ) : (
+              <EmptyState
+                icon={Store}
+                title="Tienda no disponible"
+                description="Este catálogo seguido no tiene configurado un enlace público para la tienda."
+              />
+            )
+          ) : (
+            /* SUB-VISTA: COMO ESTÁ (GESTIÓN / IMPORTACIÓN) */
+            <>
 
           <div className="card p-5 bg-gradient-to-br from-surface to-background border-border relative overflow-hidden w-full">
             <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full -mr-16 -mt-16 blur-3xl" />
@@ -1011,6 +1124,8 @@ export const FollowedCatalogsPage = () => {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       )}
 

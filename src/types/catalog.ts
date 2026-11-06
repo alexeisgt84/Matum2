@@ -45,6 +45,12 @@ export interface Catalog {
   display_currency?: 'original' | 'usd' | 'cup' | 'both';
   min_order_amount?: number;
   min_order_currency?: string;
+  enable_affiliates?: boolean;
+  commission_type?: 'percentage' | 'fixed';
+  commission_value?: number;
+  min_payout_amount?: number;
+  min_payout_amount_cup?: number;
+  min_payout_amount_usd?: number;
   created_at: string;
   updated_at: string;
 }
@@ -86,4 +92,10 @@ export interface CatalogForm {
   display_currency?: 'original' | 'usd' | 'cup' | 'both';
   min_order_amount?: number;
   min_order_currency?: string;
+  enable_affiliates?: boolean;
+  commission_type?: 'percentage' | 'fixed';
+  commission_value?: number;
+  min_payout_amount?: number;
+  min_payout_amount_cup?: number;
+  min_payout_amount_usd?: number;
 }

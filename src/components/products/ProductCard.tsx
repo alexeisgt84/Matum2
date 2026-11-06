@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Product } from '../../types/product';
-import { Edit3, Trash2, Tag, Send, PackageX, PackageCheck, GripVertical, Share2, Link2Off, Eye, EyeOff } from 'lucide-react';
+import { Edit3, Trash2, Tag, Coins, Send, PackageX, PackageCheck, GripVertical, Share2, Link2Off, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 
@@ -139,11 +139,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const handleShare = async () => {
     const { priceText, currencyText } = getDisplayPriceInfo();
+    const baseUrl = appUrl || getAppBaseUrl();
+    const productUrl = catalogSlug ? `${baseUrl}/${catalogSlug}/p/${product.id}` : '';
+    const storeUrl = catalogSlug ? `${baseUrl}/${catalogSlug}` : '';
     let text = '';
     if (shareTemplate) {
       const contactPhone = contactNumber || '';
-      const baseUrl = appUrl || getAppBaseUrl();
-      const storeUrl = catalogSlug ? `${baseUrl}/${catalogSlug}` : '';
       text = shareTemplate
         .replace(/{product_name}/g, (product.name || '').trim())
         .replace(/{product_description}/g, (product.description || '').trim())
@@ -151,14 +152,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         .replace(/{product_currency}/g, currencyText.trim())
         .replace(/{catalog_name}/g, (catalogName || '').trim())
         .replace(/{contact_number}/g, contactPhone)
-        .replace(/{store_url}/g, storeUrl);
+        .replace(/{store_url}/g, productUrl || storeUrl)
+        .replace(/{product_url}/g, productUrl || storeUrl);
     } else {
-      text = `*${product.name}*\n\nPrecio: ${priceText} ${currencyText}\n\n${product.description || ''}`.trim();
+      text = `*${product.name}*\n\nPrecio: ${priceText} ${currencyText}\n\n${product.description || ''}${productUrl ? `\n\nVer producto: ${productUrl}` : ''}`.trim();
     }
 
     await shareContent({
       title: product.name,
       text: text,
+      url: productUrl || storeUrl,
       imageUrl: product.imagen_url || undefined
     });
   };
@@ -303,6 +306,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 Importado
               </span>
             )}
+            {product.commission_amount && Number(product.commission_amount) > 0 ? (
+              <span className="text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1.5 py-0.5 rounded-lg font-bold flex items-center gap-1 select-none" title="Comisión por venta para el promotor">
+                <Coins size={10} />
+                +{product.commission_amount} {product.commission_currency || 'CUP'}
+              </span>
+            ) : null}
             {product.is_discontinued && (
               <span className="text-[8px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full font-black uppercase tracking-wider animate-pulse">
                 Descontinuado

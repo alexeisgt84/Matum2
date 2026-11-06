@@ -78,6 +78,8 @@ describe('authStore', () => {
       avatar_url: 'https://example.com/avatar.jpg',
       plan: 'pro',
       role: 'user',
+      payout_info: null,
+      referral_code: null,
     });
     expect(state.loading).toBe(false);
     expect(state.error).toBeNull();
