@@ -23,9 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 .env
+*.apk
+*.idsig
+*.aab
 Matum-signed.apk
 Matum-signed.apk.idsig
-Matum-signed.apk
 
 # Gemini/Agent configurations
 .agents/
