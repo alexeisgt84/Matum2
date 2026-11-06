@@ -5,10 +5,11 @@ import { useEvolution } from './useEvolution';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'react-hot-toast';
 import { callEvolutionProxy } from '../lib/api';
+import { isOffline, isNetworkError, saveCachedList, getCachedList } from '../lib/offlineCache';
 
 const STORAGE_KEY = 'matum_available_groups_cache';
 
-const getGroupsCache = (): Record<string, { groups: EvolutionGroup[], timestamp: number }> => {
+const getGroupsCache = (): Record<string, { groups: EvolutionGroup[]; timestamp: number }> => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     return data ? JSON.parse(data) : {};
@@ -17,14 +18,13 @@ const getGroupsCache = (): Record<string, { groups: EvolutionGroup[], timestamp:
   }
 };
 
-const setGroupsCache = (cache: Record<string, { groups: EvolutionGroup[], timestamp: number }>) => {
+const setGroupsCache = (cache: Record<string, { groups: EvolutionGroup[]; timestamp: number }>) => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(cache));
   } catch (e) {
     console.error('Error saving groups cache', e);
   }
 };
-
 
 export const useWhatsAppGroups = (catalogId?: string) => {
   const { user } = useAuthStore();
@@ -36,17 +36,36 @@ export const useWhatsAppGroups = (catalogId?: string) => {
 
   const getLinkedGroups = useCallback(async () => {
     if (!catalogId) return;
-    setLoading(true);
+    const cacheKey = `linked_groups_${catalogId}`;
+    const cached = await getCachedList<WhatsAppGroup[]>(cacheKey);
+
+    if (cached && cached.length > 0) {
+      setLinkedGroups(cached);
+    }
+
+    if (isOffline()) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(!cached || cached.length === 0);
     try {
       const { data, error } = await supabase
         .from('whatsapp_groups')
         .select('*')
         .eq('catalog_id', catalogId);
-      
+
       if (error) throw error;
-      setLinkedGroups(data || []);
+      const groups = data || [];
+      setLinkedGroups(groups);
+      await saveCachedList(cacheKey, groups);
     } catch (err: any) {
-      toast.error(err.message || 'Error al cargar grupos vinculados');
+      if (cached) {
+        setLinkedGroups(cached);
+      }
+      if (!isNetworkError(err)) {
+        toast.error(err.message || 'Error al cargar grupos vinculados');
+      }
     } finally {
       setLoading(false);
     }
@@ -62,8 +81,7 @@ export const useWhatsAppGroups = (catalogId?: string) => {
 
     const cache = getGroupsCache();
     const instanceCache = cache[instance.name];
-    
-    // Si no es un refresco forzado y tenemos caché, la usamos
+
     if (!forceRefresh && instanceCache && instanceCache.groups.length > 0) {
       console.log('Usando grupos desde caché persistente para:', instance.name);
       setFetchError(null);
@@ -75,7 +93,7 @@ export const useWhatsAppGroups = (catalogId?: string) => {
     setFetchError(null);
     try {
       console.log('Fetching groups from Evolution Proxy for:', instance.name);
-      
+
       const data = await callEvolutionProxy(
         instance.server_id,
         `/group/fetchAllGroups/${instance.name}?getParticipants=false`,
@@ -83,13 +101,12 @@ export const useWhatsAppGroups = (catalogId?: string) => {
         null,
         null
       );
-      
-      const groups = Array.isArray(data) ? data : (data.groups || []);
-      
-      // Actualizar caché persistente
+
+      const groups = Array.isArray(data) ? data : data.groups || [];
+
       const newCache = { ...cache, [instance.name]: { groups, timestamp: Date.now() } };
       setGroupsCache(newCache);
-      
+
       setAvailableGroups(groups);
       return groups;
     } catch (err: any) {
@@ -99,7 +116,7 @@ export const useWhatsAppGroups = (catalogId?: string) => {
       toast.error(errorMsg, { duration: 7000 });
       const cachedGroups = instanceCache?.groups || [];
       setAvailableGroups(cachedGroups);
-      return cachedGroups; 
+      return cachedGroups;
     } finally {
       setLoading(false);
     }
@@ -110,15 +127,20 @@ export const useWhatsAppGroups = (catalogId?: string) => {
     try {
       const { error } = await supabase
         .from('whatsapp_groups')
-        .upsert([{
-          user_id: user?.id, 
-          catalog_id: catalogId,
-          group_id: group.id,
-          group_jid: group.id,
-          name: group.subject,
-          is_active: true
-        }], { onConflict: 'user_id,group_jid' });
-      
+        .upsert(
+          [
+            {
+              user_id: user?.id,
+              catalog_id: catalogId,
+              group_id: group.id,
+              group_jid: group.id,
+              name: group.subject,
+              is_active: true,
+            },
+          ],
+          { onConflict: 'user_id,group_jid' }
+        );
+
       if (error) throw error;
       toast.success(`Grupo "${group.subject}" vinculado`);
       getLinkedGroups();
@@ -132,7 +154,11 @@ export const useWhatsAppGroups = (catalogId?: string) => {
     try {
       const { error } = await supabase.from('whatsapp_groups').delete().eq('id', id);
       if (error) throw error;
-      setLinkedGroups(linkedGroups.filter(g => g.id !== id));
+      const updated = linkedGroups.filter((g) => g.id !== id);
+      setLinkedGroups(updated);
+      if (catalogId) {
+        await saveCachedList(`linked_groups_${catalogId}`, updated);
+      }
       toast.success('Grupo desvinculado');
     } catch (err) {
       toast.error('Error al desvincular');
@@ -145,9 +171,13 @@ export const useWhatsAppGroups = (catalogId?: string) => {
         .from('whatsapp_groups')
         .update({ is_active: isActive })
         .eq('id', id);
-      
+
       if (error) throw error;
-      setLinkedGroups(linkedGroups.map(g => g.id === id ? { ...g, is_active: isActive } : g));
+      const updated = linkedGroups.map((g) => (g.id === id ? { ...g, is_active: isActive } : g));
+      setLinkedGroups(updated);
+      if (catalogId) {
+        await saveCachedList(`linked_groups_${catalogId}`, updated);
+      }
       toast.success(isActive ? 'Grupo activado' : 'Grupo desactivado');
     } catch (err) {
       toast.error('Error al cambiar estado del grupo');
@@ -158,7 +188,6 @@ export const useWhatsAppGroups = (catalogId?: string) => {
     if (!catalogId) return;
     setLoading(true);
     try {
-      // 1. Desactivar todos los grupos vinculados para este catálogo
       const { error: deactivateError } = await supabase
         .from('whatsapp_groups')
         .update({ is_active: false })
@@ -166,7 +195,6 @@ export const useWhatsAppGroups = (catalogId?: string) => {
 
       if (deactivateError) throw deactivateError;
 
-      // 2. Activar los grupos especificados si hay alguno
       if (activeGroupJids.length > 0) {
         const { error: activateError } = await supabase
           .from('whatsapp_groups')
@@ -177,11 +205,10 @@ export const useWhatsAppGroups = (catalogId?: string) => {
         if (activateError) throw activateError;
       }
 
-      // 3. Actualizar el estado local
-      setLinkedGroups(prev =>
-        prev.map(g => ({
+      setLinkedGroups((prev) =>
+        prev.map((g) => ({
           ...g,
-          is_active: activeGroupJids.includes(g.group_id)
+          is_active: activeGroupJids.includes(g.group_id),
         }))
       );
       toast.success('Configuración rápida aplicada');
@@ -193,16 +220,16 @@ export const useWhatsAppGroups = (catalogId?: string) => {
     }
   };
 
-  return { 
-    linkedGroups, 
-    availableGroups, 
-    loading, 
+  return {
+    linkedGroups,
+    availableGroups,
+    loading,
     fetchError,
-    getLinkedGroups, 
-    fetchAvailableGroups, 
-    linkGroup, 
+    getLinkedGroups,
+    fetchAvailableGroups,
+    linkGroup,
     unlinkGroup,
     toggleGroupStatus,
-    applyGroupPreset
+    applyGroupPreset,
   };
 };

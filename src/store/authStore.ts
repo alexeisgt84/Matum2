@@ -1,7 +1,70 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { AuthUser, LoginForm, RegisterForm } from '../types/auth';
-import { phoneToEmail, generateCode } from '../lib/authHelpers';
+import { phoneToEmail } from '../lib/authHelpers';
+import { isOffline, cacheImageUrls } from '../lib/offlineCache';
+
+const CACHED_USER_KEY = 'matum_cached_user';
+let isExplicitLogout = false;
+
+const saveCachedUser = (user: AuthUser | null) => {
+  try {
+    if (user) {
+      localStorage.setItem(CACHED_USER_KEY, JSON.stringify(user));
+      if (user.avatar_url) {
+        cacheImageUrls([user.avatar_url]);
+      }
+    } else {
+      localStorage.removeItem(CACHED_USER_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+};
+
+/**
+ * Obtiene el usuario en caché local o lo reconstruye instantáneamente desde
+ * el token de sesión de Supabase guardado en localStorage (`sb-*-auth-token`).
+ */
+const getCachedUser = (): AuthUser | null => {
+  try {
+    const raw = localStorage.getItem(CACHED_USER_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as AuthUser;
+      if (parsed && parsed.id) {
+        return parsed;
+      }
+    }
+
+    // Fallback: buscar sesión guardada por Supabase en localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        const tokenRaw = localStorage.getItem(key);
+        if (!tokenRaw) continue;
+        const parsed = JSON.parse(tokenRaw);
+        const sbUser = parsed?.user || parsed?.currentSession?.user;
+        if (sbUser?.id) {
+          const recovered: AuthUser = {
+            id: sbUser.id,
+            phone: sbUser.email?.split('@')[0] || sbUser.phone || '',
+            nombre: sbUser.user_metadata?.full_name || sbUser.user_metadata?.name || '',
+            avatar_url: sbUser.user_metadata?.avatar_url || null,
+            plan: 'free',
+            role: 'user',
+            referral_code: null,
+            payout_info: null,
+          };
+          localStorage.setItem(CACHED_USER_KEY, JSON.stringify(recovered));
+          return recovered;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+};
 
 interface AuthState {
   user: AuthUser | null;
@@ -16,10 +79,12 @@ interface AuthState {
   isInitialized: boolean;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
+const initialCachedUser = getCachedUser();
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: initialCachedUser,
   loading: false,
-  isInitialized: false,
+  isInitialized: !!initialCachedUser,
   error: null,
 
   setError: (error) => set({ error }),
@@ -41,19 +106,19 @@ export const useAuthStore = create<AuthState>((set) => ({
         .eq('id', data.user.id)
         .single();
 
-      set({ 
-        user: { 
-          id: data.user.id, 
-          phone, 
-          nombre: profile?.full_name || '', 
-          avatar_url: profile?.avatar_url || null, 
-          plan: profile?.plan || 'free',
-            role: profile?.role || 'user',
-            referral_code: profile?.referral_code || null,
-            payout_info: profile?.payout_info || null
-        }, 
-        loading: false 
-      });
+      const authUser: AuthUser = {
+        id: data.user.id,
+        phone,
+        nombre: profile?.full_name || '',
+        avatar_url: profile?.avatar_url || null,
+        plan: profile?.plan || 'free',
+        role: profile?.role || 'user',
+        referral_code: profile?.referral_code || null,
+        payout_info: profile?.payout_info || null,
+      };
+
+      saveCachedUser(authUser);
+      set({ user: authUser, loading: false, isInitialized: true });
     } catch (err: any) {
       set({ error: err.message, loading: false });
       throw err;
@@ -100,17 +165,17 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       if (profileError) throw profileError;
 
-      set({ 
-        user: { 
-          id: authData.user.id, 
-          phone: userData.phone, 
-          nombre: userData.nombre, 
-          avatar_url: null, 
-          plan: 'free',
-          role: 'user'
-        }, 
-        loading: false 
-      });
+      const authUser: AuthUser = {
+        id: authData.user.id,
+        phone: userData.phone,
+        nombre: userData.nombre,
+        avatar_url: null,
+        plan: 'free',
+        role: 'user',
+      };
+
+      saveCachedUser(authUser);
+      set({ user: authUser, loading: false, isInitialized: true });
     } catch (err: any) {
       set({ error: err.message, loading: false });
       throw err;
@@ -118,59 +183,94 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
-    await supabase.auth.signOut();
-    set({ user: null });
+    isExplicitLogout = true;
+    saveCachedUser(null);
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore signOut network errors
+    } finally {
+      isExplicitLogout = false;
+    }
+    set({ user: null, loading: false, isInitialized: true });
   },
 
   loadUser: async () => {
-    console.log('[AuthStore] loadUser iniciado');
+    const cachedUser = getCachedUser() || get().user;
+
+    // Si hay usuario en caché local, mantener la sesión activa de inmediato (0ms, sin pedir login)
+    if (cachedUser) {
+      saveCachedUser(cachedUser);
+      set({ user: cachedUser, loading: false, isInitialized: true });
+    }
+
+    if (isOffline()) {
+      set({ user: cachedUser, loading: false, isInitialized: true });
+      return;
+    }
+
     try {
-      console.log('[AuthStore] Obteniendo sesión de Supabase...');
-      const { data: { session }, error } = await supabase.auth.getSession();
-      console.log('[AuthStore] Sesión obtenida:', { hasSession: !!session, error });
-      
+      const sessionResult = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Failed to fetch: session timeout')), 4000)
+        ),
+      ]);
+
+      const {
+        data: { session },
+        error,
+      } = sessionResult;
+
       if (error) {
-        console.warn('Supabase session load error (possibly invalid refresh token), signing out:', error);
-        await supabase.auth.signOut();
-        set({ user: null });
+        if (cachedUser) {
+          // Nunca cerrar la sesión local del usuario por fallos de token o de red
+          set({ user: cachedUser, loading: false, isInitialized: true });
+          return;
+        }
+        set({ user: null, loading: false, isInitialized: true });
         return;
       }
 
       if (session?.user) {
-        console.log('[AuthStore] Usuario con sesión activa:', session.user.id, 'Obteniendo perfil...');
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('users')
           .select('*')
           .eq('id', session.user.id)
           .single();
-        
-        console.log('[AuthStore] Perfil obtenido de la base de datos:', profile);
 
-        set({
-          user: {
-            id: session.user.id,
-            phone: profile?.phone || session.user.email?.split('@')[0] || '',
-            nombre: profile?.full_name || '',
-            avatar_url: profile?.avatar_url || null,
-            plan: profile?.plan || 'free',
-            role: profile?.role || 'user',
-            referral_code: profile?.referral_code || null,
-            payout_info: profile?.payout_info || null,
-          },
-        });
-        console.log('[AuthStore] Estado del usuario actualizado en el store');
+        if (profileError && cachedUser && cachedUser.id === session.user.id) {
+          set({ user: cachedUser, loading: false, isInitialized: true });
+          return;
+        }
+
+        const authUser: AuthUser = {
+          id: session.user.id,
+          phone: profile?.phone || cachedUser?.phone || session.user.email?.split('@')[0] || '',
+          nombre: profile?.full_name || cachedUser?.nombre || '',
+          avatar_url: profile?.avatar_url ?? cachedUser?.avatar_url ?? null,
+          plan: profile?.plan || cachedUser?.plan || 'free',
+          role: profile?.role || cachedUser?.role || 'user',
+          referral_code: profile?.referral_code ?? cachedUser?.referral_code ?? null,
+          payout_info: profile?.payout_info ?? cachedUser?.payout_info ?? null,
+        };
+
+        saveCachedUser(authUser);
+        set({ user: authUser, loading: false, isInitialized: true });
+      } else if (cachedUser) {
+        // Mantener la sesión guardada en el dispositivo aunque el token de Supabase haya expirado estando sin conexión
+        set({ user: cachedUser, loading: false, isInitialized: true });
       } else {
-        console.log('[AuthStore] No hay sesión activa de usuario');
-        set({ user: null });
+        set({ user: null, loading: false, isInitialized: true });
       }
     } catch (err) {
-      console.error('[AuthStore] Error loading user:', err);
-      try {
-        await supabase.auth.signOut();
-      } catch (_) {}
-      set({ user: null });
+      console.warn('[AuthStore] Error o timeout verificando sesión, manteniendo sesión local:', err);
+      if (cachedUser) {
+        set({ user: cachedUser, loading: false, isInitialized: true });
+        return;
+      }
+      set({ user: null, loading: false, isInitialized: true });
     } finally {
-      console.log('[AuthStore] loadUser finalizado (finally). Estableciendo isInitialized a true');
       set({ loading: false, isInitialized: true });
     }
   },
@@ -193,63 +293,60 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 // Suscribirse a cambios de estado de autenticación de Supabase de forma global
 supabase.auth.onAuthStateChange(async (event, session) => {
-  console.log('[AuthStore] onAuthStateChange disparado. Evento:', event, 'Sesión activa:', !!session);
   if (event === 'SIGNED_OUT') {
-    console.log('[AuthStore] Evento SIGNED_OUT recibido. Limpiando usuario.');
+    // Solo cerrar sesión si el usuario pulsó explícitamente "Cerrar Sesión" (logout)
+    if (!isExplicitLogout) {
+      const preservedUser = getCachedUser() || useAuthStore.getState().user;
+      if (preservedUser) {
+        useAuthStore.setState({ user: preservedUser, loading: false, isInitialized: true });
+        return;
+      }
+    }
+    saveCachedUser(null);
     useAuthStore.setState({ user: null, loading: false, isInitialized: true });
   } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
     if (session?.user) {
       const currentUser = useAuthStore.getState().user;
       if (currentUser && currentUser.id === session.user.id) {
-        console.log('[AuthStore] El usuario ya está cargado en el store. Omitiendo fetch en onAuthStateChange.');
         return;
       }
 
-      console.log('[AuthStore] Evento SIGNED_IN/TOKEN_REFRESHED. Programando obtención de perfil para:', session.user.id);
-      
-      // Ejecutamos de forma asíncrona fuera del ciclo de onAuthStateChange para evitar deadlocks de Supabase
       setTimeout(async () => {
         const freshUser = useAuthStore.getState().user;
         if (freshUser && freshUser.id === session.user.id) {
-          console.log('[AuthStore] El usuario ya fue cargado por loadUser. Omitiendo query redundante en onAuthStateChange.');
-          // Nos aseguramos de que esté inicializado
           useAuthStore.setState({ isInitialized: true });
           return;
         }
-        
+
         try {
-          console.log('[AuthStore] Ejecutando query de perfil en onAuthStateChange...');
           const { data: profile } = await supabase
             .from('users')
             .select('*')
             .eq('id', session.user.id)
             .single();
 
-          console.log('[AuthStore] Perfil obtenido en onAuthStateChange:', profile);
+          const cachedUser = getCachedUser();
+          const authUser: AuthUser = {
+            id: session.user.id,
+            phone: profile?.phone || cachedUser?.phone || session.user.email?.split('@')[0] || '',
+            nombre: profile?.full_name || cachedUser?.nombre || '',
+            avatar_url: profile?.avatar_url ?? cachedUser?.avatar_url ?? null,
+            plan: profile?.plan || cachedUser?.plan || 'free',
+            role: profile?.role || cachedUser?.role || 'user',
+            referral_code: profile?.referral_code ?? cachedUser?.referral_code ?? null,
+            payout_info: profile?.payout_info ?? cachedUser?.payout_info ?? null,
+          };
 
+          saveCachedUser(authUser);
           useAuthStore.setState({
-            user: {
-              id: session.user.id,
-              phone: profile?.phone || session.user.email?.split('@')[0] || '',
-              nombre: profile?.full_name || '',
-              avatar_url: profile?.avatar_url || null,
-              plan: profile?.plan || 'free',
-            role: profile?.role || 'user',
-            referral_code: profile?.referral_code || null,
-            payout_info: profile?.payout_info || null,
-            },
+            user: authUser,
             loading: false,
-            isInitialized: true
+            isInitialized: true,
           });
-          console.log('[AuthStore] Estado inicializado en onAuthStateChange (isInitialized = true)');
         } catch (err) {
           console.error('[AuthStore] Error fetching user profile on auth change:', err);
         }
       }, 0);
-    } else {
-      console.log('[AuthStore] Evento SIGNED_IN/TOKEN_REFRESHED sin usuario en sesión.');
     }
-  } else {
-    console.log('[AuthStore] Evento no manejado en onAuthStateChange:', event);
   }
 });

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { useProfileStore } from '../store/profileStore';
 import { optimizeImage, blobToFile } from '../lib/imageOptimizer';
+import { isOffline } from '../lib/offlineCache';
 
 export const useProfile = () => {
   const { user } = useAuthStore();
@@ -14,7 +15,37 @@ export const useProfile = () => {
       setLoading(false);
       return;
     }
-    setLoading(true);
+
+    const cacheKey = `matum_cached_profile_${user.id}`;
+    let fallbackProfile: any = null;
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) fallbackProfile = JSON.parse(raw);
+    } catch {}
+
+    if (!fallbackProfile) {
+      fallbackProfile = {
+        id: user.id,
+        phone: user.phone,
+        full_name: user.nombre,
+        avatar_url: user.avatar_url,
+        plan: user.plan,
+        role: user.role,
+        referral_code: user.referral_code,
+        payout_info: user.payout_info,
+      };
+    }
+
+    if (!profile || profile.id !== user.id) {
+      setProfile(fallbackProfile);
+    }
+
+    if (isOffline()) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
     try {
       const { data, error: fetchError } = await supabase
         .from('users')
@@ -23,7 +54,12 @@ export const useProfile = () => {
         .single();
 
       if (fetchError) throw fetchError;
-      setProfile(data);
+      if (data) {
+        setProfile(data);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(data));
+        } catch {}
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

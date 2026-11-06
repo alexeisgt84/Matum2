@@ -1,6 +1,14 @@
 import { useState, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
+import {
+  isOffline,
+  isNetworkError,
+  saveCachedList,
+  getCachedList,
+  saveCatalogToCache,
+  syncCatalogForOffline,
+} from '../lib/offlineCache';
 
 export interface PublicCatalogItem {
   id: string;
@@ -21,13 +29,26 @@ export interface PublicCatalogItem {
   productCount: number;
 }
 
+const PUBLIC_CATALOGS_CACHE_KEY = 'public_catalogs';
+
 export const usePublicCatalogs = () => {
   const [publicCatalogs, setPublicCatalogs] = useState<PublicCatalogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const getPublicCatalogs = useCallback(async () => {
-    setLoading(true);
+    const cached = await getCachedList<PublicCatalogItem[]>(PUBLIC_CATALOGS_CACHE_KEY);
+
+    if (cached && cached.length > 0) {
+      setPublicCatalogs(cached);
+    }
+
+    if (isOffline()) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(!cached || cached.length === 0);
     try {
       const { data, error } = await supabase
         .from('catalogs')
@@ -61,9 +82,19 @@ export const usePublicCatalogs = () => {
       }));
 
       setPublicCatalogs(formatted);
+      await saveCachedList(PUBLIC_CATALOGS_CACHE_KEY, formatted);
+      formatted.forEach((cat) => {
+        saveCatalogToCache(cat);
+        syncCatalogForOffline(cat.id);
+      });
     } catch (err: any) {
+      if (cached) {
+        setPublicCatalogs(cached);
+      }
       console.error('Error cargando catálogos públicos:', err);
-      toast.error('Error al cargar catálogos públicos');
+      if (!isNetworkError(err)) {
+        toast.error('Error al cargar catálogos públicos');
+      }
     } finally {
       setLoading(false);
     }
@@ -72,10 +103,11 @@ export const usePublicCatalogs = () => {
   const filteredCatalogs = useMemo(() => {
     if (!searchQuery.trim()) return publicCatalogs;
     const query = searchQuery.toLowerCase().trim();
-    return publicCatalogs.filter(cat => 
-      cat.name?.toLowerCase().includes(query) ||
-      cat.slogan?.toLowerCase().includes(query) ||
-      cat.description?.toLowerCase().includes(query)
+    return publicCatalogs.filter(
+      (cat) =>
+        cat.name?.toLowerCase().includes(query) ||
+        cat.slogan?.toLowerCase().includes(query) ||
+        cat.description?.toLowerCase().includes(query)
     );
   }, [publicCatalogs, searchQuery]);
 

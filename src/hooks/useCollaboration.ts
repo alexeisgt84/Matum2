@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { toast } from 'react-hot-toast';
 import type { Catalog } from '../types/catalog';
+import { isOffline } from '../lib/offlineCache';
 
 export interface CatalogMember {
   id: string;
@@ -130,7 +131,7 @@ export const useCollaboration = () => {
 
   // 4. Obtener invitaciones de colaboración recibidas y pendientes
   const getPendingMemberInvitations = useCallback(async () => {
-    if (!user) return;
+    if (!user || isOffline()) return;
     setLoading(true);
     try {
       const cleanPhone = user.phone.replace(/\D/g, '');
@@ -227,7 +228,7 @@ export const useCollaboration = () => {
 
   // 7. Obtener solicitudes de seguimiento recibidas pendientes
   const getPendingFollowRequests = useCallback(async () => {
-    if (!user) return;
+    if (!user || isOffline()) return;
     setLoading(true);
     try {
       const cleanPhone = user.phone.replace(/\D/g, '');

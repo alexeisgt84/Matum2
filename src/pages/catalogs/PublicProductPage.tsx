@@ -25,6 +25,14 @@ import { toast } from 'react-hot-toast';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
+import {
+  isOffline,
+  isNetworkError,
+  getCatalogFromCache,
+  saveCatalogToCache,
+  getCatalogProductsFromCache,
+  upsertCatalogProductsInCache,
+} from '../../lib/offlineCache';
 
 interface PublicCatalog {
   id: string;
@@ -142,28 +150,58 @@ export const PublicProductPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!slug || !productId) return;
-      setLoading(true);
       setError(null);
+
+      // Intentar cargar desde caché offline primero
+      const cachedCat = await getCatalogFromCache(slug);
+      let cachedProd: any = null;
+      if (cachedCat) {
+        const cachedProds = await getCatalogProductsFromCache(cachedCat.id);
+        cachedProd = cachedProds?.find((p: any) => p.id === productId) || null;
+        if (cachedProd) {
+          setCatalog(cachedCat);
+          setProduct(cachedProd);
+          setVendorPhone(cachedCat._vendorInfo?.vendorPhone || cachedCat.footer_phone || '');
+          setVendorPlan(cachedCat._vendorInfo?.vendorPlan || 'free');
+          setLoading(false);
+        }
+      }
+
+      if (isOffline()) {
+        if (!cachedCat || !cachedProd) {
+          setError('Sin conexión. Este producto aún no está guardado en el dispositivo.');
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (!cachedProd) {
+        setLoading(true);
+      }
 
       try {
         // 1. Cargar catálogo por slug (o id)
         let { data: catData, error: catError } = await supabase
           .from('catalogs')
-          .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates')
+          .select('id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates')
           .eq('slug', slug)
           .maybeSingle();
 
         if (!catData && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)) {
           const { data: catById } = await supabase
             .from('catalogs')
-            .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates')
+            .select('id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates')
             .eq('id', slug)
             .maybeSingle();
           catData = catById;
         }
 
-        if (catError || !catData || !catData.is_active) {
-          setError('Tienda no disponible o inactiva.');
+        if (catError) throw catError;
+
+        if (!catData || !catData.is_active) {
+          if (!cachedProd) {
+            setError('Tienda no disponible o inactiva.');
+          }
           setLoading(false);
           return;
         }
@@ -185,18 +223,37 @@ export const PublicProductPage: React.FC = () => {
             .maybeSingle()
         ]);
 
-        if (prodResult.error || !prodResult.data || !prodResult.data.is_active) {
-          setError('El producto no está disponible o no existe.');
+        if (prodResult.error) throw prodResult.error;
+
+        if (!prodResult.data || !prodResult.data.is_active) {
+          if (!cachedProd) {
+            setError('El producto no está disponible o no existe.');
+          }
           setLoading(false);
           return;
         }
 
+        const vPhone = userResult.data?.phone || catData.footer_phone || '';
+        const vPlan = userResult.data?.plan || 'free';
+
         setProduct(prodResult.data);
-        setVendorPhone(userResult.data?.phone || catData.footer_phone || '');
-        setVendorPlan(userResult.data?.plan || 'free');
+        setVendorPhone(vPhone);
+        setVendorPlan(vPlan);
+
+        await saveCatalogToCache(
+          { ...catData, slug: (catData as any).slug || slug },
+          { vendorPhone: vPhone, vendorPlan: vPlan }
+        );
+        await upsertCatalogProductsInCache(catData.id, [prodResult.data]);
       } catch (err: any) {
         console.error('Error fetching product data:', err);
-        setError('Ocurrió un error al cargar el producto.');
+        if (!cachedProd) {
+          setError(
+            isNetworkError(err)
+              ? 'Sin conexión. Este producto aún no está guardado en el dispositivo.'
+              : 'Ocurrió un error al cargar el producto.'
+          );
+        }
       } finally {
         setLoading(false);
       }
@@ -207,7 +264,7 @@ export const PublicProductPage: React.FC = () => {
 
   // Verificar afiliación
   useEffect(() => {
-    if (catalog?.id && user?.id) {
+    if (catalog?.id && user?.id && !isOffline()) {
       checkAffiliateStatus(catalog.id, user.id);
     }
   }, [catalog?.id, user?.id, checkAffiliateStatus]);

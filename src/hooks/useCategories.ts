@@ -2,6 +2,12 @@ import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Category, CategoryForm } from '../types/category';
 import { toast } from 'react-hot-toast';
+import {
+  isOffline,
+  isNetworkError,
+  saveCatalogCategoriesToCache,
+  getCatalogCategoriesFromCache,
+} from '../lib/offlineCache';
 
 export const useCategories = (catalogId?: string) => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -10,7 +16,17 @@ export const useCategories = (catalogId?: string) => {
   const getCategories = useCallback(async () => {
     if (!catalogId) return;
 
-    setLoading(true);
+    const cached = await getCatalogCategoriesFromCache(catalogId);
+    if (cached && cached.length > 0) {
+      setCategories(cached);
+    }
+
+    if (isOffline()) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(!cached || cached.length === 0);
     try {
       const { data, error } = await supabase
         .from('categories')
@@ -19,10 +35,17 @@ export const useCategories = (catalogId?: string) => {
         .order('display_order', { ascending: true });
 
       if (error) throw error;
-      setCategories(data || []);
+      const cats = data || [];
+      setCategories(cats);
+      await saveCatalogCategoriesToCache(catalogId, cats);
     } catch (err: any) {
+      if (cached) {
+        setCategories(cached);
+      }
       console.error('Error al cargar categorías:', err);
-      toast.error('Error al cargar categorías: ' + err.message);
+      if (!isNetworkError(err)) {
+        toast.error('Error al cargar categorías: ' + err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -42,7 +65,6 @@ export const useCategories = (catalogId?: string) => {
       let result: Category | null = null;
 
       if (id) {
-        // Update
         const { data, error } = await supabase
           .from('categories')
           .update(categoryData)
@@ -52,26 +74,30 @@ export const useCategories = (catalogId?: string) => {
         if (error) throw error;
         result = data;
 
-        setCategories(prev => prev.map(c => c.id === id ? result! : c));
+        const updated = categories.map((c) => (c.id === id ? result! : c));
+        setCategories(updated);
+        await saveCatalogCategoriesToCache(catalogId, updated);
         toast.success('Categoría actualizada');
       } else {
-        // Create - Obtener el último display_order para ponerlo al final
-        const lastOrder = categories.length > 0 
-          ? Math.max(...categories.map(c => c.display_order)) 
-          : 0;
+        const lastOrder =
+          categories.length > 0 ? Math.max(...categories.map((c) => c.display_order)) : 0;
 
         const { data, error } = await supabase
           .from('categories')
-          .insert([{ 
-            ...categoryData, 
-            display_order: lastOrder + 1 
-          }])
+          .insert([
+            {
+              ...categoryData,
+              display_order: lastOrder + 1,
+            },
+          ])
           .select()
           .single();
         if (error) throw error;
         result = data;
 
-        setCategories(prev => [...prev, result!]);
+        const updated = [...categories, result!];
+        setCategories(updated);
+        await saveCatalogCategoriesToCache(catalogId, updated);
         toast.success('Categoría creada');
       }
 
@@ -96,11 +122,14 @@ export const useCategories = (catalogId?: string) => {
         name: c.name,
         icon: c.icon,
         display_order: index,
-        is_active: c.is_active
+        is_active: c.is_active,
       }));
 
       const { error } = await supabase.from('categories').upsert(updates);
       if (error) throw error;
+      if (catalogId) {
+        await saveCatalogCategoriesToCache(catalogId, newCategories);
+      }
     } catch (err: any) {
       console.error('Error al ordenar categorías:', err);
       setCategories(oldCategories);
@@ -111,14 +140,15 @@ export const useCategories = (catalogId?: string) => {
   const deleteCategory = async (id: number) => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('categories').delete().eq('id', id);
 
       if (error) throw error;
 
-      setCategories(prev => prev.filter(c => c.id !== id));
+      const updated = categories.filter((c) => c.id !== id);
+      setCategories(updated);
+      if (catalogId) {
+        await saveCatalogCategoriesToCache(catalogId, updated);
+      }
       toast.success('Categoría eliminada');
       return true;
     } catch (err: any) {
@@ -130,12 +160,12 @@ export const useCategories = (catalogId?: string) => {
     }
   };
 
-  return { 
-    categories, 
-    loading, 
-    getCategories, 
-    saveCategory, 
-    deleteCategory, 
-    updateCategoriesOrder 
+  return {
+    categories,
+    loading,
+    getCategories,
+    saveCategory,
+    deleteCategory,
+    updateCategoriesOrder,
   };
 };

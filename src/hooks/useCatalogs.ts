@@ -4,6 +4,14 @@ import { useAuthStore } from '../store/authStore';
 import type { Catalog, CatalogForm } from '../types/catalog';
 import { toast } from 'react-hot-toast';
 import { optimizeImage, blobToFile } from '../lib/imageOptimizer';
+import {
+  isOffline,
+  isNetworkError,
+  saveCachedList,
+  getCachedList,
+  saveCatalogToCache,
+  syncCatalogForOffline,
+} from '../lib/offlineCache';
 
 export const useCatalogs = () => {
   const { user } = useAuthStore();
@@ -13,7 +21,19 @@ export const useCatalogs = () => {
 
   const getCatalogs = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    const cacheKey = `my_catalogs_${user.id}`;
+    const cached = await getCachedList<Catalog[]>(cacheKey);
+
+    if (cached && cached.length > 0) {
+      setCatalogs(cached);
+    }
+
+    if (isOffline()) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(!cached || cached.length === 0);
     try {
       const { data, error } = await supabase
         .from('catalogs')
@@ -25,16 +45,26 @@ export const useCatalogs = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       // Transform data to include a simple productCount property
       const formattedCatalogs = (data || []).map((cat: any) => ({
         ...cat,
-        productCount: cat.products?.[0]?.count || 0
+        productCount: cat.products?.[0]?.count || 0,
       }));
 
       setCatalogs(formattedCatalogs);
+      await saveCachedList(cacheKey, formattedCatalogs);
+      formattedCatalogs.forEach((cat) => {
+        saveCatalogToCache(cat);
+        syncCatalogForOffline(cat.id);
+      });
     } catch (err: any) {
-      toast.error('Error al cargar catálogos: ' + err.message);
+      if (cached) {
+        setCatalogs(cached);
+      }
+      if (!isNetworkError(err)) {
+        toast.error('Error al cargar catálogos: ' + err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -42,7 +72,19 @@ export const useCatalogs = () => {
 
   const getSharedCatalogs = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
+    const cacheKey = `shared_catalogs_${user.id}`;
+    const cached = await getCachedList<Catalog[]>(cacheKey);
+
+    if (cached && cached.length > 0) {
+      setSharedCatalogs(cached);
+    }
+
+    if (isOffline()) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(!cached || cached.length === 0);
     try {
       const { data, error } = await supabase
         .from('catalog_members')
@@ -63,12 +105,22 @@ export const useCatalogs = () => {
         .map((cat: any) => ({
           ...cat,
           productCount: cat.products?.[0]?.count || 0,
-          isCollaboration: true
+          isCollaboration: true,
         }));
 
       setSharedCatalogs(formatted);
+      await saveCachedList(cacheKey, formatted);
+      formatted.forEach((cat) => {
+        saveCatalogToCache(cat);
+        syncCatalogForOffline(cat.id);
+      });
     } catch (err: any) {
-      toast.error('Error al cargar colaboraciones: ' + err.message);
+      if (cached) {
+        setSharedCatalogs(cached);
+      }
+      if (!isNetworkError(err)) {
+        toast.error('Error al cargar colaboraciones: ' + err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -89,7 +141,7 @@ export const useCatalogs = () => {
           maxWidth: 256,
           maxHeight: 256,
           quality: 0.8,
-          format
+          format,
         });
         const fileName = `catalogs/logo_${Date.now()}.${extension}`;
         const optimizedFile = blobToFile(optimizedBlob, fileName);
@@ -97,7 +149,7 @@ export const useCatalogs = () => {
           .from('products')
           .upload(fileName, optimizedFile, {
             contentType: format,
-            upsert: true
+            upsert: true,
           });
         if (uploadError) throw uploadError;
         const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
@@ -112,7 +164,7 @@ export const useCatalogs = () => {
           maxWidth: 1920,
           maxHeight: 768,
           quality: 0.82,
-          format
+          format,
         });
         const fileName = `catalogs/cover_${Date.now()}.${extension}`;
         const optimizedFile = blobToFile(optimizedBlob, fileName);
@@ -120,7 +172,7 @@ export const useCatalogs = () => {
           .from('products')
           .upload(fileName, optimizedFile, {
             contentType: format,
-            upsert: true
+            upsert: true,
           });
         if (uploadError) throw uploadError;
         const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
@@ -129,48 +181,63 @@ export const useCatalogs = () => {
 
       const { data, error } = await supabase
         .from('catalogs')
-        .insert([{ 
-          user_id: user.id, 
-          name: form.nombre, 
-          slogan: form.slogan || null,
-          description: form.descripcion,
-          template: form.plantilla || '🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n✨ Ver catálogo completo: *{catalog_name}*',
-          share_template: form.share_template || '✨ *¡Mira este producto!* ✨\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n💬 Escríbenos para ordenarlo o ver más detalles en el catálogo: *{catalog_name}*',
-          out_of_stock_template: form.out_of_stock_template || '⚠️ *¡Se agotó!* ⚠️\n\nEl artículo *{product_name}* ha volado y no nos queda stock por el momento.\n\n👉 Mira otros productos similares en nuestro catálogo: *{catalog_name}*',
-          new_product_template: form.new_product_template || '🔥 *¡NUEVO INGRESO!* 🔥\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n🚀 ¡Pide el tuyo ahora escribiéndonos antes de que se agote!',
-          available_template: form.available_template || '🎉 *¡DE VUELTA EN STOCK!* 🎉\n\nLo estabas esperando y ya está disponible nuevamente:\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n⚡ Las unidades son muy limitadas. ¡Escríbenos para asegurar el tuyo ahora mismo!',
-          is_active: form.is_active,
-          is_public: form.is_public || false,
-          slug: form.slug || null,
-          logo_url,
-          cover_url,
-          primary_color: form.primary_color || '#ff782e',
-          background_color: form.background_color || '#0a0a0a',
-          surface_color: form.surface_color || '#1a1a1a',
-          text_color: form.text_color || '#ffffff',
-          title_color: form.title_color || '#ffffff',
-          is_sequence_scheduled: form.is_sequence_scheduled,
-          is_individual_scheduled: form.is_individual_scheduled,
-          sequence_start_time: form.sequence_start_time,
-          price_update_template: form.price_update_template,
-          product_edit_template: form.product_edit_template,
-          nemu_store_id: form.nemu_store_id,
-          footer_address: form.footer_address || null,
-          footer_phone: form.footer_phone || null,
-          footer_email: form.footer_email || null,
-          footer_schedule: form.footer_schedule || null,
-          footer_instagram: form.footer_instagram || null,
-          footer_facebook: form.footer_facebook || null,
-          usd_to_cup_rate: form.usd_to_cup_rate ?? 1.0,
-          cup_to_usd_rate: form.cup_to_usd_rate ?? 1.0,
-          display_currency: form.display_currency || 'original',
-          min_order_amount: form.min_order_amount ?? 0.0,
-          min_order_currency: form.min_order_currency || 'CUP'
-        }])
+        .insert([
+          {
+            user_id: user.id,
+            name: form.nombre,
+            slogan: form.slogan || null,
+            description: form.descripcion,
+            template:
+              form.plantilla ||
+              '🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n✨ Ver catálogo completo: *{catalog_name}*',
+            share_template:
+              form.share_template ||
+              '✨ *¡Mira este producto!* ✨\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n💬 Escríbenos para ordenarlo o ver más detalles en el catálogo: *{catalog_name}*',
+            out_of_stock_template:
+              form.out_of_stock_template ||
+              '⚠️ *¡Se agotó!* ⚠️\n\nEl artículo *{product_name}* ha volado y no nos queda stock por el momento.\n\n👉 Mira otros productos similares en nuestro catálogo: *{catalog_name}*',
+            new_product_template:
+              form.new_product_template ||
+              '🔥 *¡NUEVO INGRESO!* 🔥\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n🚀 ¡Pide el tuyo ahora escribiéndonos antes de que se agote!',
+            available_template:
+              form.available_template ||
+              '🎉 *¡DE VUELTA EN STOCK!* 🎉\n\nLo estabas esperando y ya está disponible nuevamente:\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n⚡ Las unidades son muy limitadas. ¡Escríbenos para asegurar el tuyo ahora mismo!',
+            is_active: form.is_active,
+            is_public: form.is_public || false,
+            slug: form.slug || null,
+            logo_url,
+            cover_url,
+            primary_color: form.primary_color || '#ff782e',
+            background_color: form.background_color || '#0a0a0a',
+            surface_color: form.surface_color || '#1a1a1a',
+            text_color: form.text_color || '#ffffff',
+            title_color: form.title_color || '#ffffff',
+            is_sequence_scheduled: form.is_sequence_scheduled,
+            is_individual_scheduled: form.is_individual_scheduled,
+            sequence_start_time: form.sequence_start_time,
+            price_update_template: form.price_update_template,
+            product_edit_template: form.product_edit_template,
+            nemu_store_id: form.nemu_store_id,
+            footer_address: form.footer_address || null,
+            footer_phone: form.footer_phone || null,
+            footer_email: form.footer_email || null,
+            footer_schedule: form.footer_schedule || null,
+            footer_instagram: form.footer_instagram || null,
+            footer_facebook: form.footer_facebook || null,
+            usd_to_cup_rate: form.usd_to_cup_rate ?? 1.0,
+            cup_to_usd_rate: form.cup_to_usd_rate ?? 1.0,
+            display_currency: form.display_currency || 'original',
+            min_order_amount: form.min_order_amount ?? 0.0,
+            min_order_currency: form.min_order_currency || 'CUP',
+          },
+        ])
         .select()
         .single();
 
       if (error) throw error;
+      if (data) {
+        await saveCatalogToCache(data);
+      }
       toast.success('Catálogo creado');
       return data;
     } catch (err: any) {
@@ -195,7 +262,7 @@ export const useCatalogs = () => {
           maxWidth: 256,
           maxHeight: 256,
           quality: 0.8,
-          format
+          format,
         });
         const fileName = `catalogs/logo_${Date.now()}.${extension}`;
         const optimizedFile = blobToFile(optimizedBlob, fileName);
@@ -203,7 +270,7 @@ export const useCatalogs = () => {
           .from('products')
           .upload(fileName, optimizedFile, {
             contentType: format,
-            upsert: true
+            upsert: true,
           });
         if (uploadError) throw uploadError;
         const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
@@ -218,7 +285,7 @@ export const useCatalogs = () => {
           maxWidth: 1920,
           maxHeight: 768,
           quality: 0.82,
-          format
+          format,
         });
         const fileName = `catalogs/cover_${Date.now()}.${extension}`;
         const optimizedFile = blobToFile(optimizedBlob, fileName);
@@ -226,7 +293,7 @@ export const useCatalogs = () => {
           .from('products')
           .upload(fileName, optimizedFile, {
             contentType: format,
-            upsert: true
+            upsert: true,
           });
         if (uploadError) throw uploadError;
         const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
@@ -234,7 +301,7 @@ export const useCatalogs = () => {
       }
 
       const updateData: any = {};
-      
+
       if (form.nombre !== undefined) updateData.name = form.nombre;
       if (form.slogan !== undefined) updateData.slogan = form.slogan;
       if (form.descripcion !== undefined) updateData.description = form.descripcion;
@@ -272,12 +339,10 @@ export const useCatalogs = () => {
       if (form.min_order_amount !== undefined) updateData.min_order_amount = form.min_order_amount;
       if (form.min_order_currency !== undefined) updateData.min_order_currency = form.min_order_currency;
 
-      const { error } = await supabase
-        .from('catalogs')
-        .update(updateData)
-        .eq('id', id);
+      const { error } = await supabase.from('catalogs').update(updateData).eq('id', id);
 
       if (error) throw error;
+      await saveCatalogToCache({ id, ...updateData });
       toast.success('Catálogo actualizado');
       return true;
     } catch (err: any) {
@@ -291,13 +356,14 @@ export const useCatalogs = () => {
   const deleteCatalog = async (id: string) => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('catalogs')
-        .delete()
-        .eq('id', id);
+      const { error } = await supabase.from('catalogs').delete().eq('id', id);
 
       if (error) throw error;
-      setCatalogs(catalogs.filter(c => c.id !== id));
+      const updated = catalogs.filter((c) => c.id !== id);
+      setCatalogs(updated);
+      if (user) {
+        await saveCachedList(`my_catalogs_${user.id}`, updated);
+      }
       toast.success('Catálogo eliminado');
       return true;
     } catch (err: any) {
@@ -308,5 +374,14 @@ export const useCatalogs = () => {
     }
   };
 
-  return { catalogs, sharedCatalogs, loading, getCatalogs, getSharedCatalogs, createCatalog, updateCatalog, deleteCatalog };
+  return {
+    catalogs,
+    sharedCatalogs,
+    loading,
+    getCatalogs,
+    getSharedCatalogs,
+    createCatalog,
+    updateCatalog,
+    deleteCatalog,
+  };
 };

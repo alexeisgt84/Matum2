@@ -2,6 +2,7 @@ import { CatalogCommissionsModal } from '../../components/catalogs/CatalogCommis
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { isOffline, saveCatalogToCache, getCatalogFromCache } from '../../lib/offlineCache';
 import { useAuthStore } from '../../store/authStore';
 import { useShareStore } from '../../store/shareStore';
 import { useSystemSettings } from '../../hooks/useSystemSettings';
@@ -349,7 +350,7 @@ export const CatalogDetailPage = () => {
       webLinkTimeoutRef.current = null;
     }
     if (!isWebLinkLongPressRef.current && catalog?.slug) {
-      window.open(`/${catalog.slug}`, '_blank');
+      navigate(`/${catalog.slug}`);
     }
   }, [catalog?.slug]);
 
@@ -415,7 +416,7 @@ export const CatalogDetailPage = () => {
 
   // Asegurar que existe el item de catálogo en la secuencia
   useEffect(() => {
-    if (catalogId && !msgLoading && !isEnsuringCatalog) {
+    if (catalogId && !msgLoading && !isEnsuringCatalog && !isOffline()) {
       const hasCatalogItem = messages.some(m => m.type === 'catalog_products');
       if (!hasCatalogItem) {
         const createCatalogItem = async () => {
@@ -462,7 +463,7 @@ export const CatalogDetailPage = () => {
         optionsItems.push({ 
           label: 'Ver Catálogo Web', 
           icon: Globe, 
-          onClick: () => window.open(`/${catalog.slug}`, '_blank') 
+          onClick: () => navigate(`/${catalog.slug}`) 
         });
       } else if (isOwner) {
         optionsItems.push({ 
@@ -580,20 +581,41 @@ export const CatalogDetailPage = () => {
   }, [catalog, catalogId, navigate, setTitle, setSubtitle, setRightAction, instance?.status, messages.length, products.length, linkedGroups, queueStats, setIsQueueModalOpen, handleWebLinkPointerDown, handleWebLinkPointerUp, handleWebLinkPointerCancel]);
 
   const loadCatalog = async () => {
-    setCatLoading(true);
-    const { data } = await supabase
-      .from('catalogs')
-      .select('*')
-      .eq('id', catalogId)
-      .single();
-    
-    if (data) setCatalog(data);
-    setCatLoading(false);
+    if (!catalogId) return;
+    const cached = await getCatalogFromCache(catalogId);
+    if (cached) {
+      setCatalog(cached);
+      setCatLoading(false);
+    } else {
+      setCatLoading(true);
+    }
+
+    if (isOffline()) {
+      setCatLoading(false);
+      return;
+    }
+
+    try {
+      const { data } = await supabase
+        .from('catalogs')
+        .select('*')
+        .eq('id', catalogId)
+        .single();
+      
+      if (data) {
+        setCatalog(data);
+        await saveCatalogToCache(data);
+      }
+    } catch (err) {
+      console.warn('Error loading catalog details, using cache if available:', err);
+    } finally {
+      setCatLoading(false);
+    }
     fetchQueueStats();
   };
 
   const fetchQueueStats = async () => {
-    if (!catalogId) return;
+    if (!catalogId || isOffline()) return;
     setStatsLoading(true);
     try {
       const { data: pending } = await supabase

@@ -33,6 +33,16 @@ import { Modal } from '../../components/ui/Modal';
 import { Switch } from '../../components/ui/Switch';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { shareContent } from '../../lib/share';
+import {
+  isOffline,
+  isNetworkError,
+  saveCatalogToCache,
+  getCatalogFromCache,
+  saveCatalogProductsToCache,
+  getCatalogProductsFromCache,
+  saveCatalogCategoriesToCache,
+  getCatalogCategoriesFromCache,
+} from '../../lib/offlineCache';
 
 const InstagramIcon = ({ size = 20, className, ...props }: { size?: number; className?: string; [key: string]: any }) => (
   <svg
@@ -115,6 +125,7 @@ interface PublicProduct {
   category_id?: number | null;
   commission_amount?: number | null;
   commission_currency?: 'CUP' | 'USD';
+  position?: number | null;
 }
 
 interface Category {
@@ -183,7 +194,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({ slug: prop
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
-  const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc'>('default');
+  const [sortBy, setSortBy] = useState<'category' | 'default' | 'price-asc' | 'price-desc'>('category');
   const [selectedProduct, setSelectedProduct] = useState<PublicProduct | null>(null);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -225,7 +236,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({ slug: prop
   }, [slug]);
 
   useEffect(() => {
-    if (catalog?.id && user?.id) {
+    if (catalog?.id && user?.id && !isOffline()) {
       checkAffiliateStatus(catalog.id, user.id);
     }
   }, [catalog?.id, user?.id, checkAffiliateStatus]);
@@ -236,23 +247,67 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({ slug: prop
   const isCatalogOwner = !!user && catalog?.user_id === user?.id;
   const canSeeCommissions = isApprovedAffiliate || isCatalogOwner;
 
+  const applyCachedPublicCatalog = async (cachedCat: any) => {
+    setCatalog(cachedCat);
+    if (cachedCat._vendorInfo) {
+      setVendorPhone(cachedCat._vendorInfo.vendorPhone || cachedCat.footer_phone || '');
+      setVendorName(cachedCat._vendorInfo.vendorName || 'Vendedor Matum');
+      setVendorPlan(cachedCat._vendorInfo.vendorPlan || 'free');
+    } else if (cachedCat.footer_phone) {
+      setVendorPhone(cachedCat.footer_phone);
+    }
+
+    const [cachedProds, cachedCats] = await Promise.all([
+      getCatalogProductsFromCache(cachedCat.id),
+      getCatalogCategoriesFromCache(cachedCat.id),
+    ]);
+
+    if (cachedProds) {
+      const availableProducts = cachedProds.filter(
+        (p: any) => p.is_active !== false && !p.is_out_of_stock && p.stock_status !== 'out_of_stock'
+      );
+      setProducts(availableProducts);
+    }
+    if (cachedCats) {
+      setCategories(cachedCats.filter((c: any) => c.is_active !== false));
+    }
+    setLoading(false);
+    setProductsLoading(false);
+  };
+
   const loadPublicCatalog = async () => {
     if (!slug) return;
-    setLoading(true);
-    setProductsLoading(true);
     setError(null);
+
+    const cachedCat = await getCatalogFromCache(slug);
+    if (cachedCat) {
+      await applyCachedPublicCatalog(cachedCat);
+    } else {
+      setLoading(true);
+      setProductsLoading(true);
+    }
+
+    if (isOffline()) {
+      if (!cachedCat) {
+        setError('Sin conexión. Este catálogo aún no ha sido guardado en tu dispositivo.');
+        setLoading(false);
+        setProductsLoading(false);
+      }
+      return;
+    }
+
     try {
       // 1. Obtener catálogo público y activo por su slug (o por ID como fallback)
       let { data: catData, error: catError } = await supabase
         .from('catalogs')
-        .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount')
+        .select('id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount')
         .eq('slug', slug)
         .maybeSingle();
 
       if (!catData && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug)) {
         const { data: catById, error: idError } = await supabase
           .from('catalogs')
-          .select('id, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount')
+          .select('id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount')
           .eq('id', slug)
           .maybeSingle();
 
@@ -262,20 +317,25 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({ slug: prop
         }
       }
 
-      if (catError || !catData) {
-        setError('Catálogo no encontrado.');
+      if (catError) throw catError;
+
+      if (!catData) {
+        if (!cachedCat) {
+          setError('Catálogo no encontrado.');
+        }
         setLoading(false);
+        setProductsLoading(false);
         return;
       }
 
       if (!catData.is_active || !catData.is_public) {
         setError('Este catálogo no se encuentra disponible actualmente.');
         setLoading(false);
+        setProductsLoading(false);
         return;
       }
 
       // Establecemos el catálogo base inmediatamente y quitamos el loading general
-      // Esto renderizará el shell de la tienda, colores del tema, header, cover, logo, etc.
       setCatalog(catData);
       setLoading(false);
 
@@ -284,13 +344,13 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({ slug: prop
         const [prodResult, catKeysResult, userResult] = await Promise.all([
           supabase
             .from('products')
-            .select('id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency')
+            .select('id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, is_active, position')
             .eq('catalog_id', catData.id)
             .eq('is_active', true)
             .order('position', { ascending: true }),
           supabase
             .from('categories')
-            .select('id, name, icon, display_order')
+            .select('id, name, icon, display_order, is_active')
             .eq('catalog_id', catData.id)
             .eq('is_active', true)
             .order('display_order', { ascending: true }),
@@ -303,34 +363,57 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({ slug: prop
 
         // Manejar productos
         if (prodResult.error) throw prodResult.error;
-        const availableProducts = (prodResult.data || []).filter(
+        const allActiveProducts = prodResult.data || [];
+        const availableProducts = allActiveProducts.filter(
           p => !p.is_out_of_stock && p.stock_status !== 'out_of_stock'
         );
         setProducts(availableProducts);
+        await saveCatalogProductsToCache(catData.id, allActiveProducts);
 
         // Manejar categorías
         if (!catKeysResult.error && catKeysResult.data) {
           setCategories(catKeysResult.data);
+          await saveCatalogCategoriesToCache(catData.id, catKeysResult.data);
         }
 
         // Manejar información del vendedor
+        let vPhone = catData.footer_phone || '';
+        let vName = 'Vendedor Matum';
+        let vPlan = 'free';
         if (!userResult.error && userResult.data) {
-          setVendorPhone(userResult.data.phone || '');
-          setVendorName(userResult.data.full_name || 'Vendedor Matum');
-          setVendorPlan(userResult.data.plan || 'free');
+          vPhone = userResult.data.phone || vPhone;
+          vName = userResult.data.full_name || vName;
+          vPlan = userResult.data.plan || vPlan;
+          setVendorPhone(vPhone);
+          setVendorName(vName);
+          setVendorPlan(vPlan);
         }
+
+        await saveCatalogToCache(
+          { ...catData, slug: (catData as any).slug || slug },
+          { vendorPhone: vPhone, vendorName: vName, vendorPlan: vPlan }
+        );
 
       } catch (parallelError: any) {
         console.error('Error cargando detalles secundarios de la tienda:', parallelError);
-        toast.error('Error al cargar algunos elementos de la tienda. Intente recargar.');
+        if (!cachedCat && !isNetworkError(parallelError)) {
+          toast.error('Error al cargar algunos elementos de la tienda. Intente recargar.');
+        }
       } finally {
         setProductsLoading(false);
       }
 
     } catch (err: any) {
       console.error(err);
-      setError('Ocurrió un error al cargar el catálogo. Inténtalo de nuevo.');
+      if (!cachedCat) {
+        setError(
+          isNetworkError(err)
+            ? 'Sin conexión. Este catálogo aún no ha sido guardado en tu dispositivo.'
+            : 'Ocurrió un error al cargar el catálogo. Inténtalo de nuevo.'
+        );
+      }
       setLoading(false);
+      setProductsLoading(false);
     }
   };
 
@@ -703,7 +786,17 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({ slug: prop
       if (sortBy === 'price-desc') {
         return (b.price || 0) - (a.price || 0);
       }
-      return 0; // default (posición)
+      if (sortBy === 'category') {
+        const sortedCats = [...categories].sort((c1, c2) => (c1.display_order ?? 0) - (c2.display_order ?? 0));
+        const catIndexA = a.category_id != null ? sortedCats.findIndex(c => Number(c.id) === Number(a.category_id)) : -1;
+        const catIndexB = b.category_id != null ? sortedCats.findIndex(c => Number(c.id) === Number(b.category_id)) : -1;
+        const orderA = catIndexA !== -1 ? catIndexA : Number.MAX_SAFE_INTEGER;
+        const orderB = catIndexB !== -1 ? catIndexB : Number.MAX_SAFE_INTEGER;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+      }
+      return (a.position ?? 0) - (b.position ?? 0); // default (posición)
     });
 
   const totalItemsCount = cart.reduce((acc, item) => acc + item.quantity, 0);
@@ -1183,6 +1276,11 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({ slug: prop
               </button>
             }
             items={[
+              {
+                label: 'Por categoría',
+                icon: sortBy === 'category' ? Check : undefined,
+                onClick: () => setSortBy('category')
+              },
               {
                 label: 'Posición por defecto',
                 icon: sortBy === 'default' ? Check : undefined,

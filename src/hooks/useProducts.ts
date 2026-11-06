@@ -2,89 +2,203 @@ import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Product, ProductForm } from '../types/product';
 import { toast } from 'react-hot-toast';
-
 import { optimizeImage, blobToFile } from '../lib/imageOptimizer';
+import {
+  isOffline,
+  isNetworkError,
+  getCatalogProductsFromCache,
+  upsertCatalogProductsInCache,
+  saveCatalogProductsToCache,
+  syncCatalogForOffline,
+} from '../lib/offlineCache';
 
-export const useProducts = (catalogId?: string, search?: string, sortField: string = 'position', sortOrder: 'asc' | 'desc' = 'asc', categoryId?: number | string | null) => {
+function filterAndSortCachedProducts(
+  allProducts: Product[],
+  search?: string,
+  sortField: string = 'position',
+  sortOrder: 'asc' | 'desc' = 'asc',
+  categoryId?: number | string | null
+): Product[] {
+  let result = [...allProducts];
+
+  if (categoryId !== undefined && categoryId !== null) {
+    if (categoryId === 'none') {
+      result = result.filter((p) => p.category_id === null || p.category_id === undefined);
+    } else {
+      result = result.filter((p) => Number(p.category_id) === Number(categoryId));
+    }
+  }
+
+  if (search && search.trim() !== '') {
+    const q = search.trim().toLowerCase();
+    const numSearch = Number(search.trim());
+    result = result.filter((p) => {
+      const matchName = p.name?.toLowerCase().includes(q);
+      const matchDesc = p.description?.toLowerCase().includes(q);
+      const matchPrice = !isNaN(numSearch) && p.price !== null && Number(p.price) === numSearch;
+      return Boolean(matchName || matchDesc || matchPrice);
+    });
+  }
+
+  result.sort((a: any, b: any) => {
+    if (sortField === 'position') {
+      const stockDiff = Number(Boolean(a.is_out_of_stock)) - Number(Boolean(b.is_out_of_stock));
+      if (stockDiff !== 0) return stockDiff;
+      return (a.position ?? 0) - (b.position ?? 0);
+    }
+
+    const valA = a[sortField];
+    const valB = b[sortField];
+    if (valA === valB) return 0;
+    if (valA === null || valA === undefined) return 1;
+    if (valB === null || valB === undefined) return -1;
+
+    const comparison =
+      typeof valA === 'string' && typeof valB === 'string'
+        ? valA.localeCompare(valB)
+        : valA < valB
+        ? -1
+        : 1;
+
+    return sortOrder === 'asc' ? comparison : -comparison;
+  });
+
+  return result;
+}
+
+export const useProducts = (
+  catalogId?: string,
+  search?: string,
+  sortField: string = 'position',
+  sortOrder: 'asc' | 'desc' = 'asc',
+  categoryId?: number | string | null
+) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
 
-  const getProducts = useCallback(async (isInitial = true) => {
-    if (!catalogId) return;
-    
-    setLoading(true);
-    if (isInitial) {
-      setPage(0);
-      setHasMore(true);
-    }
+  const loadFromOfflineCache = useCallback(
+    async (isInitial: boolean, currentPage: number) => {
+      if (!catalogId) return false;
+      const cached = await getCatalogProductsFromCache(catalogId);
+      if (!cached || cached.length === 0) return false;
 
-    const currentPage = isInitial ? 0 : page;
-    const from = currentPage * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
+      const filtered = filterAndSortCachedProducts(cached, search, sortField, sortOrder, categoryId);
+      const from = currentPage * PAGE_SIZE;
+      const to = from + PAGE_SIZE;
+      const pageSlice = filtered.slice(from, to);
 
-    try {
-      let query = supabase
-        .from('products')
-        .select('*')
-        .eq('catalog_id', catalogId);
-
-      // Búsqueda por categoría
-      if (categoryId !== undefined && categoryId !== null) {
-        if (categoryId === 'none') {
-          query = query.is('category_id', null);
-        } else {
-          query = query.eq('category_id', Number(categoryId));
-        }
-      }
-
-      // Búsqueda
-      if (search && search.trim() !== '') {
-        const s = `%${search.trim()}%`;
-        // Intentar buscar por precio si es un número
-        const numSearch = Number(search.trim());
-        if (!isNaN(numSearch)) {
-          query = query.or(`name.ilike.${s},description.ilike.${s},price.eq.${numSearch}`);
-        } else {
-          query = query.or(`name.ilike.${s},description.ilike.${s}`);
-        }
-      }
-
-      // Ordenación
-      if (sortField === 'position') {
-        query = query
-          .order('is_out_of_stock', { ascending: true })
-          .order('position', { ascending: true });
-      } else {
-        query = query.order(sortField, { ascending: sortOrder === 'asc' });
-      }
-
-      const { data, error } = await query.range(from, to);
-
-      if (error) throw error;
-      
-      const newProducts = data || [];
-      
       if (isInitial) {
-        setProducts(newProducts);
+        setProducts(pageSlice);
+        setPage(1);
       } else {
-        setProducts(prev => [...prev, ...newProducts]);
+        setProducts((prev) => [...prev, ...pageSlice]);
+        setPage((prev) => prev + 1);
+      }
+      setHasMore(to < filtered.length);
+      return true;
+    },
+    [catalogId, search, sortField, sortOrder, categoryId]
+  );
+
+  const getProducts = useCallback(
+    async (isInitial = true) => {
+      if (!catalogId) return;
+
+      const currentPage = isInitial ? 0 : page;
+
+      // Mostrar productos desde la caché local de inmediato (0ms) si existen
+      let hadCached = false;
+      if (isInitial) {
+        hadCached = await loadFromOfflineCache(true, 0);
       }
 
-      setHasMore(newProducts.length === PAGE_SIZE);
-      if (!isInitial) {
-        setPage(prev => prev + 1);
-      } else {
-        setPage(1);
+      if (isOffline()) {
+        if (!isInitial) {
+          await loadFromOfflineCache(false, currentPage);
+        }
+        setLoading(false);
+        return;
       }
-    } catch (err: any) {
-      toast.error('Error al cargar productos: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [catalogId, page, search, sortField, sortOrder, categoryId]);
+
+      if (!hadCached) {
+        setLoading(true);
+      }
+      if (isInitial) {
+        setPage(0);
+        setHasMore(true);
+        syncCatalogForOffline(catalogId);
+      }
+
+      const from = currentPage * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      try {
+        let query = supabase.from('products').select('*').eq('catalog_id', catalogId);
+
+        if (categoryId !== undefined && categoryId !== null) {
+          if (categoryId === 'none') {
+            query = query.is('category_id', null);
+          } else {
+            query = query.eq('category_id', Number(categoryId));
+          }
+        }
+
+        if (search && search.trim() !== '') {
+          const s = `%${search.trim()}%`;
+          const numSearch = Number(search.trim());
+          if (!isNaN(numSearch)) {
+            query = query.or(`name.ilike.${s},description.ilike.${s},price.eq.${numSearch}`);
+          } else {
+            query = query.or(`name.ilike.${s},description.ilike.${s}`);
+          }
+        }
+
+        if (sortField === 'position') {
+          query = query
+            .order('is_out_of_stock', { ascending: true })
+            .order('position', { ascending: true });
+        } else {
+          query = query.order(sortField, { ascending: sortOrder === 'asc' });
+        }
+
+        const { data, error } = await query.range(from, to);
+
+        if (error) throw error;
+
+        const newProducts = data || [];
+
+        if (isInitial) {
+          setProducts(newProducts);
+        } else {
+          setProducts((prev) => [...prev, ...newProducts]);
+        }
+
+        if (newProducts.length > 0) {
+          upsertCatalogProductsInCache(catalogId, newProducts);
+        }
+
+        setHasMore(newProducts.length === PAGE_SIZE);
+        if (!isInitial) {
+          setPage((prev) => prev + 1);
+        } else {
+          setPage(1);
+        }
+      } catch (err: any) {
+        if (!hadCached) {
+          const loadedOffline = await loadFromOfflineCache(isInitial, currentPage);
+          if (!loadedOffline && !isNetworkError(err)) {
+            toast.error('Error al cargar productos: ' + err.message);
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [catalogId, page, search, sortField, sortOrder, categoryId, loadFromOfflineCache]
+  );
 
   const loadMore = useCallback(() => {
     if (!loading && hasMore) {
@@ -99,13 +213,12 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
       let imagen_url = form.imagen_url;
 
       if (file) {
-        // Optimizar imagen antes de subir (Max 800px, 70% calidad)
         const optimizedBlob = await optimizeImage(file, {
           maxWidth: 800,
           maxHeight: 800,
-          quality: 0.7
+          quality: 0.7,
         });
-        
+
         const fileName = `${catalogId}/${Date.now()}.jpg`;
         const optimizedFile = blobToFile(optimizedBlob, fileName);
 
@@ -113,7 +226,7 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
           .from('products')
           .upload(fileName, optimizedFile, {
             contentType: 'image/jpeg',
-            upsert: true
+            upsert: true,
           });
 
         if (uploadError) {
@@ -121,15 +234,10 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
           throw new Error(`Error al subir imagen: ${uploadError.message}`);
         }
 
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('products')
-          .getPublicUrl(fileName);
-        
+        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
         imagen_url = publicUrl;
       }
 
-      // Preparar data limpia
       const productData = {
         name: form.name.trim(),
         description: form.description?.trim() || null,
@@ -138,14 +246,16 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
         imagen_url,
         category_id: form.category_id || null,
         is_active: form.is_active !== undefined ? form.is_active : true,
-        commission_amount: form.commission_amount === '' || form.commission_amount === null || form.commission_amount === undefined ? 0 : Number(form.commission_amount),
-        commission_currency: form.commission_currency || 'CUP'
+        commission_amount:
+          form.commission_amount === '' || form.commission_amount === null || form.commission_amount === undefined
+            ? 0
+            : Number(form.commission_amount),
+        commission_currency: form.commission_currency || 'CUP',
       };
 
       let result: Product | null = null;
 
       if (id) {
-        // Update
         const { data, error } = await supabase
           .from('products')
           .update(productData)
@@ -154,25 +264,28 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
           .single();
         if (error) throw error;
         result = data;
-        
-        // Actualizar estado local para evitar duplicados y mejorar UX
-        setProducts(prev => prev.map(p => p.id === id ? result! : p));
+
+        setProducts((prev) => prev.map((p) => (p.id === id ? result! : p)));
       } else {
-        // Create
         const { data, error } = await supabase
           .from('products')
-          .insert([{ 
-            ...productData, 
-            catalog_id: catalogId, 
-            position: 0
-          }])
+          .insert([
+            {
+              ...productData,
+              catalog_id: catalogId,
+              position: 0,
+            },
+          ])
           .select()
           .single();
         if (error) throw error;
         result = data;
 
-        // Agregar al inicio localmente
-        setProducts(prev => [result!, ...prev]);
+        setProducts((prev) => [result!, ...prev]);
+      }
+
+      if (result) {
+        await upsertCatalogProductsInCache(catalogId, [result]);
       }
 
       toast.success(id ? 'Producto actualizado' : 'Producto creado');
@@ -187,7 +300,6 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
   };
 
   const updateProductsOrder = async (newProducts: Product[]) => {
-    // Actualizar estado local inmediatamente para UX suave
     const oldProducts = [...products];
     setProducts(newProducts);
 
@@ -203,12 +315,14 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
         position: index,
         is_active: p.is_active,
         is_out_of_stock: p.is_out_of_stock,
-        category_id: p.category_id || null
+        category_id: p.category_id || null,
       }));
 
       const { error } = await supabase.from('products').upsert(updates);
       if (error) throw error;
-      
+      if (catalogId) {
+        await upsertCatalogProductsInCache(catalogId, newProducts);
+      }
     } catch (err: any) {
       setProducts(oldProducts);
       toast.error('Error al guardar el orden');
@@ -219,13 +333,31 @@ export const useProducts = (catalogId?: string, search?: string, sortField: stri
     try {
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) throw error;
-      setProducts(products.filter(p => p.id !== id));
+      const updated = products.filter((p) => p.id !== id);
+      setProducts(updated);
+      if (catalogId) {
+        const cached = await getCatalogProductsFromCache(catalogId);
+        if (cached) {
+          await saveCatalogProductsToCache(
+            catalogId,
+            cached.filter((p) => p.id !== id)
+          );
+        }
+      }
       toast.success('Producto eliminado');
     } catch (err: any) {
       toast.error('Error al eliminar');
     }
   };
 
-  return { products, loading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, updateProductsOrder };
+  return {
+    products,
+    loading,
+    hasMore,
+    loadMore,
+    getProducts,
+    saveProduct,
+    deleteProduct,
+    updateProductsOrder,
+  };
 };
-

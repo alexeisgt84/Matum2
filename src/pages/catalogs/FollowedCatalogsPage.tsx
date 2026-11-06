@@ -34,6 +34,16 @@ import { useCollaboration } from '../../hooks/useCollaboration';
 import { PublicCatalogPage } from './PublicCatalogPage';
 import type { Catalog } from '../../types/catalog';
 import type { Product } from '../../types/product';
+import {
+  isOffline,
+  isNetworkError,
+  saveCachedList,
+  getCachedList,
+  saveCatalogToCache,
+  saveCatalogProductsToCache,
+  getCatalogProductsFromCache,
+  syncCatalogForOffline,
+} from '../../lib/offlineCache';
 
 interface FollowedCatalogItem {
   id: string;
@@ -101,7 +111,27 @@ export const FollowedCatalogsPage = () => {
   // Cargar catálogos seguidos
   const fetchFollowedCatalogs = async () => {
     if (!user) return;
-    setLoading(true);
+    const followedCacheKey = `followed_catalogs_${user.id}`;
+    const allProdsCacheKey = `followed_all_products_${user.id}`;
+
+    const [cachedFollowed, cachedAllProducts] = await Promise.all([
+      getCachedList<FollowedCatalogItem[]>(followedCacheKey),
+      getCachedList<EnrichedProduct[]>(allProdsCacheKey),
+    ]);
+
+    if (cachedFollowed && cachedFollowed.length > 0) {
+      setFollowed(cachedFollowed);
+    }
+    if (cachedAllProducts && cachedAllProducts.length > 0) {
+      setAllProducts(cachedAllProducts);
+    }
+
+    if (isOffline()) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(!cachedFollowed || cachedFollowed.length === 0);
     try {
       // 1. Obtener catálogos seguidos
       const { data, error } = await supabase
@@ -129,18 +159,21 @@ export const FollowedCatalogsPage = () => {
               .eq('catalog_id', item.catalog_id)
               .eq('is_active', true);
             
+            const catWithCount = {
+              ...item.catalogs,
+              productCount: count || 0
+            };
             formattedData.push({
               ...item,
-              catalogs: {
-                ...item.catalogs,
-                productCount: count || 0
-              }
+              catalogs: catWithCount
             } as any);
+            saveCatalogToCache(catWithCount);
           }
         }
       }
 
       setFollowed(formattedData);
+      await saveCachedList(followedCacheKey, formattedData);
 
       // 3. Cargar productos de todos los catálogos seguidos para búsqueda global
       if (data && data.length > 0) {
@@ -162,11 +195,24 @@ export const FollowedCatalogsPage = () => {
           };
         });
         setAllProducts(enrichedProducts);
+        await saveCachedList(allProdsCacheKey, enrichedProducts);
+
+        // Guardar también los productos agrupados por catálogo para navegación offline individual
+        for (const catId of catalogIds) {
+          const prodsForCat = (productsData || []).filter(p => p.catalog_id === catId);
+          saveCatalogProductsToCache(catId, prodsForCat);
+          syncCatalogForOffline(catId);
+        }
       } else {
         setAllProducts([]);
+        await saveCachedList(allProdsCacheKey, []);
       }
     } catch (err: any) {
-      toast.error('Error al cargar catálogos seguidos: ' + err.message);
+      if (cachedFollowed) setFollowed(cachedFollowed);
+      if (cachedAllProducts) setAllProducts(cachedAllProducts);
+      if (!isNetworkError(err)) {
+        toast.error('Error al cargar catálogos seguidos: ' + err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -269,10 +315,28 @@ export const FollowedCatalogsPage = () => {
   const handleViewCatalogProducts = async (catalog: Catalog, initialMode: 'as_is' | 'store' = 'as_is') => {
     setActiveCatalog(catalog);
     setCatalogViewMode(initialMode);
-    setProductsLoading(true);
     setSelectedProductIds([]);
     setSearchQueryProduct(''); // Limpiar búsqueda de productos al entrar
     setSortProductBy('position'); // Restablecer orden al entrar
+
+    saveCatalogToCache(catalog);
+    const cachedProds = await getCatalogProductsFromCache(catalog.id);
+    const fallbackProds =
+      cachedProds && cachedProds.length > 0
+        ? cachedProds
+        : allProducts.filter((p) => p.catalog_id === catalog.id);
+
+    if (fallbackProds && fallbackProds.length > 0) {
+      setCatalogProducts(fallbackProds);
+    }
+
+    if (isOffline()) {
+      setProductsLoading(false);
+      return;
+    }
+
+    setProductsLoading(!fallbackProds || fallbackProds.length === 0);
+    syncCatalogForOffline(catalog.id);
     try {
       const { data, error } = await supabase
         .from('products')
@@ -282,9 +346,15 @@ export const FollowedCatalogsPage = () => {
         .order('position', { ascending: true });
 
       if (error) throw error;
-      setCatalogProducts(data || []);
+      const prods = data || [];
+      setCatalogProducts(prods);
+      await saveCatalogProductsToCache(catalog.id, prods);
     } catch (err: any) {
-      toast.error('Error al cargar productos del catálogo seguido: ' + err.message);
+      if (fallbackProds && fallbackProds.length > 0) {
+        setCatalogProducts(fallbackProds);
+      } else if (!isNetworkError(err)) {
+        toast.error('Error al cargar productos del catálogo seguido: ' + err.message);
+      }
     } finally {
       setProductsLoading(false);
     }
@@ -869,10 +939,10 @@ export const FollowedCatalogsPage = () => {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                window.open('/' + item.catalogs.slug, '_blank');
+                                navigate('/' + item.catalogs.slug);
                               }}
                               className="p-1.5 rounded-xl text-secondary hover:text-accent hover:bg-surface border border-transparent hover:border-border transition-colors flex items-center justify-center"
-                              title="Abrir tienda en nueva pestaña"
+                              title="Abrir tienda"
                             >
                               <ExternalLink size={14} />
                             </button>
@@ -910,12 +980,12 @@ export const FollowedCatalogsPage = () => {
               {activeCatalog.slug && (
                 <button
                   type="button"
-                  onClick={() => window.open('/' + activeCatalog.slug, '_blank')}
+                  onClick={() => navigate('/' + activeCatalog.slug)}
                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-surface border border-border text-[10px] font-bold text-secondary hover:text-accent transition-colors"
-                  title="Abrir tienda en una nueva pestaña"
+                  title="Abrir tienda completa"
                 >
                   <ExternalLink size={12} />
-                  <span className="hidden sm:inline">Nueva pestaña</span>
+                  <span className="hidden sm:inline">Abrir tienda</span>
                 </button>
               )}
               <span className="text-[10px] bg-accent/15 border border-accent/20 px-2.5 py-1 rounded-full text-accent font-mono font-bold">
@@ -954,10 +1024,10 @@ export const FollowedCatalogsPage = () => {
 
           {catalogViewMode === 'store' ? (
             /* SUB-VISTA: COMO TIENDA */
-            activeCatalog.slug ? (
+            (activeCatalog.slug || activeCatalog.id) ? (
               <div className="w-full overflow-hidden rounded-2xl border border-border shadow-2xl bg-background animate-in fade-in duration-200">
                 <PublicCatalogPage 
-                  slug={activeCatalog.slug} 
+                  slug={activeCatalog.slug || activeCatalog.id} 
                   embedded={true} 
                   onBack={() => setCatalogViewMode('as_is')} 
                 />
