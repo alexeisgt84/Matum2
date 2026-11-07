@@ -83,7 +83,13 @@ Deno.serve(async (req: Request) => {
 
     // Leer el body de la petición
     const requestBody = await req.json();
-    const { image, mimeType = 'image/jpeg', testConnection = false } = requestBody;
+    const { 
+      image, 
+      mimeType = 'image/jpeg', 
+      testConnection = false,
+      productName = '',
+      productInfo = ''
+    } = requestBody;
 
     if (testConnection) {
       console.log(`Llamando a Gemini (${geminiModel}) para test de conexión del usuario ${user.id}...`);
@@ -126,7 +132,33 @@ Deno.serve(async (req: Request) => {
     }
 
     // Preparar el cuerpo de la llamada a la API de Gemini
-    const promptText = "Analiza esta imagen de un producto para un catálogo de ventas. Genera un título muy corto, conciso y atractivo (máximo 5 palabras) y una descripción clara, vendedora y breve (máximo 25 palabras). Devuelve el resultado obligatoriamente en este formato JSON exacto: {\"title\": \"nombre del producto\", \"description\": \"descripción del producto\"}. No agregues bloques de código markdown ni texto adicional, solo el JSON estructurado.";
+    const userContextLines = [];
+    if (productName && typeof productName === 'string' && productName.trim()) {
+      userContextLines.push(`- Nombre o modelo proporcionado: "${productName.trim()}"`);
+    }
+    if (productInfo && typeof productInfo === 'string' && productInfo.trim()) {
+      userContextLines.push(`- Información o notas previas: "${productInfo.trim()}"`);
+    }
+
+    const contextBlock = userContextLines.length > 0
+      ? `\n\nContexto previo del producto aportado por el usuario:\n${userContextLines.join('\n')}\nUtiliza este contexto junto con la imagen para identificar con precisión el producto, sus especificaciones técnicas y enriquecer los detalles.`
+      : '';
+
+    const promptText = `Eres un experto en catalogación de productos y comercio electrónico.
+Analiza detalladamente la imagen del producto para generar su título y una descripción completa enfocada en sus especificaciones técnicas y características comerciales.${contextBlock}
+
+Instrucciones:
+1. TÍTULO ("title"):
+   - Si se proporcionó un nombre, mantenlo y perfecciónalo si aplica para que sea claro y profesional (máximo 8 palabras).
+   - Si no se proporcionó, genera un título conciso identificando la marca, modelo y tipo de producto (máximo 8 palabras).
+
+2. DESCRIPCIÓN CON ESPECIFICACIONES ("description"):
+   - Redacta una descripción clara y profesional destacando las especificaciones del producto visibles en la imagen o deducidas de su modelo/contexto (por ejemplo: características técnicas, materiales, medidas o capacidad si se observan, color, funciones clave, compatibilidad o componentes incluidos).
+   - Integra la información visual con las notas o nombre que el usuario haya indicado.
+   - Presenta las especificaciones de forma estructurada, ordenada y muy legible para un cliente de catálogo.
+   - Extensión recomendada: entre 40 y 90 palabras, centrada en aportar valor y detalles reales del producto.
+
+Devuelve el resultado obligatoriamente en este formato JSON exacto: {"title": "título del producto", "description": "especificaciones y descripción del producto"}. No agregues bloques de código markdown ni texto adicional, solo el JSON estructurado.`;
 
     console.log(`Llamando a Gemini (${geminiModel}) para el usuario ${user.id}...`);
 

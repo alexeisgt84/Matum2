@@ -26,11 +26,17 @@ interface AIAnalysisResult {
   description: string;
 }
 
+export interface AIAnalysisContext {
+  name?: string | null;
+  description?: string | null;
+}
+
 /**
  * Invoca la Edge Function de Supabase para analizar la imagen de un producto de forma segura
  */
 export const analyzeProductImage = async (
-  file: File | Blob
+  file: File | Blob,
+  context?: AIAnalysisContext
 ): Promise<AIAnalysisResult> => {
   try {
     const base64Image = await fileToBase64(file);
@@ -39,7 +45,9 @@ export const analyzeProductImage = async (
     const { data, error } = await supabase.functions.invoke('analyze-image-gemini', {
       body: { 
         image: base64Image, 
-        mimeType 
+        mimeType,
+        productName: context?.name || '',
+        productInfo: context?.description || '',
       }
     });
 

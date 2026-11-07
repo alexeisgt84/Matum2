@@ -163,7 +163,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     setIsAnalyzing(true);
     const toastId = toast.loading('IA analizando imagen del producto...');
     try {
-      const result = await analyzeProductImage(imageBlob);
+      const result = await analyzeProductImage(imageBlob, {
+        name: form.name,
+        description: form.description,
+      });
       
       // Auto-completar título y descripción con los datos devueltos
       setForm(prev => ({

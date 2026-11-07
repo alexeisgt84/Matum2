@@ -87,7 +87,10 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
     setIsAnalyzing(true);
     const toastId = toast.loading('IA redactando el mensaje...');
     try {
-      const result = await analyzeProductImage(fileToAnalyze);
+      const result = await analyzeProductImage(fileToAnalyze, {
+        name: form.name,
+        description: form.content,
+      });
       
       setForm(prev => ({
         ...prev,
