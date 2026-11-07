@@ -21,14 +21,18 @@ export const fileToBase64 = (file: File | Blob): Promise<string> => {
   });
 };
 
-interface AIAnalysisResult {
+export interface AIAnalysisResult {
   title: string;
   description: string;
+  price?: number | null;
+  currency?: 'USD' | 'CUP';
 }
 
 export interface AIAnalysisContext {
   name?: string | null;
   description?: string | null;
+  price?: number | string | null;
+  currency?: string | null;
 }
 
 /**
@@ -48,6 +52,8 @@ export const analyzeProductImage = async (
         mimeType,
         productName: context?.name || '',
         productInfo: context?.description || '',
+        price: context?.price || null,
+        currency: context?.currency || 'USD',
       }
     });
 
@@ -77,7 +83,9 @@ export const analyzeProductImage = async (
 
     return {
       title: data.title,
-      description: data.description
+      description: data.description,
+      price: data.price,
+      currency: data.currency
     };
   } catch (err: any) {
     console.error("Error en analyzeProductImage:", err);

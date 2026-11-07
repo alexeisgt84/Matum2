@@ -166,14 +166,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const result = await analyzeProductImage(imageBlob, {
         name: form.name,
         description: form.description,
+        price: form.price,
+        currency: form.currency,
       });
       
       // Auto-completar título y descripción con los datos devueltos
-      setForm(prev => ({
-        ...prev,
-        name: result.title,
-        description: result.description
-      }));
+      setForm(prev => {
+        const updated = {
+          ...prev,
+          name: result.title || prev.name,
+          description: result.description || prev.description
+        };
+        if (result.price && (!prev.price || prev.price === '' || prev.price === '0')) {
+          updated.price = result.price.toString();
+          if (result.currency) updated.currency = result.currency;
+        }
+        return updated;
+      });
       
       toast.success('¡Detalles auto-completados por IA! ✨', { id: toastId });
     } catch (err: any) {
