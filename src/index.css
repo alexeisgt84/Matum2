@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
+/* Las fuentes (Inter, Plus Jakarta Sans y Poppins) se cargan desde index.html con preconnect */
 
 @tailwind base;
 @tailwind components;
@@ -58,6 +58,30 @@
 
   .btn-whatsapp {
     @apply bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-black font-bold py-3 px-6 rounded-lg transition-colors disabled:opacity-50;
+  }
+}
+
+@layer utilities {
+  /* Oculta la barra de scroll manteniendo el desplazamiento (carruseles de chips) */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Desvanecido en los bordes de carruseles horizontales */
+  .fade-x-edges {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 24px), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 24px), transparent 100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-safe-only {
+    animation: none !important;
+    transition: none !important;
   }
 }
 

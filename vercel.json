@@ -1,6 +1,28 @@
 {
   "rewrites": [
     {
+      "source": "/:slug((?!api|login|register|forgot-password|catalogs|followed-catalogs|profile|admin|assets).*)/p/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(WhatsApp|facebookexternalhit|Facebot|TelegramBot|Twitterbot|Discordbot|Slackbot|LinkedInBot).*"
+        }
+      ],
+      "destination": "/api/og?slug=:slug&productId=:productId"
+    },
+    {
+      "source": "/:slug((?!api|login|register|forgot-password|catalogs|followed-catalogs|profile|admin|assets|icon\\.png|vite\\.svg)[^/]+)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(WhatsApp|facebookexternalhit|Facebot|TelegramBot|Twitterbot|Discordbot|Slackbot|LinkedInBot).*"
+        }
+      ],
+      "destination": "/api/og?slug=:slug"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

@@ -25,6 +25,7 @@ import { usePlanLimits } from '../../hooks/usePlanLimits';
 import { useHistory } from '../../hooks/useHistory';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { useCollaboration } from '../../hooks/useCollaboration';
+import { ThemePresetGrid, ThemePreviewCard } from '../../components/store/ThemePreviewCard';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
@@ -1287,6 +1288,11 @@ export const CatalogSettingsPage = () => {
                 </button>
               </div>
 
+              <ThemePresetGrid
+                theme={storeForm}
+                onApplyPreset={(colors) => setStoreForm(prev => ({ ...prev, ...colors }))}
+              />
+
               <div className="grid grid-cols-2 gap-3 border-t border-border/40 pt-4">
                 {/* Color Primario */}
                 <div className="space-y-1.5">
@@ -1414,92 +1420,12 @@ export const CatalogSettingsPage = () => {
                 </div>
               </div>
 
-              {/* Vista Previa Interactiva en Tiempo Real */}
-              <div className="bg-surface-hover/30 p-4 rounded-2xl border border-border/40 space-y-3">
-                <label className="text-[10px] font-bold text-secondary uppercase tracking-wider block">Vista previa en tiempo real</label>
-                
-                {/* Contenedor del mockup */}
-                <div 
-                  style={{ backgroundColor: storeForm.background_color }}
-                  className="p-4 rounded-xl border border-border/60 transition-all flex flex-col items-center justify-center min-h-[190px]"
-                >
-                  {/* Mock Store Header */}
-                  <div className="w-full max-w-[280px] mb-3 flex items-center gap-2.5 pb-2.5 border-b border-white/10">
-                    <div 
-                      style={{ 
-                        backgroundColor: storeForm.primary_color, 
-                        color: getContrastColor(storeForm.primary_color) 
-                      }}
-                      className="w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shadow-sm flex-shrink-0"
-                    >
-                      {(storeForm.nombre || 'T').charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div 
-                        style={{ color: storeForm.title_color || '#ffffff' }}
-                        className="text-xs font-black uppercase tracking-tight truncate"
-                      >
-                        {storeForm.nombre || 'Nombre de la Tienda'}
-                      </div>
-                      <div 
-                        style={{ color: storeForm.text_color ? `${storeForm.text_color}b3` : getSecondaryTextColor(storeForm.background_color) }}
-                        className="text-[9px] truncate"
-                      >
-                        {storeForm.descripcion || 'Eslogan o descripción de la tienda'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div 
-                    style={{ backgroundColor: storeForm.surface_color, borderColor: `${storeForm.primary_color}33` }}
-                    className="w-full max-w-[280px] rounded-2xl p-3 border transition-all flex gap-3 shadow-md"
-                  >
-                    {/* Mock Image */}
-                    <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/40 flex-shrink-0">
-                      <ShoppingBag size={18} style={{ color: storeForm.primary_color }} />
-                    </div>
-
-                    {/* Mock Details */}
-                    <div className="flex-grow min-w-0 flex flex-col justify-between">
-                      <div>
-                        <div 
-                          style={{ color: storeForm.text_color || getContrastColor(storeForm.surface_color) }}
-                          className="text-[10px] font-bold uppercase tracking-wide truncate"
-                        >
-                          Producto Ejemplo
-                        </div>
-                        <div 
-                          style={{ color: storeForm.text_color ? `${storeForm.text_color}b3` : getSecondaryTextColor(storeForm.surface_color) }}
-                          className="text-[8px] line-clamp-1 leading-snug mt-0.5"
-                        >
-                          Descripción rápida del producto para simular.
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mt-2 pt-1 border-t border-white/5">
-                        <span 
-                          style={{ color: storeForm.primary_color }}
-                          className="text-[10px] font-black"
-                        >
-                          $1,200 CUP
-                        </span>
-                        
-                        <button
-                          type="button"
-                          disabled
-                          style={{ 
-                            backgroundColor: storeForm.primary_color, 
-                            color: getContrastColor(storeForm.primary_color)
-                          }}
-                          className="px-2.5 py-1 text-[8px] font-black uppercase tracking-wider rounded-lg border border-white/10 opacity-90 cursor-default"
-                        >
-                          + Agregar
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <ThemePreviewCard
+                storeName={storeForm.nombre}
+                slogan={storeForm.descripcion}
+                theme={storeForm}
+                onFixField={(field, color) => setStoreForm(prev => ({ ...prev, [field]: color }))}
+              />
             </div>
 
             {/* Sección: Configuración de Moneda y Tasas */}
