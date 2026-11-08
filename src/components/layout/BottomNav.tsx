@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, LayoutGrid, Calendar, Bookmark, User } from 'lucide-react';
+import { Home, LayoutGrid, Bookmark, User } from 'lucide-react';
 
 export const BottomNav = () => {
   const tabs = [
@@ -11,26 +11,26 @@ export const BottomNav = () => {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border pb-safe pt-2 px-6 transition-colors duration-300">
-      <div className="flex justify-between items-center max-w-lg mx-auto h-16">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t border-border pb-safe pt-1 px-4 transition-colors duration-200">
+      <div className="flex justify-between items-center max-w-lg mx-auto h-12">
         {tabs.map((tab) => (
           <NavLink
             key={tab.path}
             to={tab.path}
             end={tab.path === '/'}
             className={({ isActive }) => `
-              flex flex-col items-center gap-1 transition-all
+              flex flex-col items-center gap-0.5 py-1 px-2 transition-all
               ${isActive ? 'text-accent' : 'text-secondary hover:text-primary'}
             `}
           >
             {({ isActive }) => (
               <>
-                <tab.icon size={24} />
-                <span className="text-[10px] font-medium uppercase tracking-wider">
+                <tab.icon size={18} />
+                <span className="text-[9px] font-semibold uppercase tracking-wider">
                   {tab.name}
                 </span>
                 <div className={`
-                  w-1 h-1 rounded-full bg-accent transition-all
+                  w-3 h-0.5 rounded-none bg-accent transition-all
                   ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}
                 `} />
               </>

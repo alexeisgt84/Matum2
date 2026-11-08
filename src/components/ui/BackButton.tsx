@@ -8,10 +8,6 @@ interface BackButtonProps {
   variant?: 'minimal' | 'filled';
 }
 
-/**
- * BackButton - Componente reutilizable para retroceder en la navegación.
- * Sigue el diseño premium con micro-animaciones.
- */
 export const BackButton: React.FC<BackButtonProps> = ({ 
   onClick, 
   className = '',
@@ -27,10 +23,10 @@ export const BackButton: React.FC<BackButtonProps> = ({
     }
   };
 
-  const baseStyles = "p-2.5 transition-all hover:scale-105 active:scale-95 group";
+  const baseStyles = "p-1.5 transition-all active:scale-95 group rounded-none";
   const variants = {
-    minimal: "text-secondary hover:text-[var(--accent)] hover:bg-surface-hover rounded-full",
-    filled: "bg-surface-hover border border-border shadow-lg rounded-2xl text-secondary hover:text-[var(--accent)] hover:bg-surface"
+    minimal: "text-secondary hover:text-[var(--accent)] hover:bg-surface-hover",
+    filled: "bg-surface-hover border border-border shadow-sm text-secondary hover:text-[var(--accent)] hover:bg-surface"
   };
 
   return (
@@ -40,7 +36,7 @@ export const BackButton: React.FC<BackButtonProps> = ({
       aria-label="Volver"
     >
       <ArrowLeft 
-        size={22} 
+        size={16} 
         className="group-hover:-translate-x-0.5 transition-transform" 
       />
     </button>

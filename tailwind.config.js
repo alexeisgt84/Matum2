@@ -12,6 +12,28 @@ export default {
         store: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
         display: ['"Plus Jakarta Sans"', 'Inter', 'system-ui', 'sans-serif'],
       },
+      borderRadius: {
+        none: '0px',
+        sm: '0px',
+        DEFAULT: '0px',
+        md: '0px',
+        lg: '0px',
+        xl: '0px',
+        '2xl': '0px',
+        '3xl': '0px',
+        full: '0px',
+        card: '10px',
+      },
+      fontSize: {
+        xs: ['0.6875rem', { lineHeight: '0.95rem' }],     // 11px
+        sm: ['0.75rem', { lineHeight: '1.05rem' }],       // 12px
+        base: ['0.8125rem', { lineHeight: '1.2rem' }],    // 13px
+        lg: ['0.875rem', { lineHeight: '1.25rem' }],      // 14px
+        xl: ['0.9375rem', { lineHeight: '1.35rem' }],     // 15px
+        '2xl': ['1.0625rem', { lineHeight: '1.45rem' }],  // 17px
+        '3xl': ['1.25rem', { lineHeight: '1.6rem' }],     // 20px
+        '4xl': ['1.5rem', { lineHeight: '1.85rem' }],     // 24px
+      },
       keyframes: {
         'store-fade-up': {
           '0%': { opacity: '0', transform: 'translateY(8px)' },

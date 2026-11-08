@@ -14,7 +14,6 @@ interface RichTextareaProps {
   disabled?: boolean;
 }
 
-
 export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
   value,
   onChange,
@@ -59,8 +58,6 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
     const end = textarea.selectionEnd;
     const selectedText = value.substring(start, end);
     
-    // Si hay selección, evitamos que queden espacios dentro del formato (* texto * -> *texto*)
-    // ya que WhatsApp no reconoce el formato si empieza o termina con espacio.
     const trimmed = selectedText.trim();
     const leadingSpace = selectedText.match(/^\s*/)?.[0] || '';
     const trailingSpace = selectedText.match(/\s*$/)?.[0] || '';
@@ -72,7 +69,6 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
 
     onChange(newValue);
     
-    // Reset focus and selection
     setTimeout(() => {
       textarea.focus();
       const newStart = start + leadingSpace.length + before.length;
@@ -102,50 +98,50 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
   };
 
   return (
-    <div className="space-y-2 relative">
-      {label && <label className="text-sm font-medium text-secondary ml-1">{label}</label>}
+    <div className="space-y-1 relative">
+      {label && <label className="text-[11px] font-medium text-secondary ml-0.5 block">{label}</label>}
       
-      <div className={`group relative flex flex-col bg-surface border border-border rounded-xl transition-all duration-200 focus-within:border-accent focus-within:bg-surface-hover overflow-hidden ${disabled ? 'opacity-50' : ''}`}>
+      <div className={`group relative flex flex-col bg-surface border border-border rounded-none transition-all duration-150 focus-within:border-accent focus-within:bg-surface-hover overflow-hidden ${disabled ? 'opacity-50' : ''}`}>
         <textarea
           ref={textareaRef}
-          className="w-full bg-transparent p-4 text-primary placeholder:text-secondary/50 outline-none resize-none min-h-[120px] leading-relaxed"
+          className="w-full bg-transparent p-2.5 text-xs text-primary placeholder:text-secondary/50 outline-none resize-y min-h-[88px] leading-relaxed"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          rows={4}
+          rows={3}
           required={required}
           disabled={disabled}
         />
         
-        <div className="flex items-center gap-1 px-2 py-1.5 border-t border-border bg-surface-hover/20">
+        <div className="flex items-center gap-1 px-2 py-1 border-t border-border bg-surface-hover/20">
           <button
             type="button"
             onClick={() => insertText('*', '*')}
-            className="p-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-all disabled:opacity-50 disabled:pointer-events-none"
+            className="p-1.5 text-secondary hover:text-accent hover:bg-accent/10 rounded-none transition-all disabled:opacity-50 disabled:pointer-events-none"
             title="Negrita (*)"
             disabled={disabled}
           >
-            <Bold size={16} />
+            <Bold size={14} />
           </button>
           <button
             type="button"
             onClick={() => insertText('_', '_')}
-            className="p-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-all disabled:opacity-50 disabled:pointer-events-none"
+            className="p-1.5 text-secondary hover:text-accent hover:bg-accent/10 rounded-none transition-all disabled:opacity-50 disabled:pointer-events-none"
             title="Cursiva (_)"
             disabled={disabled}
           >
-            <Italic size={16} />
+            <Italic size={14} />
           </button>
-          <div className="w-px h-4 bg-border mx-1" />
+          <div className="w-px h-3.5 bg-border mx-0.5" />
           <div className="relative">
             <button
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className={`p-2 transition-all rounded-lg disabled:opacity-50 disabled:pointer-events-none ${showEmojiPicker ? 'text-accent bg-accent/10' : 'text-secondary hover:text-accent hover:bg-accent/10'}`}
+              className={`p-1.5 transition-all rounded-none disabled:opacity-50 disabled:pointer-events-none ${showEmojiPicker ? 'text-accent bg-accent/10' : 'text-secondary hover:text-accent hover:bg-accent/10'}`}
               title="Emojis"
               disabled={disabled}
             >
-              <Smile size={16} />
+              <Smile size={14} />
             </button>
             
             {showEmojiPicker && !disabled && (
@@ -154,12 +150,12 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
                   className="fixed inset-0 z-[60]" 
                   onClick={() => setShowEmojiPicker(false)} 
                 />
-                <div className="absolute bottom-full left-0 mb-4 z-[70] shadow-2xl animate-in zoom-in-95 duration-200 origin-bottom-left">
+                <div className="absolute bottom-full left-0 mb-2 z-[70] shadow-2xl animate-in zoom-in-95 duration-150 origin-bottom-left">
                   <EmojiPicker
                     onEmojiClick={onEmojiClick}
                     theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
-                    width={320}
-                    height={400}
+                    width={300}
+                    height={360}
                     lazyLoadEmojis={true}
                     searchPlaceholder="Buscar emoji..."
                     previewConfig={{ showPreview: false }}
@@ -172,7 +168,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
         </div>
       </div>
 
-      {helperText && <p className="text-xs text-secondary ml-1">{helperText}</p>}
+      {helperText && <p className="text-[10px] text-secondary ml-0.5">{helperText}</p>}
     </div>
   );
 });

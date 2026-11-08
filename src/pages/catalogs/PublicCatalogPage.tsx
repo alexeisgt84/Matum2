@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Check, Search, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, ChevronDown, ChevronRight, Folder, Search, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useCommissions } from '../../hooks/useCommissions';
@@ -31,6 +31,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { Switch } from '../../components/ui/Switch';
+import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { StoreHero } from '../../components/store/StoreHero';
 import { StoreToolbar } from '../../components/store/StoreToolbar';
 import { CategoryRail, type CategorySelection } from '../../components/store/CategoryRail';
@@ -86,12 +87,37 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   // Estado de exploración y carrito
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<StoreSortBy>('category');
+  const [groupByCategory, setGroupByCategory] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('matum_store_group_by_category');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [selectedCategoryId, setSelectedCategoryId] = useState<CategorySelection>(null);
   const [selectedProduct, setSelectedProduct] = useState<PublicProduct | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
   const [isCompactHeader, setIsCompactHeader] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(16);
+  const [visibleCount, setVisibleCount] = useState(20);
+
+  const toggleGroupByCategory = () => {
+    setGroupByCategory(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('matum_store_group_by_category', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const toggleCategoryCollapse = (key: string) => {
+    setCollapsedCategories(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window !== 'undefined' && slug) {
@@ -159,8 +185,8 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
 
   // Reiniciar paginación al cambiar filtros
   useEffect(() => {
-    setVisibleCount(16);
-  }, [searchQuery, sortBy, selectedCategoryId]);
+    setVisibleCount(20);
+  }, [searchQuery, sortBy, selectedCategoryId, groupByCategory]);
 
   // Mostrar cabecera compacta cuando el hero sale de pantalla
   useEffect(() => {
@@ -499,6 +525,42 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
     [filteredProducts, visibleCount]
   );
 
+  // Agrupación por categorías para renderizar con separadores
+  const groupedDisplayedProducts = useMemo(() => {
+    if (!groupByCategory) return [];
+
+    const sortedCats = [...categories].sort(
+      (c1, c2) => (c1.display_order ?? 0) - (c2.display_order ?? 0)
+    );
+    const catMap = new Map<number, StoreCategory>();
+    sortedCats.forEach(c => catMap.set(Number(c.id), c));
+
+    const groupsMap = new Map<
+      string,
+      { key: string; name: string; icon: string | null; order: number; items: PublicProduct[] }
+    >();
+
+    displayedProducts.forEach(p => {
+      const cat = p.category_id != null ? catMap.get(Number(p.category_id)) : undefined;
+      const key = cat ? `cat_${cat.id}` : 'uncategorized';
+      if (!groupsMap.has(key)) {
+        const orderIdx = cat
+          ? sortedCats.findIndex(c => Number(c.id) === Number(cat.id))
+          : Number.MAX_SAFE_INTEGER;
+        groupsMap.set(key, {
+          key,
+          name: cat ? cat.name : 'Otros productos',
+          icon: cat ? cat.icon : null,
+          order: orderIdx !== -1 ? orderIdx : Number.MAX_SAFE_INTEGER,
+          items: [],
+        });
+      }
+      groupsMap.get(key)!.items.push(p);
+    });
+
+    return Array.from(groupsMap.values()).sort((a, b) => a.order - b.order);
+  }, [displayedProducts, categories, groupByCategory]);
+
   // Scroll infinito unificado (móvil y escritorio)
   const loadMoreRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -507,7 +569,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       observerRef.current = new IntersectionObserver(
         entries => {
           if (entries[0].isIntersecting) {
-            setVisibleCount(prev => Math.min(prev + 16, filteredProducts.length));
+            setVisibleCount(prev => Math.min(prev + 20, filteredProducts.length));
           }
         },
         { threshold: 0.1, rootMargin: '240px' }
@@ -692,29 +754,37 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
     window.open(buildWhatsAppUrl(vendorPhone, messageText), '_blank');
   };
 
+  const openProductDetail = (product: PublicProduct) => {
+    if (embedded) {
+      setSelectedProduct(product);
+    } else {
+      navigate(`/${slug}/p/${product.id}${window.location.search}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 font-store">
-        <div className="w-10 h-10 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-secondary text-sm font-medium animate-pulse">Cargando tienda…</p>
+        <div className="w-7 h-7 border-2 border-[var(--accent)] border-t-transparent rounded-none animate-spin mb-3" />
+        <p className="text-secondary text-xs font-medium animate-pulse">Cargando tienda…</p>
       </div>
     );
   }
 
   if (error || !catalog) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center font-store">
-        <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-500 mb-5">
-          <AlertTriangle size={28} />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-5 text-center font-store">
+        <div className="w-12 h-12 rounded-card bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-500 mb-3">
+          <AlertTriangle size={22} />
         </div>
-        <h1 className="font-display text-2xl font-bold text-primary mb-2">
+        <h1 className="font-display text-lg font-bold text-primary mb-1">
           {error === 'Catálogo no encontrado.' ? 'Tienda no encontrada' : 'Tienda no disponible'}
         </h1>
-        <p className="text-secondary text-sm max-w-xs mb-8">
+        <p className="text-secondary text-xs max-w-xs mb-5">
           El enlace que ingresaste no existe o no está activo en este momento.
         </p>
         <Link to="/login">
-          <Button variant="secondary" icon={ArrowLeft}>
+          <Button variant="secondary" size="sm" icon={ArrowLeft}>
             Volver a Matum
           </Button>
         </Link>
@@ -726,7 +796,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
     <div
       style={themeStyles}
       className={`font-store flex flex-col min-h-screen bg-[var(--background)] text-[var(--text-primary)] ${
-        totalItemsCount > 0 ? 'pb-28' : ''
+        totalItemsCount > 0 ? 'pb-20' : ''
       }`}
     >
       <StoreHero
@@ -747,7 +817,20 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         sortBy={sortBy}
-        onSortChange={setSortBy}
+        onSortChange={val => {
+          setSortBy(val);
+          if (val === 'category') {
+            setGroupByCategory(true);
+            try {
+              localStorage.setItem('matum_store_group_by_category', 'true');
+            } catch {
+              // ignore
+            }
+          }
+        }}
+        groupByCategory={groupByCategory}
+        onToggleGroupByCategory={toggleGroupByCategory}
+        showGroupToggle={categories.length > 0}
         cartCount={totalItemsCount}
         onOpenCart={() => setIsCartOpen(true)}
       >
@@ -760,18 +843,18 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         />
       </StoreToolbar>
 
-      <main className="flex-1 w-full max-w-6xl mx-auto px-4 pt-5 pb-4">
+      <main className="flex-1 w-full max-w-6xl mx-auto px-3 pt-3 pb-3">
         {productsLoading ? (
           <ProductGridSkeleton count={8} />
         ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-20 px-4">
-            <div className="w-14 h-14 rounded-2xl bg-surface border border-border flex items-center justify-center text-secondary mx-auto mb-4">
-              <Search size={24} strokeWidth={1.5} />
+          <div className="text-center py-12 px-3">
+            <div className="w-11 h-11 rounded-card bg-surface border border-border flex items-center justify-center text-secondary mx-auto mb-3">
+              <Search size={18} strokeWidth={1.5} />
             </div>
-            <h2 className="font-display text-lg font-bold text-primary">
+            <h2 className="font-display text-sm font-bold text-primary">
               No encontramos productos
             </h2>
-            <p className="text-secondary text-sm mt-1 max-w-sm mx-auto">
+            <p className="text-secondary text-xs mt-1 max-w-sm mx-auto">
               {searchQuery || selectedCategoryId !== null
                 ? 'Prueba con otra búsqueda o vuelve a ver todas las categorías.'
                 : 'Esta tienda aún no tiene productos publicados.'}
@@ -783,15 +866,79 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
                   setSearchQuery('');
                   setSelectedCategoryId(null);
                 }}
-                className="mt-5 inline-flex items-center justify-center h-10 px-5 rounded-full bg-surface hover:bg-surface-hover border border-border text-sm font-semibold text-primary transition-colors"
+                className="mt-3 inline-flex items-center justify-center h-8 px-3.5 rounded-none bg-surface hover:bg-surface-hover border border-border text-xs font-semibold text-primary transition-colors"
               >
                 Ver todo el catálogo
               </button>
             )}
           </div>
+        ) : groupByCategory && categories.length > 0 ? (
+          <>
+            <div className="space-y-4">
+              {groupedDisplayedProducts.map((group, groupIdx) => {
+                const isCollapsed = !!collapsedCategories[group.key];
+                return (
+                  <section key={group.key} className="space-y-2">
+                    {/* Separador de Categoría */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => toggleCategoryCollapse(group.key)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleCategoryCollapse(group.key);
+                        }
+                      }}
+                      className="flex items-center gap-2 py-1.5 px-2.5 bg-surface/80 hover:bg-surface border border-border cursor-pointer select-none transition-colors"
+                    >
+                      <span className="w-5 h-5 inline-flex items-center justify-center bg-[var(--accent)]/15 text-[var(--accent)] border border-[var(--accent)]/30 flex-shrink-0">
+                        {group.icon ? <CategoryIcon name={group.icon} size={12} /> : <Folder size={12} />}
+                      </span>
+                      <h2 className="font-display text-xs font-bold uppercase tracking-wider text-primary truncate">
+                        {group.name}
+                      </h2>
+                      <div className="h-px flex-1 bg-border mx-1" />
+                      <span className="text-[10px] font-semibold text-secondary tabular-nums px-1.5 py-0.5 bg-background border border-border">
+                        {group.items.length} {group.items.length === 1 ? 'producto' : 'productos'}
+                      </span>
+                      <span className="text-secondary">
+                        {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                      </span>
+                    </div>
+
+                    {!isCollapsed && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+                        {group.items.map((product, idx) => (
+                          <ProductCard
+                            key={product.id}
+                            product={product}
+                            quantity={getProductQuantity(product.id)}
+                            price={getPriceParts(product, pricingCtx)}
+                            showCommission={canSeeCommissions}
+                            priority={groupIdx === 0 && idx < 4}
+                            onOpen={() => openProductDetail(product)}
+                            onAdd={() => addToCart(product)}
+                            onRemove={() => removeFromCart(product.id)}
+                            onShare={e => handleShareProduct(product, e)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
+            </div>
+
+            {visibleCount < filteredProducts.length && (
+              <div ref={loadMoreRef} className="h-16 flex items-center justify-center mt-4">
+                <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-none animate-spin" />
+              </div>
+            )}
+          </>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-6 sm:gap-x-5 sm:gap-y-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
               {displayedProducts.map((product, idx) => (
                 <ProductCard
                   key={product.id}
@@ -800,13 +947,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
                   price={getPriceParts(product, pricingCtx)}
                   showCommission={canSeeCommissions}
                   priority={idx < 4}
-                  onOpen={() => {
-                    if (embedded) {
-                      setSelectedProduct(product);
-                    } else {
-                      navigate(`/${slug}/p/${product.id}${window.location.search}`);
-                    }
-                  }}
+                  onOpen={() => openProductDetail(product)}
                   onAdd={() => addToCart(product)}
                   onRemove={() => removeFromCart(product.id)}
                   onShare={e => handleShareProduct(product, e)}
@@ -815,8 +956,8 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
             </div>
 
             {visibleCount < filteredProducts.length && (
-              <div ref={loadMoreRef} className="h-24 flex items-center justify-center mt-6">
-                <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+              <div ref={loadMoreRef} className="h-16 flex items-center justify-center mt-4">
+                <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-none animate-spin" />
               </div>
             )}
           </>
@@ -842,15 +983,15 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       />
 
       {showOrderSuccess && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-4 py-3 rounded-full shadow-xl flex items-center gap-2 text-sm font-semibold animate-store-fade-up">
-          <Check size={16} /> Redirigiendo a WhatsApp con tu pedido…
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-3 py-2 rounded-none shadow-xl flex items-center gap-1.5 text-xs font-semibold animate-store-fade-up">
+          <Check size={14} /> Redirigiendo a WhatsApp con tu pedido…
           <button
             type="button"
             onClick={() => setShowOrderSuccess(false)}
             className="ml-1 hover:opacity-80"
             aria-label="Cerrar aviso"
           >
-            <X size={15} />
+            <X size={13} />
           </button>
         </div>
       )}
@@ -859,7 +1000,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         count={totalItemsCount}
         totals={totals}
         onOpen={() => setIsCartOpen(true)}
-        bottomOffsetClass={embedded ? 'bottom-20' : 'bottom-4'}
+        bottomOffsetClass={embedded ? 'bottom-16' : 'bottom-3'}
       />
 
       <CartSheet
@@ -898,6 +1039,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           <div className="flex gap-2 w-full">
             <Button
               variant="secondary"
+              size="sm"
               onClick={() => setIsCustomerFormOpen(false)}
               className="flex-1"
             >
@@ -905,6 +1047,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
             </Button>
             <Button
               variant="primary"
+              size="sm"
               disabled={!isMinAmountMet}
               onClick={() => {
                 if (!customerName.trim() || !customerAddress.trim() || !customerPhone.trim()) {
@@ -931,8 +1074,8 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           </div>
         }
       >
-        <div className="space-y-4 text-left font-store">
-          <p className="text-sm text-secondary leading-relaxed">
+        <div className="space-y-3 text-left font-store">
+          <p className="text-xs text-secondary leading-relaxed">
             Completa tus datos para coordinar la entrega y finalizar tu pedido por WhatsApp.
           </p>
 
@@ -974,7 +1117,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           </div>
 
           {isDifferentRecipient && (
-            <div className="space-y-4 pt-2 animate-store-fade-up">
+            <div className="space-y-3 pt-1 animate-store-fade-up">
               <Input
                 label="Nombre de la persona que recibe"
                 placeholder="Ej: María Gómez"

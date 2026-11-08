@@ -36,11 +36,12 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       zIndex={zIndex}
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={loading}>
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={loading}>
             {cancelLabel}
           </Button>
           <Button 
-            variant={variant} 
+            variant={variant}
+            size="sm"
             onClick={onConfirm} 
             loading={loading}
           >
@@ -49,12 +50,12 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </>
       }
     >
-      <div className="items-start gap-4 flex">
-        <div className={`p-3 rounded-2xl ${variant === 'danger' ? 'bg-danger/10 text-danger' : 'bg-accent/10 text-accent'}`}>
-          <AlertTriangle size={24} />
+      <div className="items-start gap-3 flex">
+        <div className={`p-2 rounded-none shrink-0 ${variant === 'danger' ? 'bg-danger/10 text-danger' : 'bg-accent/10 text-accent'}`}>
+          <AlertTriangle size={18} />
         </div>
         <div>
-          <p className="text-secondary leading-relaxed">
+          <p className="text-secondary text-xs leading-relaxed">
             {message}
           </p>
         </div>

@@ -6,18 +6,67 @@ export const IMAGE_CACHE_NAME = 'matum-images-v1';
 
 // Estado reactivo de conectividad real (por si Android reporta navigator.onLine = true sin acceso real a internet)
 let networkUnreachableUntil = 0;
+let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+
+export async function checkNetworkConnectivity(): Promise<boolean> {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return false;
+  }
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  if (!supabaseUrl) {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(`${supabaseUrl}/auth/v1/health`, {
+      method: 'GET',
+      headers: supabaseAnonKey ? { apikey: supabaseAnonKey } : undefined,
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+    const reachable = res.status > 0;
+    if (reachable) {
+      networkUnreachableUntil = 0;
+      notifyNetworkStatus(true);
+    }
+    return reachable;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 if (typeof window !== 'undefined') {
   window.addEventListener('matum:network-status', (e: Event) => {
     const custom = e as CustomEvent<{ online: boolean }>;
     if (custom.detail?.online) {
       networkUnreachableUntil = 0;
+      if (recoveryTimer) {
+        clearTimeout(recoveryTimer);
+        recoveryTimer = null;
+      }
     } else {
-      networkUnreachableUntil = Date.now() + 15000;
+      networkUnreachableUntil = Date.now() + 6000;
+      if (recoveryTimer) clearTimeout(recoveryTimer);
+      recoveryTimer = setTimeout(() => {
+        networkUnreachableUntil = 0;
+        if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+          checkNetworkConnectivity();
+        }
+      }, 6000);
     }
   });
   window.addEventListener('online', () => {
     networkUnreachableUntil = 0;
+    if (recoveryTimer) {
+      clearTimeout(recoveryTimer);
+      recoveryTimer = null;
+    }
+    notifyNetworkStatus(true);
   });
 }
 
@@ -477,35 +526,71 @@ export async function getCachedList<T>(key: string): Promise<T | null> {
 // Sincronización Automática Completa de un Catálogo
 // ==========================================
 const syncingCatalogs = new Set<string>();
+const syncedCatalogsSession = new Set<string>();
+const syncQueue: string[] = [];
+let isProcessingSyncQueue = false;
+
+async function processSyncQueue(): Promise<void> {
+  if (isProcessingSyncQueue) return;
+  isProcessingSyncQueue = true;
+
+  // Dar prioridad a las consultas principales de la interfaz antes de sincronizar en segundo plano
+  await new Promise((r) => setTimeout(r, 800));
+
+  while (syncQueue.length > 0) {
+    if (isOffline()) {
+      syncQueue.length = 0;
+      break;
+    }
+
+    const catalogId = syncQueue.shift();
+    if (!catalogId || syncedCatalogsSession.has(catalogId)) continue;
+
+    syncingCatalogs.add(catalogId);
+    try {
+      const [prodRes, catRes] = await Promise.all([
+        supabase
+          .from('products')
+          .select('*')
+          .eq('catalog_id', catalogId)
+          .order('is_out_of_stock', { ascending: true })
+          .order('position', { ascending: true }),
+        supabase
+          .from('categories')
+          .select('*')
+          .eq('catalog_id', catalogId)
+          .order('display_order', { ascending: true }),
+      ]);
+
+      if (!prodRes.error && prodRes.data) {
+        await saveCatalogProductsToCache(catalogId, prodRes.data);
+      }
+      if (!catRes.error && catRes.data) {
+        await saveCatalogCategoriesToCache(catalogId, catRes.data);
+      }
+      if (!prodRes.error && !catRes.error) {
+        syncedCatalogsSession.add(catalogId);
+      }
+    } catch {
+      // Silencioso en segundo plano
+    } finally {
+      syncingCatalogs.delete(catalogId);
+    }
+  }
+
+  isProcessingSyncQueue = false;
+}
 
 export async function syncCatalogForOffline(catalogId: string): Promise<void> {
-  if (!catalogId || isOffline() || syncingCatalogs.has(catalogId)) return;
-  syncingCatalogs.add(catalogId);
-
-  try {
-    const [prodRes, catRes] = await Promise.all([
-      supabase
-        .from('products')
-        .select('*')
-        .eq('catalog_id', catalogId)
-        .order('is_out_of_stock', { ascending: true })
-        .order('position', { ascending: true }),
-      supabase
-        .from('categories')
-        .select('*')
-        .eq('catalog_id', catalogId)
-        .order('display_order', { ascending: true }),
-    ]);
-
-    if (!prodRes.error && prodRes.data) {
-      await saveCatalogProductsToCache(catalogId, prodRes.data);
-    }
-    if (!catRes.error && catRes.data) {
-      await saveCatalogCategoriesToCache(catalogId, catRes.data);
-    }
-  } catch {
-    // Silencioso en segundo plano
-  } finally {
-    syncingCatalogs.delete(catalogId);
+  if (
+    !catalogId ||
+    isOffline() ||
+    syncingCatalogs.has(catalogId) ||
+    syncedCatalogsSession.has(catalogId) ||
+    syncQueue.includes(catalogId)
+  ) {
+    return;
   }
+  syncQueue.push(catalogId);
+  void processSyncQueue();
 }

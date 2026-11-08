@@ -17,7 +17,7 @@ interface ProductCardProps {
   onShare: (e: React.MouseEvent) => void;
 }
 
-/** Tarjeta vertical de producto con la imagen como protagonista. */
+/** Tarjeta vertical de producto con la imagen como protagonista y radio de 10px (rounded-card). */
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   quantity,
@@ -43,21 +43,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         if (e.key === 'Enter') onOpen();
       }}
       aria-label={product.name}
-      className="group relative flex flex-col cursor-pointer animate-store-fade-up focus-visible:outline-none"
+      className="group relative flex flex-col cursor-pointer animate-store-fade-up focus-visible:outline-none rounded-card bg-surface/40 border border-border/70 hover:border-[var(--accent)]/40 p-1.5 transition-colors"
     >
       {/* Imagen */}
-      <div className="relative aspect-square overflow-hidden rounded-2xl bg-surface border border-border group-focus-visible:ring-2 group-focus-visible:ring-[var(--accent)]">
+      <div className="relative aspect-square overflow-hidden rounded-card bg-surface border border-border group-focus-visible:ring-1 group-focus-visible:ring-[var(--accent)]">
         {product.imagen_url ? (
           <img
             src={product.imagen_url}
             alt={product.name}
             loading={priority ? 'eager' : 'lazy'}
             decoding="async"
-            className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+            className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-secondary/60">
-            <ShoppingBag size={32} strokeWidth={1.5} />
+            <ShoppingBag size={24} strokeWidth={1.5} />
           </div>
         )}
 
@@ -65,63 +65,63 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <button
           type="button"
           onClick={onShare}
-          className="hidden sm:inline-flex absolute top-2.5 right-2.5 w-9 h-9 items-center justify-center rounded-full bg-black/45 hover:bg-black/65 backdrop-blur-md text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+          className="hidden sm:inline-flex absolute top-1.5 right-1.5 w-7 h-7 items-center justify-center rounded-none bg-black/55 hover:bg-black/75 backdrop-blur-md text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
           aria-label={`Compartir ${product.name}`}
         >
-          <Share2 size={15} />
+          <Share2 size={13} />
         </button>
 
         {/* Agregar / cantidad */}
-        <div className="absolute bottom-2.5 right-2.5" onClick={e => e.stopPropagation()}>
+        <div className="absolute bottom-1.5 right-1.5" onClick={e => e.stopPropagation()}>
           {quantity > 0 ? (
-            <div className="flex items-center h-10 rounded-full bg-surface/95 backdrop-blur-md border border-border shadow-lg text-primary animate-store-fade-up">
+            <div className="flex items-center h-7 rounded-none bg-surface/95 backdrop-blur-md border border-border shadow-md text-primary animate-store-fade-up">
               <button
                 type="button"
                 onClick={stop(onRemove)}
-                className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-hover active:scale-90 transition-transform"
+                className="w-7 h-7 inline-flex items-center justify-center rounded-none hover:bg-surface-hover active:scale-90 transition-transform"
                 aria-label={`Quitar una unidad de ${product.name}`}
               >
-                <Minus size={15} />
+                <Minus size={12} />
               </button>
-              <span className="min-w-[1.25rem] text-center text-sm font-bold tabular-nums" aria-live="polite">
+              <span className="min-w-[1.1rem] text-center text-xs font-bold tabular-nums px-0.5" aria-live="polite">
                 {quantity}
               </span>
               <button
                 type="button"
                 onClick={stop(onAdd)}
-                className="w-10 h-10 inline-flex items-center justify-center rounded-full hover:bg-surface-hover active:scale-90 transition-transform"
+                className="w-7 h-7 inline-flex items-center justify-center rounded-none hover:bg-surface-hover active:scale-90 transition-transform"
                 aria-label={`Añadir una unidad de ${product.name}`}
               >
-                <Plus size={15} />
+                <Plus size={12} />
               </button>
             </div>
           ) : (
             <button
               type="button"
               onClick={stop(onAdd)}
-              className="w-10 h-10 inline-flex items-center justify-center rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] shadow-lg active:scale-90 transition-all"
+              className="w-7 h-7 inline-flex items-center justify-center rounded-none bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] shadow-md active:scale-90 transition-all"
               aria-label={`Agregar ${product.name} al pedido`}
             >
-              <Plus size={18} strokeWidth={2.5} />
+              <Plus size={14} strokeWidth={2.5} />
             </button>
           )}
         </div>
       </div>
 
       {/* Información */}
-      <div className="pt-2.5 px-0.5 flex flex-col gap-1">
-        <h3 className="text-[13px] sm:text-sm font-medium text-primary leading-snug line-clamp-2">
+      <div className="pt-1.5 px-0.5 flex flex-col gap-0.5">
+        <h3 className="text-xs font-medium text-primary leading-snug line-clamp-2">
           {product.name}
         </h3>
         <PriceTag
           parts={price}
           stacked
-          className="text-[15px] sm:text-base font-bold text-primary tracking-tight"
-          secondaryClassName="text-xs font-medium text-secondary"
+          className="text-xs sm:text-sm font-bold text-primary tracking-tight"
+          secondaryClassName="text-[10px] font-medium text-secondary"
         />
         {showCommission && (product.commission_amount ?? 0) > 0 && (
-          <span className="mt-0.5 inline-flex items-center gap-1 w-fit px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">
-            <Coins size={12} />
+          <span className="mt-0.5 inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded-none bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold">
+            <Coins size={10} />
             +{product.commission_amount} {product.commission_currency || 'CUP'}
           </span>
         )}
@@ -132,12 +132,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
 /** Esqueleto de carga de la cuadrícula de productos. */
 export const ProductGridSkeleton: React.FC<{ count?: number }> = ({ count = 8 }) => (
-  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-6 sm:gap-x-5 sm:gap-y-8" aria-hidden="true">
+  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3.5" aria-hidden="true">
     {Array.from({ length: count }).map((_, i) => (
-      <div key={i} className="flex flex-col gap-2.5">
-        <div className="aspect-square rounded-2xl bg-surface border border-border animate-pulse" />
-        <div className="h-3.5 w-4/5 rounded-md bg-surface animate-pulse" />
-        <div className="h-4 w-2/5 rounded-md bg-surface animate-pulse" />
+      <div key={i} className="flex flex-col gap-1.5 rounded-card bg-surface/40 border border-border/70 p-1.5">
+        <div className="aspect-square rounded-card bg-surface border border-border animate-pulse" />
+        <div className="h-3 w-4/5 rounded-none bg-surface animate-pulse" />
+        <div className="h-3.5 w-2/5 rounded-none bg-surface animate-pulse" />
       </div>
     ))}
   </div>

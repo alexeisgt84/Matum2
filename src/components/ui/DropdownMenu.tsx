@@ -34,14 +34,14 @@ export const DropdownMenu = ({ items, trigger }: DropdownMenuProps) => {
       ) : (
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 hover:bg-[var(--surface-hover)] rounded-full transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          className="p-1.5 hover:bg-[var(--surface-hover)] rounded-none transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         >
-          <MoreVertical size={24} />
+          <MoreVertical size={18} />
         </button>
       )}
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-56 rounded-xl bg-surface border border-border shadow-2xl py-2 z-50 animate-in fade-in zoom-in duration-200">
+        <div className="absolute right-0 mt-1 w-48 rounded-none bg-surface border border-border shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-150">
           {items.map((item, index) => (
             <button
               key={index}
@@ -49,12 +49,12 @@ export const DropdownMenu = ({ items, trigger }: DropdownMenuProps) => {
                 item.onClick();
                 setIsOpen(false);
               }}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors hover:bg-surface-hover ${
+              className={`w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors hover:bg-surface-hover ${
                 item.variant === 'danger' ? 'text-red-400' : 'text-primary'
               }`}
             >
-              {item.icon && <item.icon size={18} />}
-              <span>{item.label}</span>
+              {item.icon && <item.icon size={14} />}
+              <span className="truncate">{item.label}</span>
             </button>
           ))}
         </div>

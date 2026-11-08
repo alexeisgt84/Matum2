@@ -10,6 +10,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+let lastNetworkSuccessAt = 0;
+let consecutiveNetworkFailures = 0;
+
 const dispatchNetworkStatus = (online: boolean) => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('matum:network-status', { detail: { online } }));
@@ -31,17 +34,26 @@ const customFetch: typeof fetch = async (input, init) => {
 
   const timeoutMs =
     isStorageUpload || isEdgeFunction
-      ? 25000
+      ? 30000
       : isAuthRequest || isWriteRequest
-        ? 15000
-        : 4500;
+        ? 20000
+        : 12000;
 
   const controller = new AbortController();
+  let abortedByCaller = false;
   if (init?.signal) {
     if (init.signal.aborted) {
+      abortedByCaller = true;
       controller.abort();
     } else {
-      init.signal.addEventListener('abort', () => controller.abort(), { once: true });
+      init.signal.addEventListener(
+        'abort',
+        () => {
+          abortedByCaller = true;
+          controller.abort();
+        },
+        { once: true }
+      );
     }
   }
 
@@ -58,10 +70,25 @@ const customFetch: typeof fetch = async (input, init) => {
       fetch(input, { ...init, signal: controller.signal }),
       timeoutPromise,
     ]);
+    consecutiveNetworkFailures = 0;
+    lastNetworkSuccessAt = Date.now();
     dispatchNetworkStatus(true);
     return response;
   } catch (err) {
-    dispatchNetworkStatus(false);
+    if (abortedByCaller) {
+      throw err;
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      consecutiveNetworkFailures++;
+      dispatchNetworkStatus(false);
+    } else {
+      consecutiveNetworkFailures++;
+      const recentlySucceeded = Date.now() - lastNetworkSuccessAt < 10000;
+      if (!recentlySucceeded && consecutiveNetworkFailures >= 3) {
+        dispatchNetworkStatus(false);
+      }
+    }
     throw err;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);

@@ -7,7 +7,11 @@ import { HeaderProvider } from './lib/HeaderContext';
 import { useStore } from './store/useStore';
 import { useShareStore } from './store/shareStore';
 import { useAuthStore } from './store/authStore';
-import { setupOfflineImageFallback, isOffline } from './lib/offlineCache';
+import {
+  setupOfflineImageFallback,
+  isOffline,
+  checkNetworkConnectivity,
+} from './lib/offlineCache';
 
 function App() {
   const location = useLocation();
@@ -42,6 +46,16 @@ function App() {
       window.removeEventListener('matum:network-status', handleNetworkStatus);
     };
   }, []);
+
+  useEffect(() => {
+    if (isOnline) return;
+    const interval = setInterval(() => {
+      if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+        void checkNetworkConnectivity();
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isOnline]);
 
   const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
 

@@ -8,7 +8,7 @@ import { Button } from '../../components/ui/Button';
 import { LimitBadge } from '../../components/ui/LimitBadge';
 import { UpgradeModal } from '../../components/ui/UpgradeModal';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { LayoutGrid, Plus, ExternalLink, Trash2, Edit3, Sparkles, X, MessageSquare } from 'lucide-react';
+import { LayoutGrid, Plus, ExternalLink, Trash2, Edit3, Sparkles } from 'lucide-react';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { useShareStore } from '../../store/shareStore';
@@ -41,33 +41,33 @@ export const CatalogsPage = () => {
 
   if (loading && catalogs.length === 0) {
     return (
-      <div className="p-4 max-w-lg mx-auto pb-24">
+      <div className="p-3 max-w-lg mx-auto pb-16">
         <PageHeader 
           title="Tus Catálogos" 
           subtitle="Cargando…"
           rightAction={
-            <div className="w-24 h-9 bg-surface-hover animate-pulse rounded-lg" />
+            <div className="w-20 h-7 bg-surface-hover animate-pulse rounded-none" />
           }
         />
-        <div className="mb-8">
-          <Skeleton className="h-6 w-full" />
+        <div className="mb-3">
+          <Skeleton className="h-5 w-full" />
         </div>
-        <div className="grid gap-4">
+        <div className="grid gap-2.5">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="card p-6 space-y-4">
+            <div key={i} className="card p-3.5 space-y-2.5">
               <div className="flex justify-between items-start">
-                <div className="space-y-2 flex-1">
-                  <Skeleton className="h-6 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-3.5 w-1/2" />
                 </div>
-                <div className="flex gap-2">
-                  <Skeleton className="h-8 w-8 rounded-lg" />
-                  <Skeleton className="h-8 w-8 rounded-lg" />
+                <div className="flex gap-1.5">
+                  <Skeleton className="h-7 w-7 rounded-none" />
+                  <Skeleton className="h-7 w-7 rounded-none" />
                 </div>
               </div>
-              <div className="pt-4 border-t border-border flex justify-between">
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-3 w-24" />
+              <div className="pt-2.5 border-t border-border flex justify-between">
+                <Skeleton className="h-2.5 w-16" />
+                <Skeleton className="h-2.5 w-20" />
               </div>
             </div>
           ))}
@@ -77,7 +77,7 @@ export const CatalogsPage = () => {
   }
 
   return (
-    <div className="p-4 max-w-lg mx-auto pb-24">
+    <div className="p-3 max-w-lg mx-auto pb-16">
       <PageHeader 
         title="Tus Catálogos" 
         subtitle="Gestión de Listas"
@@ -86,14 +86,14 @@ export const CatalogsPage = () => {
             size="sm" 
             icon={Plus} 
             onClick={handleCreateClick}
-            className="shadow-lg shadow-accent/20"
+            className="shadow-md shadow-accent/20"
           >
             Nuevo
           </Button>
         }
       />
 
-      <div className="mb-8">
+      <div className="mb-3">
         <LimitBadge 
           current={counts.catalogs} 
           limit={limits.catalogs} 
@@ -102,22 +102,22 @@ export const CatalogsPage = () => {
       </div>
 
       {pendingMemberInvitations.length > 0 && (
-        <div className="mb-6 space-y-3 bg-accent/5 border border-accent/15 p-4 rounded-2xl animate-in slide-in-from-top duration-300">
-          <h4 className="text-[10px] font-black uppercase tracking-wider text-accent flex items-center gap-1.5">
-            <Sparkles size={12} />
+        <div className="mb-3 space-y-2 bg-accent/5 border border-accent/15 p-3 rounded-card animate-in slide-in-from-top duration-300">
+          <h4 className="text-[9px] font-black uppercase tracking-wider text-accent flex items-center gap-1">
+            <Sparkles size={11} />
             Invitaciones a Colaborar ({pendingMemberInvitations.length})
           </h4>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {pendingMemberInvitations.map((inv: any) => (
-              <div key={inv.id} className="flex justify-between items-center bg-surface p-3 rounded-xl border border-border">
-                <div className="min-w-0 flex-1 pr-3">
+              <div key={inv.id} className="flex justify-between items-center bg-surface p-2 rounded-card border border-border">
+                <div className="min-w-0 flex-1 pr-2">
                   <p className="font-bold text-primary text-xs truncate">{inv.catalog?.name}</p>
                   <p className="text-secondary text-[10px] truncate">{inv.catalog?.description || 'Sin descripción'}</p>
                 </div>
-                <div className="flex gap-1.5 flex-shrink-0">
+                <div className="flex gap-1 flex-shrink-0">
                   <Button 
                     size="sm" 
-                    className="!py-1 px-3 text-[10px] h-7"
+                    className="!py-0.5 px-2.5 text-[10px] h-6"
                     onClick={async () => {
                       const ok = await respondToMemberInvitation(inv.id, 'accepted');
                       if (ok) {
@@ -130,7 +130,7 @@ export const CatalogsPage = () => {
                   <Button 
                     variant="secondary" 
                     size="sm" 
-                    className="!py-1 px-3 text-[10px] h-7 border-border hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20"
+                    className="!py-0.5 px-2.5 text-[10px] h-6 border-border hover:bg-red-500/10 hover:text-red-500 hover:border-red-500/20"
                     onClick={() => respondToMemberInvitation(inv.id, 'rejected')}
                   >
                     Rechazar
@@ -143,10 +143,10 @@ export const CatalogsPage = () => {
       )}
 
       {sharedContentList.length > 0 && (
-        <div className="mb-6 space-y-1">
-          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-secondary px-1 mb-1 flex justify-between items-center">
+        <div className="mb-3 space-y-1">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-secondary px-1 mb-0.5 flex justify-between items-center">
             <span>Productos en espera ({sharedContentList.length})</span>
-            <span className="text-[8px] lowercase opacity-60">Arraste a la izquierda para borrar</span>
+            <span className="text-[8px] lowercase opacity-60">Arrastre a la izquierda para borrar</span>
           </p>
           {sharedContentList.map((item, index) => (
             <SwipeableShareBanner
@@ -170,7 +170,7 @@ export const CatalogsPage = () => {
           onAction={handleCreateClick}
         />
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-2.5">
           {catalogs.map((catalog: any) => (
             <div 
               key={catalog.id} 
@@ -178,50 +178,50 @@ export const CatalogsPage = () => {
               onClick={() => navigate(`/catalogs/${catalog.id}`)}
             >
               {/* Decorative gradient */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full -mr-16 -mt-16 blur-3xl group-hover:bg-accent/10 transition-colors" />
+              <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-accent/10 transition-colors" />
               
-              <div className="relative flex justify-between items-start">
-                <div className="space-y-1 flex-1">
-                  <h3 className="text-lg font-bold text-primary group-hover:text-accent transition-colors">
+              <div className="relative flex justify-between items-start gap-2">
+                <div className="space-y-0.5 flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-primary group-hover:text-accent transition-colors truncate">
                     {catalog.name}
                   </h3>
-                  <p className="text-secondary text-sm line-clamp-2 pr-8 leading-relaxed">
+                  <p className="text-secondary text-xs line-clamp-2 pr-4 leading-snug">
                     {catalog.description || 'Sin descripción'}
                   </p>
                 </div>
                 
-                <div className="flex gap-1">
+                <div className="flex gap-1 flex-shrink-0">
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/catalogs/${catalog.id}/edit`);
                     }}
-                    className="p-2 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-colors"
+                    className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-none transition-colors"
                     aria-label={`Editar catálogo ${catalog.name}`}
                   >
-                    <Edit3 size={18} />
+                    <Edit3 size={14} />
                   </button>
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
                       setCatalogToDelete(catalog.id);
                     }}
-                    className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                    className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-none transition-colors"
                     aria-label={`Eliminar catálogo ${catalog.name}`}
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={14} />
                   </button>
                 </div>
               </div>
 
-              <div className="pt-6 mt-4 border-t border-border flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-secondary">
-                <div className="flex items-center gap-1.5">
-                  <LayoutGrid size={12} />
+              <div className="pt-3 mt-2.5 border-t border-border flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-secondary">
+                <div className="flex items-center gap-1">
+                  <LayoutGrid size={11} />
                   <span className="tabular-nums">{catalog.productCount || 0} Productos</span>
                 </div>
                 <div className="flex items-center gap-1 group-hover:text-accent transition-colors">
                   Abrir Catálogo
-                  <ExternalLink size={12} />
+                  <ExternalLink size={11} />
                 </div>
               </div>
             </div>
@@ -230,43 +230,43 @@ export const CatalogsPage = () => {
       )}
 
       {sharedCatalogs.length > 0 && (
-        <div className="mt-8 space-y-4">
-          <h2 className="text-[11px] font-black uppercase tracking-[0.2em] text-secondary px-1">
+        <div className="mt-5 space-y-2.5">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.15em] text-secondary px-0.5">
             Catálogos en los que colaboras ({sharedCatalogs.length})
           </h2>
-          <div className="grid gap-4">
+          <div className="grid gap-2.5">
             {sharedCatalogs.map((catalog: any) => (
               <div 
                 key={catalog.id} 
                 className="card group hover:border-accent/30 transition-all cursor-pointer relative overflow-hidden"
                 onClick={() => navigate(`/catalogs/${catalog.id}`)}
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+                <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full -mr-12 -mt-12 blur-2xl" />
                 
                 <div className="relative flex justify-between items-start">
-                  <div className="space-y-1 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-bold text-primary group-hover:text-accent transition-colors">
+                  <div className="space-y-0.5 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-sm font-bold text-primary group-hover:text-accent transition-colors truncate">
                         {catalog.name}
                       </h3>
-                      <span className="text-[9px] bg-accent/10 text-accent px-2 py-0.5 rounded-full font-black uppercase tracking-wider">
+                      <span className="text-[8px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-none font-black uppercase tracking-wider">
                         Colaborador
                       </span>
                     </div>
-                    <p className="text-secondary text-sm line-clamp-2 pr-8 leading-relaxed">
+                    <p className="text-secondary text-xs line-clamp-2 pr-4 leading-snug">
                       {catalog.description || 'Sin descripción'}
                     </p>
                   </div>
                 </div>
 
-                <div className="pt-6 mt-4 border-t border-border flex items-center justify-between text-[11px] font-bold uppercase tracking-widest text-secondary">
-                  <div className="flex items-center gap-1.5">
-                    <LayoutGrid size={12} />
+                <div className="pt-3 mt-2.5 border-t border-border flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-secondary">
+                  <div className="flex items-center gap-1">
+                    <LayoutGrid size={11} />
                     <span className="tabular-nums">{catalog.productCount || 0} Productos</span>
                   </div>
                   <div className="flex items-center gap-1 group-hover:text-accent transition-colors">
                     Abrir Catálogo
-                    <ExternalLink size={12} />
+                    <ExternalLink size={11} />
                   </div>
                 </div>
               </div>
@@ -278,7 +278,7 @@ export const CatalogsPage = () => {
       <UpgradeModal 
         isOpen={showUpgrade} 
         onClose={() => setShowUpgrade(false)}
-        currentPlan={limits.catalogs === 1 ? 'free' : 'basic'} // Placeholder logic
+        currentPlan={limits.catalogs === 1 ? 'free' : 'basic'}
         reachedLimit="catalogs"
       />
 

@@ -18,22 +18,22 @@ export const Select: React.FC<SelectProps> = ({
   ...props
 }) => {
   const selectClasses = `
-    w-full bg-surface-hover border rounded-xl text-primary text-sm
-    outline-none transition-all duration-200 appearance-none cursor-pointer pr-10
+    w-full bg-surface-hover border rounded-none text-primary text-xs
+    outline-none transition-all duration-150 appearance-none cursor-pointer pr-8
     ${error ? 'border-danger/50 focus:border-danger' : 'border-border focus:border-accent focus:bg-surface'}
-    h-11 py-0 px-3.5
-    ${Icon ? 'pl-10' : ''}
+    h-8 py-0 px-2.5
+    ${Icon ? 'pl-8' : ''}
     ${className}
   `;
 
   return (
-    <div className="w-full space-y-1.5 text-primary">
-      {label && <label className="text-sm font-medium text-secondary ml-1 block">{label}</label>}
+    <div className="w-full space-y-1 text-primary">
+      {label && <label className="text-[11px] font-medium text-secondary ml-0.5 block">{label}</label>}
       
       <div className="relative flex items-center">
         {Icon && (
-          <div className="absolute left-3.5 text-secondary/50 pointer-events-none flex items-center justify-center">
-            <Icon size={18} />
+          <div className="absolute left-2.5 text-secondary/50 pointer-events-none flex items-center justify-center">
+            <Icon size={14} />
           </div>
         )}
 
@@ -44,15 +44,15 @@ export const Select: React.FC<SelectProps> = ({
           {children}
         </select>
 
-        <div className="absolute right-3.5 text-secondary/50 pointer-events-none flex items-center justify-center">
-          <ChevronDown size={18} />
+        <div className="absolute right-2.5 text-secondary/50 pointer-events-none flex items-center justify-center">
+          <ChevronDown size={14} />
         </div>
       </div>
 
       {error ? (
-        <p className="text-xs text-danger ml-1 font-medium">{error}</p>
+        <p className="text-[10px] text-danger ml-0.5 font-medium">{error}</p>
       ) : helperText ? (
-        <p className="text-xs text-secondary ml-1">{helperText}</p>
+        <p className="text-[10px] text-secondary ml-0.5">{helperText}</p>
       ) : null}
     </div>
   );

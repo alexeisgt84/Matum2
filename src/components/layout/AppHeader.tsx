@@ -1,10 +1,9 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useHeader } from '../../lib/HeaderContext';
 import { BackButton } from '../ui/BackButton';
 
 export const AppHeader = () => {
-  const navigate = useNavigate();
   const location = useLocation();
   const { title: contextTitle, subtitle, rightAction, onBack } = useHeader();
 
@@ -20,25 +19,25 @@ export const AppHeader = () => {
   const isHome = ['/', '/profile'].includes(location.pathname);
 
   return (
-    <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border h-20 px-4 transition-colors duration-300">
-      <div className="max-w-lg mx-auto h-full flex items-center gap-3">
+    <header className="sticky top-0 z-40 bg-background/85 backdrop-blur-lg border-b border-border h-12 px-3 transition-colors duration-200">
+      <div className="max-w-lg mx-auto h-full flex items-center gap-2">
         {!isHome && (
-          <BackButton variant="minimal" className="-ml-2" onClick={onBack || undefined} />
+          <BackButton variant="minimal" className="-ml-1" onClick={onBack || undefined} />
         )}
         
         <div className="flex-1 min-w-0">
-          <h1 className="font-bold text-lg text-primary truncate leading-tight transition-colors">
+          <h1 className="font-bold text-sm text-primary truncate leading-tight transition-colors">
             {contextTitle || getTitle(location.pathname)}
           </h1>
           {subtitle && (
-            <p className="text-secondary text-[10px] uppercase tracking-[0.2em] font-bold opacity-70 mt-0.5 flex items-center gap-1.5 truncate transition-colors">
-              <span className="w-1 h-1 rounded-full bg-accent/40 animate-pulse flex-shrink-0" />
+            <p className="text-secondary text-[9px] uppercase tracking-[0.15em] font-bold opacity-70 flex items-center gap-1 truncate transition-colors">
+              <span className="w-1 h-1 rounded-none bg-accent/60 animate-pulse flex-shrink-0" />
               {subtitle}
             </p>
           )}
         </div>
 
-        <div className="flex-shrink-0 flex items-center gap-2">
+        <div className="flex-shrink-0 flex items-center gap-1.5">
           {rightAction}
         </div>
       </div>

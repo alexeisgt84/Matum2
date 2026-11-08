@@ -1,8 +1,6 @@
 import React from 'react';
 import type { WhatsAppMessage } from '../../types/message';
 import { Edit3, Trash2, MessageSquare, Image, MousePointer2, Package, Clock, Send, GripVertical, Share2, Zap } from 'lucide-react';
-import { toast } from 'react-hot-toast';
-
 
 import { shareContent } from '../../lib/share';
 
@@ -53,36 +51,36 @@ export const MessageCard: React.FC<MessageCardProps> = ({
   };
 
   return (
-    <div className={`card group hover:border-accent/30 transition-all flex flex-col p-3 gap-3 relative ${isCatalog ? 'border-accent/20 bg-accent/5' : ''} ${isSelected ? 'border-accent ring-1 ring-accent' : ''}`}>
+    <div className={`card rounded-card group hover:border-accent/30 transition-all flex flex-col p-2.5 gap-2 relative ${isCatalog ? 'border-accent/20 bg-accent/5' : ''} ${isSelected ? 'border-accent ring-1 ring-accent' : ''}`}>
       {/* Checkbox de Selección */}
       <button
         onClick={() => onSelect?.(message.id)}
-        className={`absolute -top-2 -left-2 z-20 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all shadow-lg ${
+        className={`absolute -top-1.5 -left-1.5 z-20 w-5 h-5 rounded-none border flex items-center justify-center transition-all shadow ${
           isSelected 
-            ? 'bg-accent border-accent text-black scale-110' 
+            ? 'bg-accent border-accent text-black scale-105' 
             : 'bg-surface border-border text-transparent opacity-0 group-hover:opacity-100 hover:border-accent'
         }`}
       >
-        <div className={`w-2.5 h-2.5 rounded-full ${isSelected ? 'bg-black' : 'bg-transparent'}`} />
+        <div className={`w-2 h-2 rounded-none ${isSelected ? 'bg-black' : 'bg-transparent'}`} />
       </button>
 
       {/* Línea Superior: Botones de Acción */}
-      <div className="flex justify-end gap-1.5 border-b border-border pb-2">
+      <div className="flex justify-end gap-1 border-b border-border pb-1.5">
         <button 
           onClick={() => onSendNow?.(message)}
-          className="p-2 text-secondary hover:text-accent hover:bg-accent/10 rounded-lg transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+          className="p-1.5 text-secondary hover:text-accent hover:bg-accent/10 rounded-none transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
           title="Enviar ahora"
           aria-label={`Enviar mensaje ${message.name} ahora`}
           disabled={isSending}
         >
-          <Send size={15} />
+          <Send size={13} />
         </button>
 
         {!isCatalog && (
           <>
             <button 
               onClick={() => onToggleSequence?.(message)}
-              className={`p-2 rounded-lg transition-colors flex items-center justify-center ${
+              className={`p-1.5 rounded-none transition-colors flex items-center justify-center ${
                 message.is_sequence 
                   ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' 
                   : 'text-gray-500 hover:text-yellow-400 hover:bg-yellow-500/10'
@@ -90,64 +88,64 @@ export const MessageCard: React.FC<MessageCardProps> = ({
               title={message.is_sequence ? "Quitar de la secuencia" : "Agregar a la secuencia"}
               aria-label={message.is_sequence ? `Quitar ${message.name} de la secuencia` : `Agregar ${message.name} a la secuencia`}
             >
-              <Zap size={15} className={message.is_sequence ? 'fill-yellow-400' : ''} />
+              <Zap size={13} className={message.is_sequence ? 'fill-yellow-400' : ''} />
             </button>
 
             <button 
               onClick={() => onEdit(message)}
-              className="p-2 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-colors flex items-center justify-center"
+              className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-none transition-colors flex items-center justify-center"
               title="Editar"
               aria-label={`Editar mensaje ${message.name}`}
             >
-              <Edit3 size={15} />
+              <Edit3 size={13} />
             </button>
             <button 
               onClick={handleShare}
-              className="p-2 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center justify-center"
+              className="p-1.5 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-none transition-colors flex items-center justify-center"
               title="Compartir mensaje"
               aria-label={`Compartir mensaje ${message.name}`}
             >
-              <Share2 size={15} />
+              <Share2 size={13} />
             </button>
             <button 
               onClick={() => onDelete(message.id)}
-              className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center justify-center"
+              className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-none transition-colors flex items-center justify-center"
               title="Eliminar"
               aria-label={`Eliminar mensaje ${message.name}`}
             >
-              <Trash2 size={15} />
+              <Trash2 size={13} />
             </button>
           </>
         )}
       </div>
 
       {/* Línea Inferior: Icono, Info, Contenido y Grip */}
-      <div className="flex gap-4 items-start">
+      <div className="flex gap-2.5 items-start">
         {message.image_url ? (
-          <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-border bg-surface-hover">
+          <div className="w-10 h-10 rounded-card overflow-hidden flex-shrink-0 border border-border bg-surface-hover">
             <img src={message.image_url} alt="" className="w-full h-full object-cover" />
           </div>
         ) : (
-          <div className={`p-2.5 rounded-xl flex-shrink-0 ${
+          <div className={`p-2 rounded-none flex-shrink-0 ${
             isCatalog ? 'bg-accent text-black' :
             message.type === 'text' ? 'bg-blue-500/10 text-blue-500' :
             message.type === 'image' ? 'bg-purple-500/10 text-purple-500' :
             message.type === 'button' ? 'bg-amber-500/10 text-amber-500' :
             'bg-accent/10 text-accent'
           }`}>
-            <Icon size={20} />
+            <Icon size={16} />
           </div>
         )}
 
         <div className="flex-1 min-w-0">
           <div className="flex flex-col">
-            <h3 className="text-primary font-bold truncate group-hover:text-accent transition-colors uppercase text-[11px] tracking-widest">
+            <h3 className="text-primary font-bold truncate group-hover:text-accent transition-colors uppercase text-[11px] tracking-wider">
               {isCatalog ? 'Catálogo de Productos' : message.name}
             </h3>
             {!isCatalog && (message.schedule_type === 'interval' ? (
               message.schedule_interval && (
-                <div className="flex items-center gap-1.5 text-[10px] text-secondary mt-0.5">
-                  <Clock size={10} />
+                <div className="flex items-center gap-1 text-[10px] text-secondary mt-0.5">
+                  <Clock size={9} />
                   <span className="text-accent font-bold tabular-nums">
                     Programado: Cada {message.schedule_interval >= 60 
                       ? `${message.schedule_interval / 60} ${message.schedule_interval / 60 === 1 ? 'hora' : 'horas'}` 
@@ -157,31 +155,31 @@ export const MessageCard: React.FC<MessageCardProps> = ({
               )
             ) : (
               message.fixed_schedules && message.fixed_schedules.length > 0 ? (
-                <div className="flex items-center gap-1.5 text-[10px] text-secondary mt-0.5">
-                  <Clock size={10} />
+                <div className="flex items-center gap-1 text-[10px] text-secondary mt-0.5">
+                  <Clock size={9} />
                   <span className="text-accent font-bold tabular-nums truncate max-w-[200px]" title={`Programado a las: ${message.fixed_schedules.map(s => s.time).join(', ')}`}>
                     Programado: {message.fixed_schedules.map(s => s.time).join(', ')}
                   </span>
                 </div>
               ) : (
                 message.scheduled_time && (
-                  <div className="flex items-center gap-1.5 text-[10px] text-secondary mt-0.5">
-                    <Clock size={10} />
+                  <div className="flex items-center gap-1 text-[10px] text-secondary mt-0.5">
+                    <Clock size={9} />
                     <span className="text-accent font-bold tabular-nums">Programado: {message.scheduled_time}</span>
                   </div>
                 )
               )
             ))}
             {isCatalog && (
-              <div className="flex items-center gap-1.5 text-[10px] text-[var(--accent)] mt-0.5 font-bold">
-                <Package size={10} />
+              <div className="flex items-center gap-1 text-[10px] text-[var(--accent)] mt-0.5 font-bold">
+                <Package size={9} />
                 <span className="tabular-nums">{productCount || 0} Productos configurados</span>
               </div>
             )}
           </div>
 
-          <div className="mt-2 text-secondary text-xs overflow-hidden">
-            <p className="line-clamp-2 leading-relaxed">
+          <div className="mt-1 text-secondary text-[11px] overflow-hidden">
+            <p className="line-clamp-2 leading-snug">
               {isCatalog ? (
                 'En este punto de la secuencia se enviará la lista completa de productos.'
               ) : !message.content ? (
@@ -204,13 +202,12 @@ export const MessageCard: React.FC<MessageCardProps> = ({
         {dragHandleProps && (
           <div 
             {...dragHandleProps}
-            className="text-secondary hover:text-primary cursor-grab active:cursor-grabbing p-2 self-center"
+            className="text-secondary hover:text-primary cursor-grab active:cursor-grabbing p-1 self-center"
           >
-            <GripVertical size={20} />
+            <GripVertical size={16} />
           </div>
         )}
       </div>
     </div>
   );
 };
-

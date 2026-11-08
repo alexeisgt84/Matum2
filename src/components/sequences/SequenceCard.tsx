@@ -18,53 +18,53 @@ export const SequenceCard: React.FC<SequenceCardProps> = ({
   onManageSteps
 }) => {
   return (
-    <div className={`card group transition-all border-l-4 ${
+    <div className={`card rounded-card group transition-all p-3 border-l-4 ${
       sequence.is_active ? 'border-l-[var(--accent)]' : 'border-l-gray-700 opacity-75'
     }`}>
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl ${sequence.is_active ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'bg-white/5 text-gray-500'}`}>
-            <Zap size={20} fill={sequence.is_active ? 'currentColor' : 'none'} />
+      <div className="flex justify-between items-start mb-2.5">
+        <div className="flex items-center gap-2.5">
+          <div className={`p-1.5 rounded-none ${sequence.is_active ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'bg-white/5 text-gray-500'}`}>
+            <Zap size={16} fill={sequence.is_active ? 'currentColor' : 'none'} />
           </div>
           <div>
-            <h3 className="text-white font-bold group-hover:text-[var(--accent)] transition-colors uppercase text-[11px] tracking-widest">
+            <h3 className="text-white font-bold group-hover:text-[var(--accent)] transition-colors uppercase text-[11px] tracking-wider">
               {sequence.name}
             </h3>
-            <span className={`text-[10px] font-bold uppercase ${sequence.is_active ? 'text-[var(--accent)]' : 'text-gray-500'}`}>
+            <span className={`text-[9px] font-bold uppercase ${sequence.is_active ? 'text-[var(--accent)]' : 'text-gray-500'}`}>
               {sequence.is_active ? 'Activa' : 'Pausada'}
             </span>
           </div>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           <button 
             onClick={() => onToggle(sequence.id, !sequence.is_active)}
-            className={`p-1 transition-colors ${sequence.is_active ? 'text-[var(--accent)]' : 'text-gray-600'}`}
+            className={`p-0.5 transition-colors ${sequence.is_active ? 'text-[var(--accent)]' : 'text-gray-600'}`}
           >
-            {sequence.is_active ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+            {sequence.is_active ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
           </button>
         </div>
       </div>
 
-      <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
+      <div className="flex gap-1.5 mt-2.5 pt-2.5 border-t border-white/5">
         <button 
           onClick={() => onManageSteps(sequence.id)}
-          className="flex-1 py-2 px-3 bg-white/5 hover:bg-white/10 rounded-xl text-xs font-bold text-gray-300 flex items-center justify-center gap-2 transition-all"
+          className="flex-1 py-1.5 px-2.5 bg-white/5 hover:bg-white/10 rounded-none text-[11px] font-bold text-gray-300 flex items-center justify-center gap-1.5 transition-all"
         >
-          <Settings size={14} />
+          <Settings size={12} />
           Configurar Pasos
         </button>
         <button 
           onClick={() => onEdit(sequence)}
-          className="p-2 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 transition-all"
+          className="p-1.5 bg-white/5 hover:bg-white/10 rounded-none text-gray-400 transition-all"
         >
-          <Edit3 size={16} />
+          <Edit3 size={14} />
         </button>
         <button 
           onClick={() => onDelete(sequence.id)}
-          className="p-2 bg-white/5 hover:bg-red-500/10 rounded-xl text-gray-400 hover:text-red-500 transition-all"
+          className="p-1.5 bg-white/5 hover:bg-red-500/10 rounded-none text-gray-400 hover:text-red-500 transition-all"
         >
-          <Trash2 size={16} />
+          <Trash2 size={14} />
         </button>
       </div>
     </div>

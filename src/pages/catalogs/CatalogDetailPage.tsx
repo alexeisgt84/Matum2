@@ -1254,11 +1254,11 @@ export const CatalogDetailPage = () => {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-9rem)] max-w-lg mx-auto w-full">
+    <div className="flex flex-col h-[calc(100vh-6rem)] max-w-lg mx-auto w-full">
       {/* Barra de compartir catálogo (Ancho completo debajo del header) */}
       {catalog?.follow_code && (
         <div 
-          className="w-full flex items-center justify-between px-4 py-2.5 bg-surface/50 border-b border-border/80 text-[11px] text-secondary select-none transition-colors"
+          className="w-full flex items-center justify-between px-3 py-1.5 bg-surface/50 border-b border-border/80 text-[10px] text-secondary select-none transition-colors"
         >
           <div 
             onPointerDown={handleSharePointerDown}
@@ -1305,7 +1305,7 @@ export const CatalogDetailPage = () => {
       )}
 
       {/* Selector de Vistas / Barra de Selección */}
-      <div className="px-4 py-6 bg-gradient-to-b from-surface to-background border-b border-border w-full">
+      <div className="px-3 py-2.5 bg-gradient-to-b from-surface to-background border-b border-border w-full">
         {(selectedProductIds.length > 0 || selectedMessageIds.length > 0) ? (
           /* Barra de Selección Masiva (Integrada) */
           <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -1421,10 +1421,10 @@ export const CatalogDetailPage = () => {
           </div>
         ) : isOwner ? (
           /* Switch Moderno Adaptativo (Triple o Doble) */
-          <div className="relative flex p-1.5 bg-surface-hover rounded-2xl border border-border backdrop-blur-sm">
+          <div className="relative flex p-1 bg-surface-hover rounded-none border border-border backdrop-blur-sm">
             <button
               onClick={() => setView('products')}
-              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-none transition-all duration-300 min-w-0 ${
                 view === 'products' ? 'text-accent' : 'text-secondary hover:text-primary'
               }`}
             >
@@ -1434,7 +1434,7 @@ export const CatalogDetailPage = () => {
 
             <button
               onClick={() => setView('individual')}
-              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-none transition-all duration-300 min-w-0 ${
                 view === 'individual' ? 'text-accent' : 'text-secondary hover:text-primary'
               }`}
             >
@@ -1445,7 +1445,7 @@ export const CatalogDetailPage = () => {
             {hasInstance && (
               <button
                 onClick={() => setView('sequences')}
-                className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-1 py-3 rounded-xl transition-all duration-300 min-w-0 ${
+                className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-none transition-all duration-300 min-w-0 ${
                   view === 'sequences' ? 'text-accent' : 'text-secondary hover:text-primary'
                 }`}
               >
@@ -1476,19 +1476,19 @@ export const CatalogDetailPage = () => {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2 sm:px-4 py-4 pb-32">
+      <div className="flex-1 overflow-y-auto px-2 sm:px-3 py-2.5 pb-24">
         {view === 'products' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             
             {/* Buscador y Ordenación */}
-            <div className="flex items-center gap-2 mb-4 flex-1">
+            <div className="flex items-center gap-1.5 mb-2.5 flex-1">
               <Input
                 type="text"
                 placeholder="Buscar por nombre, descripción o precio…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 icon={Search}
-                className="!h-12 py-0 !text-xs font-bold placeholder:!text-xs placeholder:font-bold"
+                className="!h-8 py-0 !text-xs font-bold placeholder:!text-xs placeholder:font-bold"
                 rightElement={
                   searchQuery ? (
                     <button 
@@ -1504,7 +1504,7 @@ export const CatalogDetailPage = () => {
               
               <DropdownMenu
                 trigger={
-                  <button className="flex-shrink-0 w-12 h-12 flex items-center justify-center bg-surface-hover border border-border rounded-xl hover:bg-surface transition-colors" title="Ordenar">
+                  <button className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-surface-hover border border-border rounded-none hover:bg-surface transition-colors" title="Ordenar">
                     <ArrowUpDown size={18} className="text-accent" />
                   </button>
                 }
@@ -1539,10 +1539,10 @@ export const CatalogDetailPage = () => {
             </div>
 
             {/* Chips de Categorías */}
-            <div className="flex items-center gap-2 mb-3 overflow-x-auto pb-2 scrollbar-none select-none">
+            <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-1 scrollbar-none select-none">
               <button
                 onClick={() => setSelectedCategoryId(null)}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                className={`flex-shrink-0 px-2.5 py-1 rounded-none text-[11px] font-bold transition-all border ${
                   selectedCategoryId === null
                     ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
                     : 'bg-surface-hover border-border text-secondary hover:text-primary hover:border-white/20'
@@ -1555,7 +1555,7 @@ export const CatalogDetailPage = () => {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategoryId(cat.id)}
-                  className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                  className={`flex-shrink-0 px-2.5 py-1 rounded-none text-[11px] font-bold transition-all border flex items-center gap-1.5 ${
                     selectedCategoryId === cat.id
                       ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
                       : 'bg-surface-hover border-border text-secondary hover:text-primary hover:border-white/20'
@@ -1568,7 +1568,7 @@ export const CatalogDetailPage = () => {
 
               <button
                 onClick={() => setSelectedCategoryId('none')}
-                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                className={`flex-shrink-0 px-2.5 py-1 rounded-none text-[11px] font-bold transition-all border ${
                   selectedCategoryId === 'none'
                     ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
                     : 'bg-surface-hover border-border text-secondary hover:text-primary hover:border-white/20'
@@ -1612,7 +1612,7 @@ export const CatalogDetailPage = () => {
             )}
 
             {prodLoading && products.length === 0 ? (
-              <div className="grid gap-4">
+              <div className="grid gap-2.5">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="card p-4 flex gap-4">
                     <Skeleton className="w-20 h-20 rounded-xl flex-shrink-0" />
@@ -1639,7 +1639,7 @@ export const CatalogDetailPage = () => {
                     <div 
                       {...provided.droppableProps} 
                       ref={provided.innerRef}
-                      className="grid grid-cols-1 gap-3"
+                      className="grid grid-cols-1 gap-2"
                     >
                       {products.map((product, index) => (
                         <Draggable 
@@ -1712,7 +1712,7 @@ export const CatalogDetailPage = () => {
         {view === 'individual' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             {msgLoading ? (
-              <div className="grid gap-4">
+              <div className="grid gap-2.5">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="card p-6 space-y-4">
                     <div className="flex justify-between">
@@ -1741,7 +1741,7 @@ export const CatalogDetailPage = () => {
                     <div 
                       {...provided.droppableProps} 
                       ref={provided.innerRef}
-                      className="grid gap-4"
+                      className="grid gap-2.5"
                     >
                       {messages.filter(m => m.is_individual).map((message, index) => (
                         <Draggable key={message.id} draggableId={message.id} index={index}>
@@ -1822,7 +1822,7 @@ export const CatalogDetailPage = () => {
             </div>
 
             {msgLoading ? (
-              <div className="grid gap-4">
+              <div className="grid gap-2.5">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="card p-6 flex items-center gap-4">
                     <Skeleton className="h-8 w-8 rounded-lg" />
@@ -1852,7 +1852,7 @@ export const CatalogDetailPage = () => {
                     <div 
                       {...provided.droppableProps} 
                       ref={provided.innerRef}
-                      className="grid gap-4"
+                      className="grid gap-2.5"
                     >
                       {messages.filter(m => m.is_sequence).map((message, index) => (
                         <Draggable key={message.id} draggableId={message.id} index={index}>
@@ -1893,7 +1893,7 @@ export const CatalogDetailPage = () => {
         {view === 'groups' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
             {groupsLoading ? (
-              <div className="grid gap-4">
+              <div className="grid gap-2.5">
                 {[1, 2].map(i => (
                   <div key={i} className="card p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1978,10 +1978,10 @@ export const CatalogDetailPage = () => {
         )}
       </div>
 
-      <div className="fixed bottom-24 right-6 z-20">
+      <div className="fixed bottom-16 right-4 z-20">
         <Button 
           size="lg"
-          className="w-14 h-14 rounded-full flex items-center justify-center p-0" 
+          className="w-10 h-10 rounded-none flex items-center justify-center p-0" 
           icon={Plus}
           iconSize={24}
           onClick={handleAddAction}

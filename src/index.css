@@ -7,6 +7,12 @@
 @layer base {
   *, ::before, ::after {
     border-color: var(--border);
+    border-radius: 0px !important;
+  }
+
+  .card,
+  .rounded-card {
+    border-radius: 10px !important;
   }
 
   :root {
@@ -21,7 +27,7 @@
     --accent-hover: #e66420;
     --danger: #ef4444;
     --danger-hover: #dc2626;
-    --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    --card-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.25);
   }
 
   :root.light {
@@ -36,12 +42,14 @@
     --accent-hover: #e66420;
     --danger: #ef4444;
     --danger-hover: #dc2626;
-    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --card-shadow: 0 2px 5px -1px rgba(0, 0, 0, 0.08);
   }
 
   body {
     @apply bg-[var(--background)] text-[var(--text-primary)] antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 12px;
+    line-height: 1.4;
     margin: 0;
     min-height: 100vh;
   }
@@ -49,15 +57,15 @@
 
 @layer components {
   .card {
-    @apply bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-[var(--card-shadow)];
+    @apply bg-[var(--surface)] border border-[var(--border)] rounded-card p-3.5 shadow-[var(--card-shadow)];
   }
 
   .input-base {
-    @apply w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg p-3 text-[var(--text-primary)] focus:border-[var(--accent)] outline-none transition-all;
+    @apply w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-none p-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent)] outline-none transition-all;
   }
 
   .btn-whatsapp {
-    @apply bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-black font-bold py-3 px-6 rounded-lg transition-colors disabled:opacity-50;
+    @apply bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-black font-bold py-2 px-4 text-xs rounded-none transition-colors disabled:opacity-50;
   }
 }
 
@@ -87,14 +95,15 @@
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 10px;
+  border-radius: 0px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);

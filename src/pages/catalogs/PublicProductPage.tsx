@@ -460,30 +460,30 @@ export const PublicProductPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 font-store">
-        <div className="w-10 h-10 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-secondary text-sm font-medium animate-pulse">Cargando producto…</p>
+        <div className="w-8 h-8 border-3 border-[var(--accent)] border-t-transparent rounded-none animate-spin mb-3" />
+        <p className="text-secondary text-xs font-medium animate-pulse">Cargando producto…</p>
       </div>
     );
   }
 
   if (error || !product || !catalog) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center font-store">
-        <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-500 mb-5">
-          <AlertTriangle size={28} />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-center font-store">
+        <div className="w-12 h-12 rounded-card bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-500 mb-3">
+          <AlertTriangle size={20} />
         </div>
-        <h1 className="font-display text-2xl font-bold text-primary mb-2">
+        <h1 className="font-display text-lg font-bold text-primary mb-1.5">
           {error || 'Producto no encontrado'}
         </h1>
-        <p className="text-sm text-secondary max-w-sm mb-6">
+        <p className="text-xs text-secondary max-w-sm mb-4">
           Este producto no existe o ya no está disponible en la tienda.
         </p>
         {slug && (
           <Link
             to={`/${slug}${location.search}`}
-            className="inline-flex items-center gap-2 h-11 px-5 rounded-full bg-accent text-[var(--accent-text,black)] font-semibold text-sm hover:opacity-90 transition-all shadow-lg shadow-accent/20"
+            className="inline-flex items-center gap-1.5 h-8 px-4 rounded-none bg-accent text-[var(--accent-text,black)] font-semibold text-xs hover:opacity-90 transition-all shadow-md shadow-accent/20"
           >
-            <ArrowLeft size={16} /> Ir a la tienda
+            <ArrowLeft size={13} /> Ir a la tienda
           </Link>
         )}
       </div>
@@ -495,58 +495,58 @@ export const PublicProductPage: React.FC = () => {
   return (
     <div
       style={themeStyles}
-      className="min-h-screen bg-background text-primary pb-28 md:pb-16 font-store selection:bg-accent selection:text-[var(--accent-text)]"
+      className="min-h-screen bg-background text-primary pb-20 md:pb-12 font-store selection:bg-accent selection:text-[var(--accent-text)]"
     >
       {/* Barra superior */}
       <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-xl border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+        <div className="max-w-5xl mx-auto px-3 h-11 flex items-center justify-between gap-2">
           <Link
             to={`/${slug}${location.search}`}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-secondary hover:text-primary transition-colors py-1 group"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-secondary hover:text-primary transition-colors py-1 group"
           >
-            <ArrowLeft size={17} className="group-hover:-translate-x-0.5 transition-transform" />
+            <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
             <span className="hidden sm:inline">Volver a la tienda</span>
             <span className="sm:hidden">Tienda</span>
           </Link>
 
           <Link
             to={`/${slug}${location.search}`}
-            className="flex items-center gap-2 max-w-[200px] sm:max-w-xs truncate group"
+            className="flex items-center gap-1.5 max-w-[180px] sm:max-w-xs truncate group"
           >
             {catalog.logo_url ? (
               <img
                 src={catalog.logo_url}
                 alt={catalog.name}
-                className="w-7 h-7 rounded-lg object-cover border border-border flex-shrink-0"
+                className="w-6 h-6 rounded-none object-cover border border-border flex-shrink-0"
               />
             ) : (
-              <div className="w-7 h-7 rounded-lg bg-[var(--accent)] text-[var(--accent-text)] flex items-center justify-center text-xs font-display font-extrabold flex-shrink-0">
+              <div className="w-6 h-6 rounded-none bg-[var(--accent)] text-[var(--accent-text)] flex items-center justify-center text-[10px] font-display font-extrabold flex-shrink-0">
                 {catalog.name.charAt(0).toUpperCase()}
               </div>
             )}
-            <span className="font-display text-sm font-bold truncate group-hover:text-accent transition-colors">
+            <span className="font-display text-xs font-bold truncate group-hover:text-accent transition-colors">
               {catalog.name}
             </span>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={handleShareProduct}
-              className="w-10 h-10 inline-flex items-center justify-center rounded-full bg-surface border border-border text-secondary hover:text-primary hover:bg-surface-hover active:scale-95 transition-all"
+              className="w-8 h-8 inline-flex items-center justify-center rounded-none bg-surface border border-border text-secondary hover:text-primary hover:bg-surface-hover active:scale-95 transition-all"
               aria-label="Compartir producto"
             >
-              <Share2 size={17} />
+              <Share2 size={14} />
             </button>
 
             <Link
               to={`/${slug}${location.search}`}
-              className="relative w-10 h-10 inline-flex items-center justify-center rounded-full bg-surface border border-border text-primary hover:bg-surface-hover transition-colors"
+              className="relative w-8 h-8 inline-flex items-center justify-center rounded-none bg-surface border border-border text-primary hover:bg-surface-hover transition-colors"
               aria-label={`Ver pedido en la tienda (${totalCartCount})`}
             >
-              <ShoppingBag size={17} />
+              <ShoppingBag size={14} />
               {totalCartCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--accent)] text-[var(--accent-text)] text-[10px] font-bold leading-[18px] text-center ring-2 ring-background">
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5 rounded-none bg-[var(--accent)] text-[var(--accent-text)] text-[9px] font-bold leading-[16px] text-center ring-1 ring-background">
                   {totalCartCount}
                 </span>
               )}
@@ -556,22 +556,22 @@ export const PublicProductPage: React.FC = () => {
       </header>
 
       {/* Contenido */}
-      <main className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
+      <main className="max-w-5xl mx-auto px-3 py-4 sm:py-6">
         <nav
           aria-label="Ruta de navegación"
-          className="flex items-center gap-1.5 text-xs text-secondary mb-5 overflow-hidden"
+          className="flex items-center gap-1 text-[11px] text-secondary mb-3 overflow-hidden"
         >
           <Link to={`/${slug}${location.search}`} className="hover:text-primary transition-colors">
             {catalog.name}
           </Link>
-          <ChevronRight size={13} className="opacity-50 flex-shrink-0" />
+          <ChevronRight size={11} className="opacity-50 flex-shrink-0" />
           <span className="text-primary font-medium truncate">{product.name}</span>
         </nav>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-7">
           {/* Imagen */}
           <div>
-            <div className="relative aspect-square w-full rounded-3xl overflow-hidden bg-surface border border-border">
+            <div className="relative aspect-square w-full rounded-card overflow-hidden bg-surface border border-border">
               {product.imagen_url ? (
                 <img
                   src={product.imagen_url}
@@ -580,14 +580,14 @@ export const PublicProductPage: React.FC = () => {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-secondary/60 gap-2 p-8">
-                  <ShoppingBag size={56} strokeWidth={1.5} />
-                  <span className="text-xs font-medium text-secondary">Sin imagen</span>
+                <div className="w-full h-full flex flex-col items-center justify-center text-secondary/60 gap-1.5 p-6">
+                  <ShoppingBag size={42} strokeWidth={1.5} />
+                  <span className="text-[11px] font-medium text-secondary">Sin imagen</span>
                 </div>
               )}
 
               {isOutOfStock && (
-                <span className="absolute top-3.5 left-3.5 bg-red-500/90 backdrop-blur text-white text-xs font-semibold px-3 py-1 rounded-full shadow-lg">
+                <span className="absolute top-2.5 left-2.5 bg-red-500/90 backdrop-blur text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-none shadow-md">
                   Agotado
                 </span>
               )}
@@ -595,59 +595,59 @@ export const PublicProductPage: React.FC = () => {
           </div>
 
           {/* Información */}
-          <div className="flex flex-col justify-between space-y-6">
-            <div className="space-y-5">
+          <div className="flex flex-col justify-between space-y-4">
+            <div className="space-y-3.5">
               <div>
                 <Link
                   to={`/${slug}${location.search}`}
-                  className="inline-flex items-center gap-1.5 text-xs text-secondary hover:text-accent font-medium mb-1.5 transition-colors"
+                  className="inline-flex items-center gap-1 text-[11px] text-secondary hover:text-accent font-medium mb-1 transition-colors"
                 >
-                  <Store size={13} />
+                  <Store size={12} />
                   <span>{catalog.name}</span>
                 </Link>
-                <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-primary tracking-tight leading-snug">
+                <h1 className="font-display text-lg sm:text-xl font-extrabold text-primary tracking-tight leading-snug">
                   {product.name}
                 </h1>
               </div>
 
               <PriceTag
                 parts={unitPriceParts}
-                className="font-display text-2xl sm:text-3xl font-extrabold text-[var(--accent)] tracking-tight"
-                secondaryClassName="text-base font-medium text-secondary"
+                className="font-display text-xl sm:text-2xl font-extrabold text-[var(--accent)] tracking-tight"
+                secondaryClassName="text-sm font-medium text-secondary"
               />
 
               {/* Ganancia de promotor */}
               {canSeeCommissions && (product.commission_amount ?? 0) > 0 && (
-                <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center flex-shrink-0">
-                        <Coins size={17} />
+                <div className="p-3 rounded-card bg-emerald-500/10 border border-emerald-500/25 space-y-2">
+                  <div className="flex items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-none bg-emerald-500/20 text-emerald-500 flex items-center justify-center flex-shrink-0">
+                        <Coins size={14} />
                       </div>
                       <div>
-                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">
+                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 block">
                           Tu ganancia de promotor
                         </span>
-                        <span className="text-xs text-secondary">
+                        <span className="text-[10px] text-secondary">
                           Por cada venta que logres de este producto
                         </span>
                       </div>
                     </div>
-                    <span className="text-base sm:text-lg font-bold text-emerald-500 tabular-nums">
+                    <span className="text-sm sm:text-base font-bold text-emerald-500 tabular-nums">
                       +{product.commission_amount} {product.commission_currency || 'CUP'}
                     </span>
                   </div>
 
-                  <div className="pt-2.5 border-t border-emerald-500/20 flex flex-wrap gap-2 items-center justify-between">
-                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                  <div className="pt-2 border-t border-emerald-500/20 flex flex-wrap gap-2 items-center justify-between">
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
                       Comparte este enlace para atribuirte la venta
                     </span>
                     <button
                       type="button"
                       onClick={handleCopyLink}
-                      className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-emerald-500 text-white font-semibold text-xs hover:bg-emerald-600 active:scale-95 transition-all"
+                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-none bg-emerald-500 text-white font-semibold text-[11px] hover:bg-emerald-600 active:scale-95 transition-all"
                     >
-                      {copiedLink ? <Check size={13} /> : <Copy size={13} />}
+                      {copiedLink ? <Check size={11} /> : <Copy size={11} />}
                       <span>{copiedLink ? 'Copiado' : 'Copiar mi enlace'}</span>
                     </button>
                   </div>
@@ -656,38 +656,38 @@ export const PublicProductPage: React.FC = () => {
 
               {/* Cantidad */}
               {!isOutOfStock && (
-                <div className="space-y-2">
-                  <span className="text-xs font-semibold text-secondary">Cantidad</span>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="inline-flex items-center h-11 bg-surface border border-border rounded-full px-1">
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-semibold text-secondary">Cantidad</span>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <div className="inline-flex items-center h-8 bg-surface border border-border rounded-none px-0.5">
                       <button
                         type="button"
                         onClick={() => setQuantity(q => Math.max(1, q - 1))}
                         disabled={quantity <= 1}
-                        className="w-9 h-9 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-hover active:scale-90 transition-all disabled:opacity-40"
+                        className="w-7 h-7 rounded-none flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-hover active:scale-90 transition-all disabled:opacity-40"
                         aria-label="Restar unidad"
                       >
-                        <Minus size={15} />
+                        <Minus size={13} />
                       </button>
-                      <span className="w-10 text-center font-bold text-sm tabular-nums">
+                      <span className="w-8 text-center font-bold text-xs tabular-nums">
                         {quantity}
                       </span>
                       <button
                         type="button"
                         onClick={() => setQuantity(q => q + 1)}
-                        className="w-9 h-9 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-hover active:scale-90 transition-all"
+                        className="w-7 h-7 rounded-none flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-hover active:scale-90 transition-all"
                         aria-label="Sumar unidad"
                       >
-                        <Plus size={15} />
+                        <Plus size={13} />
                       </button>
                     </div>
                     {quantity > 1 && subtotalParts && (
-                      <span className="text-sm text-secondary">
+                      <span className="text-xs text-secondary">
                         Subtotal:{' '}
                         <PriceTag
                           parts={subtotalParts}
                           className="font-bold text-primary"
-                          secondaryClassName="text-xs text-secondary"
+                          secondaryClassName="text-[11px] text-secondary"
                         />
                       </span>
                     )}
@@ -696,55 +696,55 @@ export const PublicProductPage: React.FC = () => {
               )}
 
               {/* Acciones (escritorio; en móvil también hay barra fija) */}
-              <div className="space-y-2.5 pt-1">
+              <div className="space-y-2 pt-0.5">
                 {!isOutOfStock ? (
-                  <div className="hidden md:grid grid-cols-2 gap-2.5">
+                  <div className="hidden md:grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={handleAddToCart}
-                      className="h-12 px-5 rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-sm inline-flex items-center justify-center gap-2 transition-colors active:scale-[0.99]"
+                      className="h-9 px-4 rounded-none bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.99]"
                     >
-                      <Plus size={17} /> Agregar al pedido
+                      <Plus size={14} /> Agregar al pedido
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsOrderModalOpen(true)}
-                      className="h-12 px-5 rounded-full bg-green-600 hover:bg-green-700 text-white font-semibold text-sm inline-flex items-center justify-center gap-2 transition-colors active:scale-[0.99]"
+                      className="h-9 px-4 rounded-none bg-green-600 hover:bg-green-700 text-white font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.99]"
                     >
-                      <WhatsAppIcon size={17} /> Pedir por WhatsApp
+                      <WhatsAppIcon size={14} /> Pedir por WhatsApp
                     </button>
                   </div>
                 ) : (
-                  <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-center text-red-500 font-semibold text-sm">
+                  <div className="p-2.5 rounded-card bg-red-500/10 border border-red-500/20 text-center text-red-500 font-semibold text-xs">
                     Este producto está agotado por el momento.
                   </div>
                 )}
 
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <button
                     type="button"
                     onClick={handleShareProduct}
-                    className="flex-1 h-11 px-4 rounded-full bg-surface hover:bg-surface-hover active:scale-[0.99] border border-border text-primary font-semibold text-xs inline-flex items-center justify-center gap-2 transition-colors"
+                    className="flex-1 h-8 px-3 rounded-none bg-surface hover:bg-surface-hover active:scale-[0.99] border border-border text-primary font-semibold text-[11px] inline-flex items-center justify-center gap-1.5 transition-colors"
                   >
-                    <Share2 size={15} />
+                    <Share2 size={13} />
                     <span>Compartir producto</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleCopyLink}
-                    className="w-11 h-11 inline-flex items-center justify-center rounded-full bg-surface hover:bg-surface-hover active:scale-[0.99] border border-border text-secondary hover:text-primary transition-colors"
+                    className="w-8 h-8 inline-flex items-center justify-center rounded-none bg-surface hover:bg-surface-hover active:scale-[0.99] border border-border text-secondary hover:text-primary transition-colors"
                     aria-label="Copiar enlace"
                   >
-                    {copiedLink ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                    {copiedLink ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                   </button>
                 </div>
               </div>
 
               {/* Descripción */}
               {product.description && (
-                <div className="pt-4 border-t border-border space-y-2">
-                  <h3 className="text-xs font-semibold text-secondary">Descripción</h3>
-                  <div className="text-sm text-primary/90 leading-relaxed whitespace-pre-line bg-surface p-4 rounded-2xl border border-border">
+                <div className="pt-3 border-t border-border space-y-1.5">
+                  <h3 className="text-[11px] font-semibold text-secondary">Descripción</h3>
+                  <div className="text-xs text-primary/90 leading-relaxed whitespace-pre-line bg-surface p-3 rounded-card border border-border">
                     {product.description}
                   </div>
                 </div>
@@ -752,35 +752,35 @@ export const PublicProductPage: React.FC = () => {
             </div>
 
             {/* Tarjeta de la tienda */}
-            <div className="mt-8 pt-6 border-t border-border">
-              <div className="p-4 rounded-2xl bg-surface border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
+            <div className="mt-5 pt-4 border-t border-border">
+              <div className="p-3 rounded-card bg-surface border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   {catalog.logo_url ? (
                     <img
                       src={catalog.logo_url}
                       alt={catalog.name}
-                      className="w-12 h-12 rounded-2xl object-cover border border-border flex-shrink-0"
+                      className="w-9 h-9 rounded-none object-cover border border-border flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-2xl bg-[var(--accent)] text-[var(--accent-text)] font-display font-extrabold text-lg flex items-center justify-center flex-shrink-0">
+                    <div className="w-9 h-9 rounded-none bg-[var(--accent)] text-[var(--accent-text)] font-display font-extrabold text-sm flex items-center justify-center flex-shrink-0">
                       {catalog.name.charAt(0).toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0">
-                    <h4 className="font-display text-sm font-bold text-primary truncate">
+                    <h4 className="font-display text-xs font-bold text-primary truncate">
                       {catalog.name}
                     </h4>
                     {catalog.slogan && (
-                      <p className="text-xs text-secondary mt-0.5 line-clamp-1">{catalog.slogan}</p>
+                      <p className="text-[11px] text-secondary mt-0.5 line-clamp-1">{catalog.slogan}</p>
                     )}
                   </div>
                 </div>
 
                 <Link
                   to={`/${slug}${location.search}`}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 h-10 px-4 rounded-full bg-surface-hover hover:bg-border text-xs font-semibold text-primary transition-colors flex-shrink-0"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-none bg-surface-hover hover:bg-border text-[11px] font-semibold text-primary transition-colors flex-shrink-0"
                 >
-                  <Store size={14} /> Ver tienda completa
+                  <Store size={12} /> Ver tienda completa
                 </Link>
               </div>
             </div>
@@ -789,19 +789,19 @@ export const PublicProductPage: React.FC = () => {
 
         {/* Productos relacionados */}
         {relatedProducts.length > 0 && (
-          <section className="mt-14 pt-10 border-t border-border">
-            <div className="flex items-baseline justify-between mb-5">
-              <h2 className="font-display text-lg sm:text-xl font-bold text-primary">
+          <section className="mt-8 pt-6 border-t border-border">
+            <div className="flex items-baseline justify-between mb-3">
+              <h2 className="font-display text-sm sm:text-base font-bold text-primary">
                 También te puede gustar
               </h2>
               <Link
                 to={`/${slug}${location.search}`}
-                className="text-xs font-semibold text-[var(--accent)] hover:underline"
+                className="text-[11px] font-semibold text-[var(--accent)] hover:underline"
               >
                 Ver todo →
               </Link>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-6 sm:gap-x-5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-2.5 gap-y-4 sm:gap-x-3.5">
               {relatedProducts.map(rel => {
                 const relQty =
                   cart.find(item => item.product.id === rel.id)?.quantity ?? 0;
@@ -856,20 +856,20 @@ export const PublicProductPage: React.FC = () => {
 
       {/* Barra fija inferior de compra en móvil */}
       {!isOutOfStock && (
-        <div className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-background/95 backdrop-blur-xl border-t border-border px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex gap-2">
+        <div className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-background/95 backdrop-blur-xl border-t border-border px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex gap-2">
           <button
             type="button"
             onClick={handleAddToCart}
-            className="flex-1 h-12 px-4 rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-sm inline-flex items-center justify-center gap-1.5 active:scale-[0.99]"
+            className="flex-1 h-9 px-3 rounded-none bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-xs inline-flex items-center justify-center gap-1.5 active:scale-[0.99]"
           >
-            <Plus size={17} /> Agregar
+            <Plus size={14} /> Agregar
           </button>
           <button
             type="button"
             onClick={() => setIsOrderModalOpen(true)}
-            className="flex-1 h-12 px-4 rounded-full bg-green-600 hover:bg-green-700 text-white font-semibold text-sm inline-flex items-center justify-center gap-1.5 active:scale-[0.99]"
+            className="flex-1 h-9 px-3 rounded-none bg-green-600 hover:bg-green-700 text-white font-semibold text-xs inline-flex items-center justify-center gap-1.5 active:scale-[0.99]"
           >
-            <WhatsAppIcon size={17} /> WhatsApp
+            <WhatsAppIcon size={14} /> WhatsApp
           </button>
         </div>
       )}
@@ -880,19 +880,19 @@ export const PublicProductPage: React.FC = () => {
         onClose={() => setIsOrderModalOpen(false)}
         title="Completar tu pedido"
       >
-        <div className="space-y-4 font-store">
-          <div className="p-3.5 rounded-2xl bg-surface-hover border border-border">
-            <p className="text-sm font-semibold text-primary">{product.name}</p>
-            <p className="text-xs text-secondary mt-0.5">
+        <div className="space-y-3 font-store">
+          <div className="p-2.5 rounded-card bg-surface-hover border border-border">
+            <p className="text-xs font-semibold text-primary">{product.name}</p>
+            <p className="text-[11px] text-secondary mt-0.5">
               Cantidad: {quantity} · Total: {getPriceText(product, pricingCtx, quantity)}
             </p>
           </div>
 
-          <p className="text-sm text-secondary">
+          <p className="text-xs text-secondary">
             Ingresa tus datos de contacto para coordinar la entrega por WhatsApp:
           </p>
 
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             <Input
               label="Tu nombre *"
               placeholder="Ej. Juan Pérez"
@@ -914,7 +914,7 @@ export const PublicProductPage: React.FC = () => {
             />
           </div>
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex gap-2 pt-1.5">
             <Button
               variant="ghost"
               onClick={() => setIsOrderModalOpen(false)}
@@ -925,9 +925,9 @@ export const PublicProductPage: React.FC = () => {
             <button
               type="button"
               onClick={handleConfirmOrder}
-              className="flex-1 h-11 px-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold text-sm inline-flex items-center justify-center gap-2 shadow-md"
+              className="flex-1 h-8 px-3 rounded-none bg-green-600 hover:bg-green-700 text-white font-semibold text-xs inline-flex items-center justify-center gap-1.5 shadow-sm"
             >
-              <WhatsAppIcon size={16} /> Enviar pedido
+              <WhatsAppIcon size={14} /> Enviar pedido
             </button>
           </div>
         </div>
@@ -938,20 +938,20 @@ export const PublicProductPage: React.FC = () => {
         onClose={() => setShowOrderSuccess(false)}
         title="Pedido enviado"
       >
-        <div className="text-center py-4 space-y-3 font-store">
-          <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center justify-center mx-auto">
-            <Check size={28} />
+        <div className="text-center py-3 space-y-2.5 font-store">
+          <div className="w-11 h-11 rounded-none bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center justify-center mx-auto">
+            <Check size={22} />
           </div>
-          <h3 className="font-display text-lg font-bold text-primary">
+          <h3 className="font-display text-sm font-bold text-primary">
             Tu mensaje se abrió en WhatsApp
           </h3>
-          <p className="text-sm text-secondary max-w-sm mx-auto">
+          <p className="text-xs text-secondary max-w-sm mx-auto">
             Completa el envío del mensaje en WhatsApp para coordinar el pago y la entrega con la tienda.
           </p>
-          <div className="pt-2 flex flex-col gap-2">
+          <div className="pt-1.5 flex flex-col gap-1.5">
             <Link
               to={`/${slug}${location.search}`}
-              className="w-full py-2.5 rounded-xl bg-accent text-[var(--accent-text,black)] font-semibold text-sm text-center"
+              className="w-full py-2 rounded-none bg-accent text-[var(--accent-text,black)] font-semibold text-xs text-center"
             >
               Seguir explorando la tienda
             </Link>
