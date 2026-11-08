@@ -18,6 +18,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { toast } from 'react-hot-toast';
+import type { AuthRole } from '../../types/auth';
 
 export const UsersPage = () => {
   const { users, loading, getUsers, updateUserRole, updateUserPlan, deleteUser, changePassword } = useAdminUserStore();
@@ -38,8 +39,8 @@ export const UsersPage = () => {
     return matchesSearch && matchesRole;
   });
 
-  const handleRoleChange = async (userId: string, currentRole: 'user' | 'admin') => {
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+  const handleRoleChange = async (userId: string, currentRole: AuthRole) => {
+    const newRole: AuthRole = currentRole === 'admin' ? 'user' : 'admin';
     const confirmMsg = `¿Cambiar el rol de este usuario a ${newRole === 'admin' ? 'Administrador' : 'Usuario'}?`;
     
     if (confirm(confirmMsg)) {

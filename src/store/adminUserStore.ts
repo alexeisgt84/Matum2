@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import type { AuthUser } from '../types/auth';
+import type { AuthRole, AuthUser } from '../types/auth';
 
 interface AdminUserState {
   users: AuthUser[];
   loading: boolean;
   error: string | null;
   getUsers: () => Promise<void>;
-  updateUserRole: (userId: string, role: 'user' | 'admin') => Promise<void>;
+  updateUserRole: (userId: string, role: AuthRole) => Promise<void>;
   updateUserPlan: (userId: string, planId: string) => Promise<void>;
   deleteUser: (userId: string) => Promise<void>;
   changePassword: (userId: string, password: string) => Promise<void>;

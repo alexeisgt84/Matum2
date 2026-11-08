@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -13,6 +13,8 @@ export const LoginPage = () => {
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES.find(c => c.code === '53') || COUNTRIES[0]); // Cuba por defecto
   const { login, loading, error } = useAuthStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirect = searchParams.get('redirect');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +22,7 @@ export const LoginPage = () => {
       const cleanPhone = phone.replace(/\D/g, '');
       const fullPhone = `${selectedCountry.code}${cleanPhone}`;
       await login({ phone: fullPhone, password });
-      navigate('/catalogs');
+      navigate(redirect || '/catalogs');
     } catch (err) {}
   };
 
@@ -107,7 +109,7 @@ export const LoginPage = () => {
           <div className="pt-6 border-t border-white/5">
             <p className="text-gray-400 text-sm">
               ¿No tienes cuenta?{' '}
-              <Link to="/register" className="text-[var(--accent)] font-bold hover:underline">
+              <Link to={redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : '/register'} className="text-[var(--accent)] font-bold hover:underline">
                 Regístrate ahora
               </Link>
             </p>

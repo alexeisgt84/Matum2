@@ -807,6 +807,17 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         showBackButton={!embedded}
         onBack={() => (onBack ? onBack() : navigate('/'))}
         onShare={handleShareCatalog}
+        affiliate={{
+          isLoggedIn: !!user,
+          isOwner: isCatalogOwner,
+          status: myAffiliation?.status,
+          loading: affiliateActionLoading,
+          onApply: async () => {
+            if (catalog.id && user?.id) {
+              await applyForAffiliation(catalog.id, user.id);
+            }
+          },
+        }}
       />
 
       <div ref={heroEndRef} />
