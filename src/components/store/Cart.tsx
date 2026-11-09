@@ -38,13 +38,13 @@ export const CartFab: React.FC<CartFabProps> = ({ count, totals, onOpen, bottomO
       <button
         type="button"
         onClick={onOpen}
-        className="pointer-events-auto mx-auto w-full max-w-sm h-10 pl-1.5 pr-3.5 rounded-none bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] shadow-[0_8px_24px_-6px_rgba(0,0,0,0.5)] flex items-center gap-2.5 transition-colors active:scale-[0.99] animate-store-slide-up"
+        className="pointer-events-auto mx-auto w-full max-w-sm h-10 pl-1.5 pr-3.5 rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] shadow-[0_8px_24px_-6px_rgba(0,0,0,0.5)] flex items-center gap-2.5 transition-colors active:scale-[0.99] animate-store-slide-up"
       >
-        <span className="relative w-7 h-7 rounded-none bg-black/15 inline-flex items-center justify-center flex-shrink-0">
+        <span className="relative w-7 h-7 rounded-full bg-black/15 inline-flex items-center justify-center flex-shrink-0">
           <ShoppingBag size={14} />
           <span
             key={count}
-            className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-none bg-[var(--background)] text-[var(--text-primary)] text-[10px] font-bold leading-4 text-center animate-store-pop"
+            className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[var(--background)] text-[var(--text-primary)] text-[10px] font-bold leading-4 text-center animate-store-pop"
           >
             {count}
           </span>
@@ -182,7 +182,7 @@ export const CartSheet: React.FC<CartSheetProps> = ({
           width: typeof window !== 'undefined' && window.innerWidth >= 768 ? `${drawerWidth}px` : undefined,
           height: typeof window !== 'undefined' && window.innerWidth < 768 && mobileHeight ? `${mobileHeight}px` : undefined,
         }}
-        className="absolute inset-x-0 bottom-0 md:inset-y-0 md:left-auto md:right-0 max-h-[88vh] md:max-h-none flex flex-col bg-background border-t md:border-t-0 md:border-l border-border rounded-none shadow-2xl animate-store-slide-up"
+        className="absolute inset-x-0 bottom-0 md:inset-y-0 md:left-auto md:right-0 max-h-[88vh] md:max-h-none flex flex-col bg-background border-t md:border-t-0 md:border-l border-border rounded-t-2xl sm:rounded-t-3xl md:rounded-none shadow-2xl animate-store-slide-up"
       >
         {/* Tirador izquierdo en escritorio para redimensionar ancho */}
         <div
@@ -194,7 +194,7 @@ export const CartSheet: React.FC<CartSheetProps> = ({
         {/* Tirador superior en móvil para redimensionar altura */}
         <div
           onPointerDown={startResize('height')}
-          className="w-10 h-1 bg-border rounded-none mx-auto mt-2 md:hidden flex-shrink-0 cursor-ns-resize"
+          className="w-10 h-1 bg-border rounded-full mx-auto mt-2 md:hidden flex-shrink-0 cursor-ns-resize"
         />
 
         {/* Encabezado */}
@@ -208,7 +208,7 @@ export const CartSheet: React.FC<CartSheetProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 inline-flex items-center justify-center rounded-none hover:bg-surface text-secondary hover:text-primary"
+            className="w-7 h-7 inline-flex items-center justify-center rounded-full hover:bg-surface text-secondary hover:text-primary"
             aria-label="Cerrar"
           >
             <X size={16} />
@@ -233,9 +233,9 @@ export const CartSheet: React.FC<CartSheetProps> = ({
                 </>
               )}
             </p>
-            <div className="h-1 rounded-none bg-border overflow-hidden">
+            <div className="h-1 rounded-full bg-border overflow-hidden">
               <div
-                className={`h-full rounded-none transition-all duration-500 ${minOrder.met ? 'bg-emerald-500' : 'bg-[var(--accent)]'}`}
+                className={`h-full rounded-full transition-all duration-500 ${minOrder.met ? 'bg-emerald-500' : 'bg-[var(--accent)]'}`}
                 style={{ width: `${progress * 100}%` }}
               />
             </div>
@@ -276,11 +276,11 @@ export const CartSheet: React.FC<CartSheetProps> = ({
                       className="text-xs font-bold text-primary"
                       secondaryClassName="text-[10px] text-secondary"
                     />
-                    <div className="flex items-center h-6 rounded-none border border-border bg-surface">
+                    <div className="flex items-center h-6 rounded-full border border-border bg-surface">
                       <button
                         type="button"
                         onClick={() => onRemove(item)}
-                        className="w-6 h-6 inline-flex items-center justify-center rounded-none text-secondary hover:text-primary"
+                        className="w-6 h-6 inline-flex items-center justify-center rounded-full text-secondary hover:text-primary"
                         aria-label={`Quitar una unidad de ${item.product.name}`}
                       >
                         <Minus size={11} />
@@ -289,7 +289,7 @@ export const CartSheet: React.FC<CartSheetProps> = ({
                       <button
                         type="button"
                         onClick={() => onAdd(item)}
-                        className="w-6 h-6 inline-flex items-center justify-center rounded-none text-secondary hover:text-primary"
+                        className="w-6 h-6 inline-flex items-center justify-center rounded-full text-secondary hover:text-primary"
                         aria-label={`Añadir una unidad de ${item.product.name}`}
                       >
                         <Plus size={11} />
@@ -319,7 +319,7 @@ export const CartSheet: React.FC<CartSheetProps> = ({
               type="button"
               onClick={onCheckout}
               disabled={!canCheckout}
-              className="w-full h-9 rounded-none bg-green-600 hover:bg-green-700 disabled:bg-surface-hover disabled:text-secondary disabled:cursor-not-allowed text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.99]"
+              className="w-full h-9 rounded-xl bg-green-600 hover:bg-green-700 disabled:bg-surface-hover disabled:text-secondary disabled:cursor-not-allowed text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.99]"
             >
               <WhatsAppIcon size={15} />
               Continuar pedido por WhatsApp

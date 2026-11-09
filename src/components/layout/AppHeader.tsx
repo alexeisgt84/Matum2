@@ -31,7 +31,7 @@ export const AppHeader = () => {
           </h1>
           {subtitle && (
             <p className="text-secondary text-[9px] uppercase tracking-[0.15em] font-bold opacity-70 flex items-center gap-1 truncate transition-colors">
-              <span className="w-1 h-1 rounded-none bg-accent/60 animate-pulse flex-shrink-0" />
+              <span className="w-1 h-1 rounded-full bg-accent/60 animate-pulse flex-shrink-0" />
               {subtitle}
             </p>
           )}

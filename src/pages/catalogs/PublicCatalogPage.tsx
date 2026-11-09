@@ -39,6 +39,7 @@ import { ProductCard, ProductGridSkeleton } from '../../components/store/Product
 import { CartFab, CartSheet, type MinOrderState } from '../../components/store/Cart';
 import { ProductQuickView } from '../../components/store/ProductQuickView';
 import { StoreFooter } from '../../components/store/StoreFooter';
+import { recordStoreView } from '../../lib/analytics';
 import type {
   CartItem,
   PublicCatalog,
@@ -231,6 +232,35 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
     }
   }, [catalog?.id, user?.id, checkAffiliateStatus]);
 
+  // Registrar vista de la tienda en analytics
+  useEffect(() => {
+    if (!catalog?.id) return;
+    try {
+      const activeRef = (slug ? localStorage.getItem(`matum_ref_${slug}`) : null) || localStorage.getItem('matum_active_ref');
+      recordStoreView({
+        catalogId: catalog.id,
+        referralCode: activeRef || undefined,
+      });
+    } catch (e) {
+      console.warn('Error recording store view', e);
+    }
+  }, [catalog?.id, slug]);
+
+  // Registrar vista de producto cuando se abre la vista rápida
+  useEffect(() => {
+    if (!selectedProduct || !catalog?.id) return;
+    try {
+      const activeRef = (slug ? localStorage.getItem(`matum_ref_${slug}`) : null) || localStorage.getItem('matum_active_ref');
+      recordStoreView({
+        catalogId: catalog.id,
+        productId: selectedProduct.id,
+        referralCode: activeRef || undefined,
+      });
+    } catch (e) {
+      console.warn('Error recording product view', e);
+    }
+  }, [selectedProduct?.id, catalog?.id, slug]);
+
   // Persistir carrito
   useEffect(() => {
     if (!slug) return;
@@ -338,7 +368,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           supabase
             .from('products')
             .select(
-              'id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, is_active, position'
+              'id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position'
             )
             .eq('catalog_id', catData.id)
             .eq('is_active', true)
@@ -620,7 +650,16 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       messageText += `${idx + 1}. *${item.product.name}*\n`;
       messageText += `   - Cantidad: *${item.quantity}*\n`;
       messageText += `   - Precio: ${price} ${currency}\n`;
-      messageText += `   - Subtotal: *${subtotal} ${currency}*\n\n`;
+      messageText += `   - Subtotal: *${subtotal} ${currency}*\n`;
+      if (item.product.delivery_cost !== null && item.product.delivery_cost !== undefined) {
+        const dText = Number(item.product.delivery_cost) === 0 ? 'Gratis' : `${item.product.delivery_cost} ${item.product.delivery_currency || 'CUP'}`;
+        messageText += `   - Domicilio: ${dText}\n`;
+      }
+      if (item.product.delivery_time_value !== null && item.product.delivery_time_value !== undefined) {
+        const uText = item.product.delivery_time_unit === 'days' ? (Number(item.product.delivery_time_value) === 1 ? 'día' : 'días') : (Number(item.product.delivery_time_value) === 1 ? 'hora' : 'horas');
+        messageText += `   - Tiempo de entrega: ${item.product.delivery_time_value} ${uText}\n`;
+      }
+      messageText += `\n`;
     });
 
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
@@ -765,7 +804,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 font-store">
-        <div className="w-7 h-7 border-2 border-[var(--accent)] border-t-transparent rounded-none animate-spin mb-3" />
+        <div className="w-7 h-7 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mb-3" />
         <p className="text-secondary text-xs font-medium animate-pulse">Cargando tienda…</p>
       </div>
     );
@@ -877,7 +916,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
                   setSearchQuery('');
                   setSelectedCategoryId(null);
                 }}
-                className="mt-3 inline-flex items-center justify-center h-8 px-3.5 rounded-none bg-surface hover:bg-surface-hover border border-border text-xs font-semibold text-primary transition-colors"
+                className="mt-3 inline-flex items-center justify-center h-8 px-3.5 rounded-lg bg-surface hover:bg-surface-hover border border-border text-xs font-semibold text-primary transition-colors"
               >
                 Ver todo el catálogo
               </button>
@@ -943,7 +982,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
 
             {visibleCount < filteredProducts.length && (
               <div ref={loadMoreRef} className="h-16 flex items-center justify-center mt-4">
-                <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-none animate-spin" />
+                <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
               </div>
             )}
           </>
@@ -968,7 +1007,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
 
             {visibleCount < filteredProducts.length && (
               <div ref={loadMoreRef} className="h-16 flex items-center justify-center mt-4">
-                <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-none animate-spin" />
+                <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
               </div>
             )}
           </>
@@ -994,7 +1033,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       />
 
       {showOrderSuccess && (
-        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-3 py-2 rounded-none shadow-xl flex items-center gap-1.5 text-xs font-semibold animate-store-fade-up">
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-3 py-2 rounded-full shadow-xl flex items-center gap-1.5 text-xs font-semibold animate-store-fade-up">
           <Check size={14} /> Redirigiendo a WhatsApp con tu pedido…
           <button
             type="button"

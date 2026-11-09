@@ -31,7 +31,7 @@ export const Input: React.FC<InputProps> = ({
   const currentType = isPasswordType && showPasswordToggle && showPassword ? 'text' : type;
 
   const inputClasses = `
-    w-full bg-surface-hover border rounded-none text-primary placeholder:text-secondary/50 text-xs
+    w-full bg-surface-hover border rounded-lg text-primary placeholder:text-secondary/50 text-xs
     outline-none transition-all duration-150
     ${error ? 'border-danger/50 focus:border-danger' : 'border-border focus:border-accent focus:bg-surface'}
     ${multiline ? 'p-2.5' : 'h-8 py-0 px-2.5'}

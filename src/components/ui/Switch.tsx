@@ -31,7 +31,7 @@ export const Switch: React.FC<SwitchProps> = ({
           onChange={(e) => !disabled && onChange(e.target.checked)}
           disabled={disabled}
         />
-        <div className="w-8 h-4 bg-surface-hover border border-border peer-focus:outline-none rounded-none peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-secondary after:border-transparent after:border after:rounded-none after:h-3 after:w-3 after:transition-all peer-checked:bg-accent peer-checked:border-accent peer-checked:after:bg-black shadow-inner"></div>
+        <div className="w-8 h-4 bg-surface-hover border border-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-4 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-secondary after:border-transparent after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-accent peer-checked:border-accent peer-checked:after:bg-black shadow-inner"></div>
       </label>
     </div>
   );

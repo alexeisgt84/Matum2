@@ -107,11 +107,11 @@ export const CatalogsPage = () => {
 
       {/* Selector de pestañas para vendedores/administradores */}
       {!isCustomer && (
-        <div className="flex p-1 bg-surface border border-border rounded-none gap-1">
+        <div className="flex p-1 bg-surface border border-border rounded-xl gap-1">
           <button
             type="button"
             onClick={() => setActiveTab('public')}
-            className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-none transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'public'
                 ? 'bg-[var(--accent)] text-[var(--accent-text)] shadow-sm'
                 : 'text-secondary hover:text-primary hover:bg-surface-hover'
@@ -120,7 +120,7 @@ export const CatalogsPage = () => {
             <Compass size={13} />
             <span>Públicos</span>
             {!publicLoading && publicCatalogs.length > 0 && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-none bg-black/20">
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20">
                 {publicCatalogs.length}
               </span>
             )}
@@ -128,7 +128,7 @@ export const CatalogsPage = () => {
           <button
             type="button"
             onClick={() => setActiveTab('my')}
-            className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-none transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-1.5 px-3 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'my'
                 ? 'bg-[var(--accent)] text-[var(--accent-text)] shadow-sm'
                 : 'text-secondary hover:text-primary hover:bg-surface-hover'
@@ -136,7 +136,7 @@ export const CatalogsPage = () => {
           >
             <LayoutGrid size={13} />
             <span>Mis Catálogos</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-none bg-black/20">
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/20">
               {catalogs.length}
             </span>
           </button>
@@ -157,7 +157,7 @@ export const CatalogsPage = () => {
               placeholder="Buscar por nombre, rubro o eslogan…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-9 py-2 bg-surface border border-border rounded-none text-xs text-primary placeholder:text-secondary focus:outline-none focus:border-accent transition-colors"
+              className="w-full pl-9 pr-9 py-2 bg-surface border border-border rounded-xl text-xs text-primary placeholder:text-secondary focus:outline-none focus:border-accent transition-colors"
             />
             {searchQuery && (
               <button
@@ -339,7 +339,7 @@ export const CatalogsPage = () => {
                           e.stopPropagation();
                           navigate(`/catalogs/${catalog.id}/edit`);
                         }}
-                        className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-none transition-colors"
+                        className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-colors"
                         aria-label={`Editar catálogo ${catalog.name}`}
                       >
                         <Edit3 size={14} />
@@ -349,7 +349,7 @@ export const CatalogsPage = () => {
                           e.stopPropagation();
                           setCatalogToDelete(catalog.id);
                         }}
-                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-none transition-colors"
+                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
                         aria-label={`Eliminar catálogo ${catalog.name}`}
                       >
                         <Trash2 size={14} />
@@ -395,7 +395,7 @@ export const CatalogsPage = () => {
                           <h3 className="text-sm font-bold text-primary group-hover:text-accent transition-colors truncate">
                             {catalog.name}
                           </h3>
-                          <span className="text-[8px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-none font-black uppercase tracking-wider">
+                          <span className="text-[8px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
                             Colaborador
                           </span>
                         </div>

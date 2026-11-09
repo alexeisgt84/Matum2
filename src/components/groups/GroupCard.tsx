@@ -12,7 +12,7 @@ interface GroupCardProps {
 export const GroupCard: React.FC<GroupCardProps> = ({ group, onUnlink, onToggle }) => {
   return (
     <div className={`card rounded-card w-full overflow-hidden group hover:border-accent/30 transition-all flex items-center gap-2.5 p-2.5 ${!group.is_active ? 'opacity-70 bg-surface/50' : ''}`}>
-      <div className={`p-2 rounded-none transition-colors flex-shrink-0 ${group.is_active ? 'bg-accent/10 text-accent' : 'bg-gray-500/10 text-gray-500'}`}>
+      <div className={`p-2 rounded-xl transition-colors flex-shrink-0 ${group.is_active ? 'bg-accent/10 text-accent' : 'bg-gray-500/10 text-gray-500'}`}>
         <Users size={16} />
       </div>
 
@@ -44,7 +44,7 @@ export const GroupCard: React.FC<GroupCardProps> = ({ group, onUnlink, onToggle 
             />
             <button 
               onClick={() => onUnlink(group.id)}
-              className="p-1.5 text-secondary hover:text-danger hover:bg-danger/10 rounded-none transition-colors"
+              className="p-1.5 text-secondary hover:text-danger hover:bg-danger/10 rounded-md transition-colors"
               title="Desvincular"
             >
               <Trash2 size={14} />

@@ -47,6 +47,10 @@ export interface PublicProduct {
   category_id?: number | null;
   commission_amount?: number | null;
   commission_currency?: 'CUP' | 'USD';
+  delivery_cost?: number | null;
+  delivery_currency?: 'CUP' | 'USD' | null;
+  delivery_time_value?: number | null;
+  delivery_time_unit?: 'hours' | 'days' | null;
   position?: number | null;
 }
 

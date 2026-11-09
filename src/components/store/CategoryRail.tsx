@@ -14,7 +14,7 @@ interface CategoryRailProps {
 }
 
 const chipBase =
-  'flex-shrink-0 inline-flex items-center gap-1 h-7 px-2.5 rounded-none text-xs font-semibold whitespace-nowrap border transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]';
+  'flex-shrink-0 inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-semibold whitespace-nowrap border transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]';
 const chipActive = 'bg-[var(--accent)] text-[var(--accent-text)] border-transparent shadow-sm';
 const chipIdle =
   'bg-surface text-secondary border-border hover:text-primary hover:border-[var(--text-secondary)]';
@@ -86,7 +86,7 @@ export const CategoryRail: React.FC<CategoryRailProps> = ({
           <div
             key={i}
             style={{ width: w }}
-            className="h-7 rounded-none bg-surface border border-border animate-pulse flex-shrink-0"
+            className="h-7 rounded-full bg-surface border border-border animate-pulse flex-shrink-0"
           />
         ))}
       </div>
@@ -101,7 +101,7 @@ export const CategoryRail: React.FC<CategoryRailProps> = ({
         <button
           type="button"
           onClick={() => scrollByStep(-1)}
-          className="flex-shrink-0 w-7 h-7 inline-flex items-center justify-center rounded-none bg-surface hover:bg-surface-hover border border-border text-primary shadow-sm transition-colors active:scale-95"
+          className="flex-shrink-0 w-7 h-7 inline-flex items-center justify-center rounded-full bg-surface hover:bg-surface-hover border border-border text-primary shadow-sm transition-colors active:scale-95"
           aria-label="Desplazar categorías a la izquierda"
         >
           <ChevronLeft size={14} />
@@ -176,7 +176,7 @@ export const CategoryRail: React.FC<CategoryRailProps> = ({
         <button
           type="button"
           onClick={() => scrollByStep(1)}
-          className="flex-shrink-0 w-7 h-7 inline-flex items-center justify-center rounded-none bg-surface hover:bg-surface-hover border border-border text-primary shadow-sm transition-colors active:scale-95"
+          className="flex-shrink-0 w-7 h-7 inline-flex items-center justify-center rounded-full bg-surface hover:bg-surface-hover border border-border text-primary shadow-sm transition-colors active:scale-95"
           aria-label="Desplazar categorías a la derecha"
         >
           <ChevronRight size={14} />

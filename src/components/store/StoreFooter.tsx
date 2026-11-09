@@ -69,7 +69,7 @@ export const StoreFooter: React.FC<StoreFooterProps> = ({
           {catalog.follow_code && (
             <div className="inline-flex items-center gap-1.5 text-[11px] text-secondary pt-0.5">
               <span>Código de tienda:</span>
-              <span className="font-mono bg-background border border-border px-1.5 py-0.5 rounded-none text-[var(--accent)] font-bold">
+              <span className="font-mono bg-background border border-border px-1.5 py-0.5 rounded-md text-[var(--accent)] font-bold">
                 {catalog.follow_code}
               </span>
               <button
@@ -78,7 +78,7 @@ export const StoreFooter: React.FC<StoreFooterProps> = ({
                   navigator.clipboard.writeText(catalog.follow_code || '');
                   toast.success('Código copiado al portapapeles');
                 }}
-                className="p-1 rounded-none hover:bg-surface-hover text-secondary hover:text-primary transition-colors"
+                className="p-1 rounded-md hover:bg-surface-hover text-secondary hover:text-primary transition-colors"
                 aria-label="Copiar código de tienda"
               >
                 <Copy size={12} />
@@ -138,7 +138,7 @@ export const StoreFooter: React.FC<StoreFooterProps> = ({
                     href={`https://instagram.com/${catalog.footer_instagram.replace(/^@/, '')}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-7 h-7 rounded-none bg-background border border-border flex items-center justify-center text-secondary hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
+                    className="w-7 h-7 rounded-lg bg-background border border-border flex items-center justify-center text-secondary hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
                     aria-label="Instagram"
                   >
                     <InstagramIcon size={13} />
@@ -149,7 +149,7 @@ export const StoreFooter: React.FC<StoreFooterProps> = ({
                     href={`https://facebook.com/${catalog.footer_facebook}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="w-7 h-7 rounded-none bg-background border border-border flex items-center justify-center text-secondary hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
+                    className="w-7 h-7 rounded-lg bg-background border border-border flex items-center justify-center text-secondary hover:text-[var(--accent)] hover:border-[var(--accent)]/40 transition-colors"
                     aria-label="Facebook"
                   >
                     <FacebookIcon size={13} />
@@ -174,7 +174,7 @@ export const StoreFooter: React.FC<StoreFooterProps> = ({
 
                 {affiliate.status === 'approved' && (
                   <div className="space-y-1.5">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">
                       <Check size={11} /> Afiliado aprobado
                     </span>
                     <div>
@@ -189,13 +189,13 @@ export const StoreFooter: React.FC<StoreFooterProps> = ({
                 )}
 
                 {affiliate.status === 'pending' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-amber-500/15 text-amber-500 text-[11px] font-semibold">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 text-[11px] font-semibold">
                     <Clock size={11} /> Solicitud en revisión
                   </span>
                 )}
 
                 {affiliate.status === 'rejected' && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-rose-500/15 text-rose-500 text-[11px] font-semibold">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-500 text-[11px] font-semibold">
                     <AlertTriangle size={11} /> Solicitud no aprobada
                   </span>
                 )}
@@ -210,14 +210,14 @@ export const StoreFooter: React.FC<StoreFooterProps> = ({
                         await affiliate.onApply();
                         setApplying(false);
                       }}
-                      className="inline-flex items-center gap-1 h-7 px-3 rounded-none bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-[11px] font-semibold transition-colors disabled:opacity-50"
+                      className="inline-flex items-center gap-1 h-7 px-3 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-[11px] font-semibold transition-colors disabled:opacity-50"
                     >
                       <Coins size={12} /> {applying ? 'Enviando…' : 'Solicitar ser afiliado'}
                     </button>
                   ) : (
                     <Link
                       to={`/login?redirect=/${slug}`}
-                      className="inline-flex items-center gap-1 h-7 px-3 rounded-none bg-background hover:bg-surface-hover border border-border text-primary text-[11px] font-semibold transition-colors"
+                      className="inline-flex items-center gap-1 h-7 px-3 rounded-lg bg-background hover:bg-surface-hover border border-border text-primary text-[11px] font-semibold transition-colors"
                     >
                       <Coins size={12} className="text-[var(--accent)]" /> Solicitar ser afiliado
                     </Link>
@@ -232,13 +232,13 @@ export const StoreFooter: React.FC<StoreFooterProps> = ({
                 <div className="flex flex-wrap gap-1.5">
                   <Link
                     to="/"
-                    className="inline-flex items-center gap-1 h-7 px-2.5 rounded-none bg-background hover:bg-surface-hover border border-border text-[11px] font-semibold text-primary transition-colors"
+                    className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-background hover:bg-surface-hover border border-border text-[11px] font-semibold text-primary transition-colors"
                   >
                     <ArrowLeft size={11} /> Panel
                   </Link>
                   <Link
                     to={`/catalogs/${catalog.id}`}
-                    className="inline-flex items-center gap-1 h-7 px-2.5 rounded-none bg-background hover:bg-surface-hover border border-border text-[11px] font-semibold text-primary transition-colors"
+                    className="inline-flex items-center gap-1 h-7 px-2.5 rounded-lg bg-background hover:bg-surface-hover border border-border text-[11px] font-semibold text-primary transition-colors"
                   >
                     <Settings size={11} /> Configurar tienda
                   </Link>

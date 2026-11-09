@@ -11,10 +11,25 @@ export interface DetectedPrice {
   confidence: number; // 1 (bajo) a 10 (muy alto)
 }
 
+export interface DetectedDelivery {
+  cost: number | null;
+  currency: 'USD' | 'CUP';
+  rawText?: string;
+  isFree?: boolean;
+}
+
+export interface DetectedDeliveryTime {
+  value: number;
+  unit: 'hours' | 'days';
+  rawText?: string;
+}
+
 export interface ParsedProductText {
   suggestedTitle: string;
   bestPrice: DetectedPrice | null;
   allPrices: DetectedPrice[];
+  delivery?: DetectedDelivery | null;
+  deliveryTime?: DetectedDeliveryTime | null;
 }
 
 // Unidades y especificaciones a ignorar como precios (cuando van después del número)
@@ -224,9 +239,51 @@ export function parseProductText(text: string): ParsedProductText {
 
   const bestPrice = detectedPrices.length > 0 ? detectedPrices[0] : null;
 
+  // --- DETECCIÓN DE DOMICILIO / MENSAJERÍA ---
+  let delivery: DetectedDelivery | null = null;
+  if (/\b(?:domicilio|env[ií]o|mensajer[ií]a)\s+(?:gratis|incluid[oa]|sin\s+costo)\b/i.test(text) ||
+      /\b(?:gratis|incluid[oa])\s+(?:el\s+)?(?:domicilio|env[ií]o|mensajer[ií]a)\b/i.test(text)) {
+    delivery = { cost: 0, currency: 'CUP', isFree: true, rawText: 'Gratis' };
+  } else {
+    const deliveryMatch = text.match(/\b(?:domicilio|env[ií]o|mensajer[ií]a|costo\s+de\s+env[ií]o)\s*[:\-👉🏼]*\s*\$?\s*(\d+(?:[.,]\d+)?)\s*(usd|cup|mlc|pesos|dolares|\$)?\b/i);
+    if (deliveryMatch) {
+      const parsedCost = parseFloat(deliveryMatch[1].replace(',', '.'));
+      if (!isNaN(parsedCost)) {
+        const dCurr = deliveryMatch[2] ? normalizeCurrency(deliveryMatch[2]) : (parsedCost > 150 ? 'CUP' : 'USD');
+        delivery = { cost: parsedCost, currency: dCurr, rawText: deliveryMatch[0] };
+      }
+    }
+  }
+
+  // --- DETECCIÓN DE TIEMPO DE ENTREGA ---
+  let deliveryTime: DetectedDeliveryTime | null = null;
+  // Horas (ej: "entrega en 24 horas", "entrega: 2h", "en 48 hrs")
+  const hoursMatch = text.match(/\b(?:entrega|tiempo\s+de\s+entrega|demora|recibe\s+en)\s*(?:en|de)?\s*[:\-]?\s*(\d+)\s*(?:a\s*\d+\s*)?(?:horas|hora|hrs|hr|h)\b/i) ||
+                     text.match(/\b(\d+)\s*(?:horas|hrs|h)\s*(?:de\s+entrega|para\s+entrega)\b/i);
+  if (hoursMatch) {
+    const val = parseInt(hoursMatch[1], 10);
+    if (!isNaN(val) && val > 0 && val <= 168) {
+      deliveryTime = { value: val, unit: 'hours', rawText: hoursMatch[0] };
+    }
+  }
+
+  // Días (ej: "entrega en 2 días", "demora de 3 dias", "tiempo de entrega 1 dia")
+  if (!deliveryTime) {
+    const daysMatch = text.match(/\b(?:entrega|tiempo\s+de\s+entrega|demora|recibe\s+en)\s*(?:en|de)?\s*[:\-]?\s*(\d+)\s*(?:a\s*\d+\s*)?(?:d[ií]as|d[ií]a)\b/i) ||
+                      text.match(/\b(\d+)\s*(?:d[ií]as|d[ií]a)\s*(?:de\s+entrega|para\s+entrega)\b/i);
+    if (daysMatch) {
+      const val = parseInt(daysMatch[1], 10);
+      if (!isNaN(val) && val > 0 && val <= 60) {
+        deliveryTime = { value: val, unit: 'days', rawText: daysMatch[0] };
+      }
+    }
+  }
+
   return {
     suggestedTitle,
     bestPrice,
     allPrices: detectedPrices,
+    delivery,
+    deliveryTime,
   };
 }

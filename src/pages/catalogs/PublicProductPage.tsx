@@ -12,6 +12,11 @@ import {
   AlertTriangle,
   Store,
   ChevronRight,
+  ShieldCheck,
+  Truck,
+  Clock,
+  MessageCircle,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -38,6 +43,7 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
 import { PriceTag } from '../../components/store/PriceTag';
+import { recordStoreView } from '../../lib/analytics';
 import { ProductCard } from '../../components/store/ProductCard';
 import { WhatsAppIcon } from '../../components/store/SocialIcons';
 import type { CartItem, PublicCatalog, PublicProduct } from '../../types/store';
@@ -190,7 +196,7 @@ export const PublicProductPage: React.FC = () => {
           supabase
             .from('products')
             .select(
-              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, is_active'
+              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active'
             )
             .eq('id', productId)
             .eq('catalog_id', catData.id)
@@ -198,7 +204,7 @@ export const PublicProductPage: React.FC = () => {
           supabase
             .from('products')
             .select(
-              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, is_active, position'
+              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position'
             )
             .eq('catalog_id', catData.id)
             .eq('is_active', true)
@@ -261,6 +267,26 @@ export const PublicProductPage: React.FC = () => {
       checkAffiliateStatus(catalog.id, user.id);
     }
   }, [catalog?.id, user?.id, checkAffiliateStatus]);
+
+  // Registrar vista del producto y la tienda en analytics
+  useEffect(() => {
+    if (!catalog?.id || !product?.id) return;
+    try {
+      const searchParams = new URLSearchParams(location.search);
+      const activeRef =
+        searchParams.get('ref') ||
+        (slug ? localStorage.getItem(`matum_ref_${slug}`) : null) ||
+        localStorage.getItem('matum_active_ref');
+
+      recordStoreView({
+        catalogId: catalog.id,
+        productId: product.id,
+        referralCode: activeRef || undefined,
+      });
+    } catch (e) {
+      console.warn('Error recording product view', e);
+    }
+  }, [catalog?.id, product?.id, slug, location.search]);
 
   const isApprovedAffiliate = myAffiliation?.status === 'approved';
   const isCatalogOwner = !!user && catalog?.user_id === user?.id;
@@ -408,6 +434,14 @@ export const PublicProductPage: React.FC = () => {
     if (unitPrice > 0) {
       messageText += `  *Subtotal:* ${totalPrice.toLocaleString()} ${product.currency}\n`;
     }
+    if (product.delivery_cost !== null && product.delivery_cost !== undefined) {
+      const dText = Number(product.delivery_cost) === 0 ? 'Gratis' : `${product.delivery_cost} ${product.delivery_currency || 'CUP'}`;
+      messageText += `  *Domicilio:* ${dText}\n`;
+    }
+    if (product.delivery_time_value !== null && product.delivery_time_value !== undefined) {
+      const uText = product.delivery_time_unit === 'days' ? (Number(product.delivery_time_value) === 1 ? 'día' : 'días') : (Number(product.delivery_time_value) === 1 ? 'hora' : 'horas');
+      messageText += `  *Tiempo de entrega:* ${product.delivery_time_value} ${uText}\n`;
+    }
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
 
     const activeRef =
@@ -460,8 +494,8 @@ export const PublicProductPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 font-store">
-        <div className="w-8 h-8 border-3 border-[var(--accent)] border-t-transparent rounded-none animate-spin mb-3" />
-        <p className="text-secondary text-xs font-medium animate-pulse">Cargando producto…</p>
+        <div className="w-10 h-10 border-3 border-[var(--accent)] border-t-transparent rounded-full animate-spin mb-3.5" />
+        <p className="text-secondary text-xs font-semibold animate-pulse tracking-wide">Cargando producto…</p>
       </div>
     );
   }
@@ -469,21 +503,21 @@ export const PublicProductPage: React.FC = () => {
   if (error || !product || !catalog) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-center font-store">
-        <div className="w-12 h-12 rounded-card bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-500 mb-3">
-          <AlertTriangle size={20} />
+        <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-500 mb-3.5 shadow-sm">
+          <AlertTriangle size={24} />
         </div>
-        <h1 className="font-display text-lg font-bold text-primary mb-1.5">
+        <h1 className="font-display text-xl font-bold text-primary mb-1.5">
           {error || 'Producto no encontrado'}
         </h1>
-        <p className="text-xs text-secondary max-w-sm mb-4">
+        <p className="text-xs text-secondary max-w-sm mb-5 leading-relaxed">
           Este producto no existe o ya no está disponible en la tienda.
         </p>
         {slug && (
           <Link
             to={`/${slug}${location.search}`}
-            className="inline-flex items-center gap-1.5 h-8 px-4 rounded-none bg-accent text-[var(--accent-text,black)] font-semibold text-xs hover:opacity-90 transition-all shadow-md shadow-accent/20"
+            className="inline-flex items-center gap-2 h-9 px-5 rounded-full bg-accent text-[var(--accent-text,black)] font-bold text-xs hover:opacity-90 active:scale-95 transition-all shadow-md shadow-accent/25"
           >
-            <ArrowLeft size={13} /> Ir a la tienda
+            <ArrowLeft size={14} /> Volver a la tienda
           </Link>
         )}
       </div>
@@ -495,14 +529,14 @@ export const PublicProductPage: React.FC = () => {
   return (
     <div
       style={themeStyles}
-      className="min-h-screen bg-background text-primary pb-20 md:pb-12 font-store selection:bg-accent selection:text-[var(--accent-text)]"
+      className="min-h-screen bg-background text-primary pb-24 md:pb-14 font-store selection:bg-accent selection:text-[var(--accent-text)]"
     >
-      {/* Barra superior */}
-      <header className="sticky top-0 z-30 bg-background/90 backdrop-blur-xl border-b border-border">
-        <div className="max-w-5xl mx-auto px-3 h-11 flex items-center justify-between gap-2">
+      {/* Barra superior moderna y redondeada */}
+      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border/70 transition-all">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 h-13 flex items-center justify-between gap-2.5">
           <Link
             to={`/${slug}${location.search}`}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-secondary hover:text-primary transition-colors py-1 group"
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-surface/80 hover:bg-surface border border-border/70 text-xs font-semibold text-secondary hover:text-primary transition-all shadow-sm active:scale-95 group"
           >
             <ArrowLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" />
             <span className="hidden sm:inline">Volver a la tienda</span>
@@ -511,16 +545,16 @@ export const PublicProductPage: React.FC = () => {
 
           <Link
             to={`/${slug}${location.search}`}
-            className="flex items-center gap-1.5 max-w-[180px] sm:max-w-xs truncate group"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface/60 hover:bg-surface border border-border/60 transition-all shadow-sm max-w-[200px] sm:max-w-xs group"
           >
             {catalog.logo_url ? (
               <img
                 src={catalog.logo_url}
                 alt={catalog.name}
-                className="w-6 h-6 rounded-none object-cover border border-border flex-shrink-0"
+                className="w-5 h-5 rounded-full object-cover border border-border/60 flex-shrink-0"
               />
             ) : (
-              <div className="w-6 h-6 rounded-none bg-[var(--accent)] text-[var(--accent-text)] flex items-center justify-center text-[10px] font-display font-extrabold flex-shrink-0">
+              <div className="w-5 h-5 rounded-full bg-[var(--accent)] text-[var(--accent-text)] flex items-center justify-center text-[10px] font-display font-black flex-shrink-0">
                 {catalog.name.charAt(0).toUpperCase()}
               </div>
             )}
@@ -533,7 +567,7 @@ export const PublicProductPage: React.FC = () => {
             <button
               type="button"
               onClick={handleShareProduct}
-              className="w-8 h-8 inline-flex items-center justify-center rounded-none bg-surface border border-border text-secondary hover:text-primary hover:bg-surface-hover active:scale-95 transition-all"
+              className="w-9 h-9 inline-flex items-center justify-center rounded-full bg-surface/80 hover:bg-surface border border-border/70 text-secondary hover:text-primary transition-all active:scale-95 shadow-sm"
               aria-label="Compartir producto"
             >
               <Share2 size={14} />
@@ -541,12 +575,12 @@ export const PublicProductPage: React.FC = () => {
 
             <Link
               to={`/${slug}${location.search}`}
-              className="relative w-8 h-8 inline-flex items-center justify-center rounded-none bg-surface border border-border text-primary hover:bg-surface-hover transition-colors"
+              className="relative w-9 h-9 inline-flex items-center justify-center rounded-full bg-surface/80 hover:bg-surface border border-border/70 text-primary transition-all active:scale-95 shadow-sm"
               aria-label={`Ver pedido en la tienda (${totalCartCount})`}
             >
               <ShoppingBag size={14} />
               {totalCartCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-0.5 rounded-none bg-[var(--accent)] text-[var(--accent-text)] text-[9px] font-bold leading-[16px] text-center ring-1 ring-background">
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--accent)] text-[var(--accent-text)] text-[9px] font-extrabold flex items-center justify-center ring-2 ring-background shadow-sm animate-store-pop">
                   {totalCartCount}
                 </span>
               )}
@@ -555,77 +589,120 @@ export const PublicProductPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Contenido */}
-      <main className="max-w-5xl mx-auto px-3 py-4 sm:py-6">
+      {/* Contenido principal */}
+      <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-7">
         <nav
           aria-label="Ruta de navegación"
-          className="flex items-center gap-1 text-[11px] text-secondary mb-3 overflow-hidden"
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface/50 border border-border/50 text-[11px] text-secondary mb-4 overflow-hidden max-w-full"
         >
-          <Link to={`/${slug}${location.search}`} className="hover:text-primary transition-colors">
+          <Link to={`/${slug}${location.search}`} className="hover:text-primary transition-colors truncate">
             {catalog.name}
           </Link>
-          <ChevronRight size={11} className="opacity-50 flex-shrink-0" />
+          <ChevronRight size={11} className="opacity-40 flex-shrink-0" />
           <span className="text-primary font-medium truncate">{product.name}</span>
         </nav>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-7">
-          {/* Imagen */}
-          <div>
-            <div className="relative aspect-square w-full rounded-card overflow-hidden bg-surface border border-border">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 lg:gap-10">
+          {/* Columna Izquierda: Imagen y badges de valor */}
+          <div className="space-y-3">
+            <div className="relative aspect-square w-full rounded-3xl overflow-hidden bg-surface/40 border border-border/70 shadow-sm group flex items-center justify-center">
               {product.imagen_url ? (
                 <img
                   src={product.imagen_url}
                   alt={product.name}
                   fetchPriority="high"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
                 />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-secondary/60 gap-1.5 p-6">
-                  <ShoppingBag size={42} strokeWidth={1.5} />
-                  <span className="text-[11px] font-medium text-secondary">Sin imagen</span>
+                <div className="w-full h-full flex flex-col items-center justify-center text-secondary/60 gap-2 p-6">
+                  <div className="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center border border-border">
+                    <ShoppingBag size={32} strokeWidth={1.5} />
+                  </div>
+                  <span className="text-xs font-semibold text-secondary">Sin imagen disponible</span>
                 </div>
               )}
 
-              {isOutOfStock && (
-                <span className="absolute top-2.5 left-2.5 bg-red-500/90 backdrop-blur text-white text-[10px] font-semibold px-2.5 py-0.5 rounded-none shadow-md">
+              {/* Badges de estado flotantes */}
+              {isOutOfStock ? (
+                <span className="absolute top-3.5 left-3.5 bg-red-500/90 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
                   Agotado
                 </span>
+              ) : (
+                <span className="absolute top-3.5 left-3.5 bg-background/90 backdrop-blur-md text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold px-3 py-1 rounded-full shadow-sm flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Disponible
+                </span>
               )}
+
+              {/* Botón flotante para compartir foto */}
+              <button
+                type="button"
+                onClick={handleShareProduct}
+                className="absolute top-3.5 right-3.5 w-9 h-9 rounded-full bg-black/45 hover:bg-black/65 backdrop-blur-md text-white flex items-center justify-center transition-all opacity-90 hover:opacity-100 shadow-md active:scale-95"
+                aria-label="Compartir este producto"
+              >
+                <Share2 size={14} />
+              </button>
+            </div>
+
+            {/* Badges de confianza de nivel mundial */}
+            <div className="grid grid-cols-3 gap-2 pt-1">
+              <div className="p-2.5 rounded-2xl bg-surface/60 border border-border/60 text-center flex flex-col items-center justify-center gap-1">
+                <MessageCircle size={15} className="text-emerald-500" />
+                <span className="text-[10px] font-semibold text-primary leading-tight">Atención directa</span>
+                <span className="text-[9px] text-secondary">Por WhatsApp</span>
+              </div>
+              <div className="p-2.5 rounded-2xl bg-surface/60 border border-border/60 text-center flex flex-col items-center justify-center gap-1">
+                <Truck size={15} className="text-sky-500" />
+                <span className="text-[10px] font-semibold text-primary leading-tight">Entrega rápida</span>
+                <span className="text-[9px] text-secondary">Coordinada</span>
+              </div>
+              <div className="p-2.5 rounded-2xl bg-surface/60 border border-border/60 text-center flex flex-col items-center justify-center gap-1">
+                <ShieldCheck size={15} className="text-amber-500" />
+                <span className="text-[10px] font-semibold text-primary leading-tight">Catálogo verificado</span>
+                <span className="text-[9px] text-secondary">100% confiable</span>
+              </div>
             </div>
           </div>
 
-          {/* Información */}
-          <div className="flex flex-col justify-between space-y-4">
-            <div className="space-y-3.5">
+          {/* Columna Derecha: Información, Precio y Acciones */}
+          <div className="flex flex-col justify-between space-y-5">
+            <div className="space-y-4">
               <div>
                 <Link
                   to={`/${slug}${location.search}`}
-                  className="inline-flex items-center gap-1 text-[11px] text-secondary hover:text-accent font-medium mb-1 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface border border-border/60 text-[11px] font-semibold text-secondary hover:text-accent mb-2 transition-colors"
                 >
                   <Store size={12} />
                   <span>{catalog.name}</span>
                 </Link>
-                <h1 className="font-display text-lg sm:text-xl font-extrabold text-primary tracking-tight leading-snug">
+                <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-primary tracking-tight leading-tight">
                   {product.name}
                 </h1>
               </div>
 
-              <PriceTag
-                parts={unitPriceParts}
-                className="font-display text-xl sm:text-2xl font-extrabold text-[var(--accent)] tracking-tight"
-                secondaryClassName="text-sm font-medium text-secondary"
-              />
+              {/* Bloque de precio destacado */}
+              <div className="p-3.5 rounded-2xl bg-surface/50 border border-border/60">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-secondary mb-1">
+                  Precio
+                </div>
+                <PriceTag
+                  parts={unitPriceParts}
+                  className="font-display text-2xl sm:text-3xl font-black text-[var(--accent)] tracking-tight"
+                  secondaryClassName="text-sm font-semibold text-secondary mt-0.5 block"
+                />
+              </div>
 
-              {/* Ganancia de promotor */}
+              {/* Tarjeta de ganancia de promotor (Afiliados) */}
               {canSeeCommissions && (product.commission_amount ?? 0) > 0 && (
-                <div className="p-3 rounded-card bg-emerald-500/10 border border-emerald-500/25 space-y-2">
-                  <div className="flex items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-none bg-emerald-500/20 text-emerald-500 flex items-center justify-center flex-shrink-0">
-                        <Coins size={14} />
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/25 space-y-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <Coins size={16} />
                       </div>
                       <div>
-                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 block">
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block leading-tight">
                           Tu ganancia de promotor
                         </span>
                         <span className="text-[10px] text-secondary">
@@ -633,57 +710,94 @@ export const PublicProductPage: React.FC = () => {
                         </span>
                       </div>
                     </div>
-                    <span className="text-sm sm:text-base font-bold text-emerald-500 tabular-nums">
+                    <span className="text-sm sm:text-base font-extrabold text-emerald-500 tabular-nums">
                       +{product.commission_amount} {product.commission_currency || 'CUP'}
                     </span>
                   </div>
 
-                  <div className="pt-2 border-t border-emerald-500/20 flex flex-wrap gap-2 items-center justify-between">
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                      Comparte este enlace para atribuirte la venta
+                  <div className="pt-2.5 border-t border-emerald-500/20 flex flex-wrap gap-2 items-center justify-between">
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                      <Sparkles size={11} /> Comparte tu enlace y gana
                     </span>
                     <button
                       type="button"
                       onClick={handleCopyLink}
-                      className="inline-flex items-center gap-1 h-7 px-2.5 rounded-none bg-emerald-500 text-white font-semibold text-[11px] hover:bg-emerald-600 active:scale-95 transition-all"
+                      className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-white font-semibold text-xs shadow-sm shadow-emerald-500/20 transition-all"
                     >
-                      {copiedLink ? <Check size={11} /> : <Copy size={11} />}
+                      {copiedLink ? <Check size={12} /> : <Copy size={12} />}
                       <span>{copiedLink ? 'Copiado' : 'Copiar mi enlace'}</span>
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* Cantidad */}
+              {/* Información de Domicilio y Tiempo de Entrega */}
+              {((product.delivery_cost !== null && product.delivery_cost !== undefined) ||
+                (product.delivery_time_value !== null && product.delivery_time_value !== undefined)) && (
+                <div className="p-3.5 rounded-2xl bg-sky-500/10 border border-sky-500/20 grid grid-cols-2 gap-3 text-xs shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center flex-shrink-0">
+                      <Truck size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-secondary block font-semibold uppercase tracking-wider">Costo de Domicilio</span>
+                      <span className="font-extrabold text-primary truncate block text-xs sm:text-sm">
+                        {product.delivery_cost !== null && product.delivery_cost !== undefined
+                          ? Number(product.delivery_cost) === 0
+                            ? 'Envío Gratis'
+                            : `${product.delivery_cost} ${product.delivery_currency || 'CUP'}`
+                          : 'A coordinar'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center flex-shrink-0">
+                      <Clock size={16} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-[10px] text-secondary block font-semibold uppercase tracking-wider">Tiempo de Entrega</span>
+                      <span className="font-extrabold text-primary truncate block text-xs sm:text-sm">
+                        {product.delivery_time_value !== null && product.delivery_time_value !== undefined
+                          ? `${product.delivery_time_value} ${product.delivery_time_unit === 'days' ? (Number(product.delivery_time_value) === 1 ? 'día' : 'días') : (Number(product.delivery_time_value) === 1 ? 'hora' : 'horas')}`
+                          : 'Inmediata'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Selector de cantidad ergonómico */}
               {!isOutOfStock && (
-                <div className="space-y-1.5">
-                  <span className="text-[11px] font-semibold text-secondary">Cantidad</span>
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <div className="inline-flex items-center h-8 bg-surface border border-border rounded-none px-0.5">
+                <div className="space-y-2">
+                  <span className="text-xs font-semibold text-secondary">Seleccionar cantidad</span>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <div className="inline-flex items-center h-10 bg-surface/90 border border-border/80 rounded-full p-1 shadow-sm">
                       <button
                         type="button"
                         onClick={() => setQuantity(q => Math.max(1, q - 1))}
                         disabled={quantity <= 1}
-                        className="w-7 h-7 rounded-none flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-hover active:scale-90 transition-all disabled:opacity-40"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-hover active:scale-90 transition-all disabled:opacity-30"
                         aria-label="Restar unidad"
                       >
                         <Minus size={13} />
                       </button>
-                      <span className="w-8 text-center font-bold text-xs tabular-nums">
+                      <span className="w-9 text-center font-extrabold text-sm tabular-nums text-primary">
                         {quantity}
                       </span>
                       <button
                         type="button"
                         onClick={() => setQuantity(q => q + 1)}
-                        className="w-7 h-7 rounded-none flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-hover active:scale-90 transition-all"
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-hover active:scale-90 transition-all"
                         aria-label="Sumar unidad"
                       >
                         <Plus size={13} />
                       </button>
                     </div>
+
                     {quantity > 1 && subtotalParts && (
-                      <span className="text-xs text-secondary">
-                        Subtotal:{' '}
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface border border-border/60 text-xs text-secondary shadow-sm">
+                        <span>Total:</span>
                         <PriceTag
                           parts={subtotalParts}
                           className="font-bold text-primary"
@@ -695,79 +809,81 @@ export const PublicProductPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Acciones (escritorio; en móvil también hay barra fija) */}
-              <div className="space-y-2 pt-0.5">
+              {/* Acciones principales para pantallas de escritorio */}
+              <div className="space-y-2.5 pt-1">
                 {!isOutOfStock ? (
-                  <div className="hidden md:grid grid-cols-2 gap-2">
+                  <div className="hidden md:grid grid-cols-2 gap-2.5">
                     <button
                       type="button"
                       onClick={handleAddToCart}
-                      className="h-9 px-4 rounded-none bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.99]"
+                      className="h-12 px-5 rounded-2xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 shadow-md shadow-accent/15 transition-all active:scale-[0.98]"
                     >
-                      <Plus size={14} /> Agregar al pedido
+                      <Plus size={16} strokeWidth={2.5} /> Agregar al pedido
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsOrderModalOpen(true)}
-                      className="h-9 px-4 rounded-none bg-green-600 hover:bg-green-700 text-white font-semibold text-xs inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.99]"
+                      className="h-12 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98]"
                     >
-                      <WhatsAppIcon size={14} /> Pedir por WhatsApp
+                      <WhatsAppIcon size={16} /> Pedir por WhatsApp
                     </button>
                   </div>
                 ) : (
-                  <div className="p-2.5 rounded-card bg-red-500/10 border border-red-500/20 text-center text-red-500 font-semibold text-xs">
-                    Este producto está agotado por el momento.
+                  <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/20 text-center text-red-500 font-bold text-xs">
+                    Este producto está agotado temporalmente.
                   </div>
                 )}
 
-                <div className="flex gap-1.5">
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={handleShareProduct}
-                    className="flex-1 h-8 px-3 rounded-none bg-surface hover:bg-surface-hover active:scale-[0.99] border border-border text-primary font-semibold text-[11px] inline-flex items-center justify-center gap-1.5 transition-colors"
+                    className="flex-1 h-10 px-4 rounded-xl bg-surface/80 hover:bg-surface-hover active:scale-[0.98] border border-border/70 text-primary font-semibold text-xs inline-flex items-center justify-center gap-2 transition-all shadow-sm"
                   >
-                    <Share2 size={13} />
+                    <Share2 size={14} />
                     <span>Compartir producto</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleCopyLink}
-                    className="w-8 h-8 inline-flex items-center justify-center rounded-none bg-surface hover:bg-surface-hover active:scale-[0.99] border border-border text-secondary hover:text-primary transition-colors"
+                    className="w-10 h-10 rounded-xl bg-surface/80 hover:bg-surface-hover active:scale-[0.98] border border-border/70 text-secondary hover:text-primary inline-flex items-center justify-center transition-all shadow-sm"
                     aria-label="Copiar enlace"
                   >
-                    {copiedLink ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                    {copiedLink ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
                   </button>
                 </div>
               </div>
 
-              {/* Descripción */}
+              {/* Descripción con card moderno redondeado */}
               {product.description && (
-                <div className="pt-3 border-t border-border space-y-1.5">
-                  <h3 className="text-[11px] font-semibold text-secondary">Descripción</h3>
-                  <div className="text-xs text-primary/90 leading-relaxed whitespace-pre-line bg-surface p-3 rounded-card border border-border">
+                <div className="pt-2 space-y-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-secondary">
+                    Descripción del producto
+                  </h3>
+                  <div className="text-xs sm:text-sm text-primary/90 leading-relaxed whitespace-pre-line bg-surface/60 p-4 rounded-2xl border border-border/70 shadow-sm">
                     {product.description}
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Tarjeta de la tienda */}
-            <div className="mt-5 pt-4 border-t border-border">
-              <div className="p-3 rounded-card bg-surface border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
+            {/* Tarjeta del vendedor / Tienda */}
+            <div className="mt-6 pt-5 border-t border-border/70">
+              <div className="p-4 rounded-2xl bg-surface/70 border border-border/70 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5">
+                <div className="flex items-center gap-3 min-w-0">
                   {catalog.logo_url ? (
                     <img
                       src={catalog.logo_url}
                       alt={catalog.name}
-                      className="w-9 h-9 rounded-none object-cover border border-border flex-shrink-0"
+                      className="w-11 h-11 rounded-full object-cover border-2 border-border/70 flex-shrink-0 shadow-sm"
                     />
                   ) : (
-                    <div className="w-9 h-9 rounded-none bg-[var(--accent)] text-[var(--accent-text)] font-display font-extrabold text-sm flex items-center justify-center flex-shrink-0">
+                    <div className="w-11 h-11 rounded-full bg-[var(--accent)] text-[var(--accent-text)] font-display font-black text-sm flex items-center justify-center flex-shrink-0 shadow-sm">
                       {catalog.name.charAt(0).toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0">
-                    <h4 className="font-display text-xs font-bold text-primary truncate">
+                    <h4 className="font-display text-xs sm:text-sm font-bold text-primary truncate">
                       {catalog.name}
                     </h4>
                     {catalog.slogan && (
@@ -778,9 +894,9 @@ export const PublicProductPage: React.FC = () => {
 
                 <Link
                   to={`/${slug}${location.search}`}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-none bg-surface-hover hover:bg-border text-[11px] font-semibold text-primary transition-colors flex-shrink-0"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-surface-hover hover:bg-border text-xs font-semibold text-primary transition-all shadow-sm flex-shrink-0"
                 >
-                  <Store size={12} /> Ver tienda completa
+                  <Store size={13} /> Ver tienda completa
                 </Link>
               </div>
             </div>
@@ -789,19 +905,22 @@ export const PublicProductPage: React.FC = () => {
 
         {/* Productos relacionados */}
         {relatedProducts.length > 0 && (
-          <section className="mt-8 pt-6 border-t border-border">
-            <div className="flex items-baseline justify-between mb-3">
-              <h2 className="font-display text-sm sm:text-base font-bold text-primary">
-                También te puede gustar
-              </h2>
+          <section className="mt-10 pt-7 border-t border-border/70">
+            <div className="flex items-baseline justify-between mb-4">
+              <div>
+                <h2 className="font-display text-base sm:text-lg font-bold text-primary">
+                  También te puede gustar
+                </h2>
+                <p className="text-xs text-secondary">Más opciones disponibles en esta tienda</p>
+              </div>
               <Link
                 to={`/${slug}${location.search}`}
-                className="text-[11px] font-semibold text-[var(--accent)] hover:underline"
+                className="text-xs font-bold text-[var(--accent)] hover:underline inline-flex items-center gap-1"
               >
-                Ver todo →
+                Ver todo <ChevronRight size={13} />
               </Link>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-2.5 gap-y-4 sm:gap-x-3.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
               {relatedProducts.map(rel => {
                 const relQty =
                   cart.find(item => item.product.id === rel.id)?.quantity ?? 0;
@@ -854,22 +973,22 @@ export const PublicProductPage: React.FC = () => {
         )}
       </main>
 
-      {/* Barra fija inferior de compra en móvil */}
+      {/* Barra fija inferior de compra en móvil (Floating bottom sheet bar redondeada) */}
       {!isOutOfStock && (
-        <div className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-background/95 backdrop-blur-xl border-t border-border px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex gap-2">
+        <div className="md:hidden fixed bottom-3 inset-x-3 z-30 bg-background/95 backdrop-blur-xl border border-border/80 rounded-2xl p-2.5 shadow-2xl flex gap-2">
           <button
             type="button"
             onClick={handleAddToCart}
-            className="flex-1 h-9 px-3 rounded-none bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-semibold text-xs inline-flex items-center justify-center gap-1.5 active:scale-[0.99]"
+            className="flex-1 h-11 px-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-bold text-xs inline-flex items-center justify-center gap-1.5 active:scale-[0.98] shadow-sm transition-all"
           >
-            <Plus size={14} /> Agregar
+            <Plus size={15} strokeWidth={2.5} /> Agregar
           </button>
           <button
             type="button"
             onClick={() => setIsOrderModalOpen(true)}
-            className="flex-1 h-9 px-3 rounded-none bg-green-600 hover:bg-green-700 text-white font-semibold text-xs inline-flex items-center justify-center gap-1.5 active:scale-[0.99]"
+            className="flex-1 h-11 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs inline-flex items-center justify-center gap-1.5 active:scale-[0.98] shadow-md shadow-emerald-600/20 transition-all"
           >
-            <WhatsAppIcon size={14} /> WhatsApp
+            <WhatsAppIcon size={15} /> WhatsApp
           </button>
         </div>
       )}
@@ -880,19 +999,19 @@ export const PublicProductPage: React.FC = () => {
         onClose={() => setIsOrderModalOpen(false)}
         title="Completar tu pedido"
       >
-        <div className="space-y-3 font-store">
-          <div className="p-2.5 rounded-card bg-surface-hover border border-border">
-            <p className="text-xs font-semibold text-primary">{product.name}</p>
+        <div className="space-y-3.5 font-store">
+          <div className="p-3 rounded-2xl bg-surface border border-border/80 shadow-sm">
+            <p className="text-xs font-bold text-primary">{product.name}</p>
             <p className="text-[11px] text-secondary mt-0.5">
               Cantidad: {quantity} · Total: {getPriceText(product, pricingCtx, quantity)}
             </p>
           </div>
 
-          <p className="text-xs text-secondary">
-            Ingresa tus datos de contacto para coordinar la entrega por WhatsApp:
+          <p className="text-xs text-secondary leading-relaxed">
+            Ingresa tus datos de contacto para coordinar la entrega y el pago directamente por WhatsApp:
           </p>
 
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             <Input
               label="Tu nombre *"
               placeholder="Ej. Juan Pérez"
@@ -914,20 +1033,20 @@ export const PublicProductPage: React.FC = () => {
             />
           </div>
 
-          <div className="flex gap-2 pt-1.5">
+          <div className="flex gap-2.5 pt-2">
             <Button
               variant="ghost"
               onClick={() => setIsOrderModalOpen(false)}
-              className="flex-1"
+              className="flex-1 rounded-xl"
             >
               Cancelar
             </Button>
             <button
               type="button"
               onClick={handleConfirmOrder}
-              className="flex-1 h-8 px-3 rounded-none bg-green-600 hover:bg-green-700 text-white font-semibold text-xs inline-flex items-center justify-center gap-1.5 shadow-sm"
+              className="flex-1 h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs inline-flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all active:scale-95"
             >
-              <WhatsAppIcon size={14} /> Enviar pedido
+              <WhatsAppIcon size={15} /> Enviar pedido
             </button>
           </div>
         </div>
@@ -938,27 +1057,27 @@ export const PublicProductPage: React.FC = () => {
         onClose={() => setShowOrderSuccess(false)}
         title="Pedido enviado"
       >
-        <div className="text-center py-3 space-y-2.5 font-store">
-          <div className="w-11 h-11 rounded-none bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center justify-center mx-auto">
-            <Check size={22} />
+        <div className="text-center py-4 space-y-3 font-store">
+          <div className="w-14 h-14 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-500 flex items-center justify-center mx-auto shadow-sm">
+            <Check size={28} />
           </div>
-          <h3 className="font-display text-sm font-bold text-primary">
+          <h3 className="font-display text-base font-bold text-primary">
             Tu mensaje se abrió en WhatsApp
           </h3>
-          <p className="text-xs text-secondary max-w-sm mx-auto">
+          <p className="text-xs text-secondary max-w-sm mx-auto leading-relaxed">
             Completa el envío del mensaje en WhatsApp para coordinar el pago y la entrega con la tienda.
           </p>
-          <div className="pt-1.5 flex flex-col gap-1.5">
+          <div className="pt-2 flex flex-col gap-2">
             <Link
               to={`/${slug}${location.search}`}
-              className="w-full py-2 rounded-none bg-accent text-[var(--accent-text,black)] font-semibold text-xs text-center"
+              className="w-full py-2.5 rounded-xl bg-accent text-[var(--accent-text,black)] font-bold text-xs text-center shadow-md shadow-accent/20 transition-all hover:opacity-90 active:scale-95"
             >
               Seguir explorando la tienda
             </Link>
             <Button
               variant="ghost"
               onClick={() => setShowOrderSuccess(false)}
-              className="w-full"
+              className="w-full rounded-xl"
             >
               Cerrar
             </Button>

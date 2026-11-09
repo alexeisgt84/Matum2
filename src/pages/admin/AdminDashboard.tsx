@@ -1,13 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   CreditCard, 
   ChevronRight, 
   Settings,
-  Server 
+  Server,
+  Eye,
+  Store,
+  ShoppingBag,
+  Share2,
+  TrendingUp,
+  ArrowRight
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { fetchViewsAnalytics, type OverallAnalyticsSummary } from '../../lib/analytics';
 
 interface MenuItemProps {
   icon: React.ComponentType<{ className?: string; size?: number }>;
@@ -62,8 +69,24 @@ const MenuItem: React.FC<MenuItemProps> = ({
 
 export const AdminDashboard = () => {
   const navigate = useNavigate();
+  const [summary, setSummary] = useState<OverallAnalyticsSummary | null>(null);
+  const [loadingSummary, setLoadingSummary] = useState(true);
+
+  useEffect(() => {
+    fetchViewsAnalytics('all')
+      .then(res => setSummary(res.summary))
+      .catch(err => console.warn('Error fetching quick analytics for admin:', err))
+      .finally(() => setLoadingSummary(false));
+  }, []);
 
   const adminModules = [
+    {
+      title: 'Contador de Vistas y Tráfico',
+      description: 'Vistas de tiendas y productos por tienda, usuarios y referidos',
+      icon: Eye,
+      path: '/admin/views',
+      color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+    },
     {
       title: 'Paquetes de Planes',
       description: 'Gestionar límites, precios y visibilidad de planes',
@@ -108,6 +131,71 @@ export const AdminDashboard = () => {
         subtitle="Gestión del Sistema" 
       />
 
+      {/* Espacio destacado de Vistas de Tiendas, Productos y Referidos */}
+      <div className="card p-4 space-y-3 bg-gradient-to-br from-indigo-500/5 via-surface to-accent/5 border-indigo-500/20">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <TrendingUp size={18} />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-primary leading-tight">
+                Contador de Vistas y Tráfico
+              </h3>
+              <p className="text-[11px] text-secondary">
+                Métricas globales del sistema
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => navigate('/admin/views')}
+            className="flex items-center gap-1 text-xs font-bold text-accent hover:underline"
+          >
+            <span>Ver detalle</span>
+            <ArrowRight size={14} />
+          </button>
+        </div>
+
+        {/* Indicadores rápidos */}
+        <div className="grid grid-cols-3 gap-2 pt-1">
+          <div className="bg-surface p-2.5 rounded-xl border border-border text-center">
+            <span className="block text-[10px] text-secondary uppercase font-bold flex items-center justify-center gap-1">
+              <Store size={11} className="text-blue-500" /> Tiendas
+            </span>
+            <span className="text-base font-black text-primary mt-0.5 block">
+              {loadingSummary ? '...' : (summary?.totalStoreViews.toLocaleString() || '0')}
+            </span>
+          </div>
+
+          <div className="bg-surface p-2.5 rounded-xl border border-border text-center">
+            <span className="block text-[10px] text-secondary uppercase font-bold flex items-center justify-center gap-1">
+              <ShoppingBag size={11} className="text-purple-500" /> Productos
+            </span>
+            <span className="text-base font-black text-primary mt-0.5 block">
+              {loadingSummary ? '...' : (summary?.totalProductViews.toLocaleString() || '0')}
+            </span>
+          </div>
+
+          <div className="bg-surface p-2.5 rounded-xl border border-border text-center">
+            <span className="block text-[10px] text-secondary uppercase font-bold flex items-center justify-center gap-1">
+              <Share2 size={11} className="text-emerald-500" /> Referidos
+            </span>
+            <span className="text-base font-black text-primary mt-0.5 block">
+              {loadingSummary ? '...' : (summary?.totalReferralViews.toLocaleString() || '0')}
+            </span>
+          </div>
+        </div>
+
+        <button
+          onClick={() => navigate('/admin/views')}
+          className="w-full mt-2 py-2 px-3 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-98"
+        >
+          <span>Organizar por tiendas, usuarios y referidos</span>
+          <ChevronRight size={14} />
+        </button>
+      </div>
+
       <div>
         <h3 className="text-[10px] font-bold text-secondary uppercase tracking-widest mb-2 ml-1">
           Módulos de Control
@@ -124,16 +212,6 @@ export const AdminDashboard = () => {
               isLast={index === adminModules.length - 1}
             />
           ))}
-        </div>
-      </div>
-
-      <div className="p-6 card border-dashed border-border flex flex-col items-center text-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-surface-hover flex items-center justify-center text-secondary">
-          <Settings size={24} />
-        </div>
-        <div className="space-y-1">
-          <p className="text-xs font-bold text-primary">Más funciones próximamente</p>
-          <p className="text-[10px] text-secondary">Estamos trabajando en herramientas de análisis avanzadas.</p>
         </div>
       </div>
     </div>

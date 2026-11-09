@@ -23,7 +23,7 @@ export const SequenceCard: React.FC<SequenceCardProps> = ({
     }`}>
       <div className="flex justify-between items-start mb-2.5">
         <div className="flex items-center gap-2.5">
-          <div className={`p-1.5 rounded-none ${sequence.is_active ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'bg-white/5 text-gray-500'}`}>
+          <div className={`p-1.5 rounded-xl ${sequence.is_active ? 'bg-[var(--accent)]/10 text-[var(--accent)]' : 'bg-white/5 text-gray-500'}`}>
             <Zap size={16} fill={sequence.is_active ? 'currentColor' : 'none'} />
           </div>
           <div>
@@ -49,20 +49,20 @@ export const SequenceCard: React.FC<SequenceCardProps> = ({
       <div className="flex gap-1.5 mt-2.5 pt-2.5 border-t border-white/5">
         <button 
           onClick={() => onManageSteps(sequence.id)}
-          className="flex-1 py-1.5 px-2.5 bg-white/5 hover:bg-white/10 rounded-none text-[11px] font-bold text-gray-300 flex items-center justify-center gap-1.5 transition-all"
+          className="flex-1 py-1.5 px-2.5 bg-white/5 hover:bg-white/10 rounded-lg text-[11px] font-bold text-gray-300 flex items-center justify-center gap-1.5 transition-all"
         >
           <Settings size={12} />
           Configurar Pasos
         </button>
         <button 
           onClick={() => onEdit(sequence)}
-          className="p-1.5 bg-white/5 hover:bg-white/10 rounded-none text-gray-400 transition-all"
+          className="p-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 transition-all"
         >
           <Edit3 size={14} />
         </button>
         <button 
           onClick={() => onDelete(sequence.id)}
-          className="p-1.5 bg-white/5 hover:bg-red-500/10 rounded-none text-gray-400 hover:text-red-500 transition-all"
+          className="p-1.5 bg-white/5 hover:bg-red-500/10 rounded-lg text-gray-400 hover:text-red-500 transition-all"
         >
           <Trash2 size={14} />
         </button>

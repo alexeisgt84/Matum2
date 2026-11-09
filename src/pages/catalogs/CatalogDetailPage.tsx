@@ -1421,10 +1421,10 @@ export const CatalogDetailPage = () => {
           </div>
         ) : isOwner ? (
           /* Switch Moderno Adaptativo (Triple o Doble) */
-          <div className="relative flex p-1 bg-surface-hover rounded-none border border-border backdrop-blur-sm">
+          <div className="relative flex p-1 bg-surface-hover rounded-2xl border border-border backdrop-blur-sm">
             <button
               onClick={() => setView('products')}
-              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-none transition-all duration-300 min-w-0 ${
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-all duration-300 min-w-0 ${
                 view === 'products' ? 'text-accent' : 'text-secondary hover:text-primary'
               }`}
             >
@@ -1434,7 +1434,7 @@ export const CatalogDetailPage = () => {
 
             <button
               onClick={() => setView('individual')}
-              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-none transition-all duration-300 min-w-0 ${
+              className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-all duration-300 min-w-0 ${
                 view === 'individual' ? 'text-accent' : 'text-secondary hover:text-primary'
               }`}
             >
@@ -1445,7 +1445,7 @@ export const CatalogDetailPage = () => {
             {hasInstance && (
               <button
                 onClick={() => setView('sequences')}
-                className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-none transition-all duration-300 min-w-0 ${
+                className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-all duration-300 min-w-0 ${
                   view === 'sequences' ? 'text-accent' : 'text-secondary hover:text-primary'
                 }`}
               >
@@ -1504,7 +1504,7 @@ export const CatalogDetailPage = () => {
               
               <DropdownMenu
                 trigger={
-                  <button className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-surface-hover border border-border rounded-none hover:bg-surface transition-colors" title="Ordenar">
+                  <button className="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-surface-hover border border-border rounded-lg hover:bg-surface transition-colors" title="Ordenar">
                     <ArrowUpDown size={18} className="text-accent" />
                   </button>
                 }
@@ -1542,7 +1542,7 @@ export const CatalogDetailPage = () => {
             <div className="flex items-center gap-1.5 mb-2.5 overflow-x-auto pb-1 scrollbar-none select-none">
               <button
                 onClick={() => setSelectedCategoryId(null)}
-                className={`flex-shrink-0 px-2.5 py-1 rounded-none text-[11px] font-bold transition-all border ${
+                className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border ${
                   selectedCategoryId === null
                     ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
                     : 'bg-surface-hover border-border text-secondary hover:text-primary hover:border-white/20'
@@ -1555,7 +1555,7 @@ export const CatalogDetailPage = () => {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategoryId(cat.id)}
-                  className={`flex-shrink-0 px-2.5 py-1 rounded-none text-[11px] font-bold transition-all border flex items-center gap-1.5 ${
+                  className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border flex items-center gap-1.5 ${
                     selectedCategoryId === cat.id
                       ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
                       : 'bg-surface-hover border-border text-secondary hover:text-primary hover:border-white/20'
@@ -1568,7 +1568,7 @@ export const CatalogDetailPage = () => {
 
               <button
                 onClick={() => setSelectedCategoryId('none')}
-                className={`flex-shrink-0 px-2.5 py-1 rounded-none text-[11px] font-bold transition-all border ${
+                className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all border ${
                   selectedCategoryId === 'none'
                     ? 'bg-[var(--accent)]/10 border-[var(--accent)] text-[var(--accent)]'
                     : 'bg-surface-hover border-border text-secondary hover:text-primary hover:border-white/20'
@@ -1981,7 +1981,7 @@ export const CatalogDetailPage = () => {
       <div className="fixed bottom-16 right-4 z-20">
         <Button 
           size="lg"
-          className="w-10 h-10 rounded-none flex items-center justify-center p-0" 
+          className="w-10 h-10 rounded-full shadow-lg flex items-center justify-center p-0" 
           icon={Plus}
           iconSize={24}
           onClick={handleAddAction}

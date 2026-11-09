@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Product } from '../../types/product';
-import { Edit3, Trash2, Tag, Coins, Send, PackageX, PackageCheck, GripVertical, Share2, Link2Off, Eye, EyeOff } from 'lucide-react';
+import { Edit3, Trash2, Tag, Coins, Send, PackageX, PackageCheck, GripVertical, Share2, Link2Off, Eye, EyeOff, Truck, Clock } from 'lucide-react';
 
 import { shareContent } from '../../lib/share';
 import { getAppBaseUrl } from '../../lib/urlHelper';
@@ -169,13 +169,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Checkbox de Selección */}
       <button
         onClick={() => onSelect?.(product.id)}
-        className={`absolute -top-1.5 -left-1.5 z-20 w-5 h-5 rounded-none border flex items-center justify-center transition-all shadow ${
+        className={`absolute -top-1.5 -left-1.5 z-20 w-5 h-5 rounded-full border flex items-center justify-center transition-all shadow ${
           isSelected 
             ? 'bg-accent border-accent text-black scale-105' 
             : 'bg-surface border-border text-transparent opacity-0 group-hover:opacity-100 hover:border-accent'
         }`}
       >
-        <div className={`w-2 h-2 rounded-none ${isSelected ? 'bg-black' : 'bg-transparent'}`} />
+        <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-black' : 'bg-transparent'}`} />
       </button>
 
       {/* Línea Superior: Botones de Acción */}
@@ -183,7 +183,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {onSendNow && !product.is_out_of_stock && (
           <button 
             onClick={() => onSendNow(product)}
-            className="p-1 px-1.5 text-secondary hover:text-accent hover:bg-accent/10 rounded-none transition-colors text-[11px] flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="p-1 px-1.5 text-secondary hover:text-accent hover:bg-accent/10 rounded-md transition-colors text-[11px] flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
             title="Enviar como producto normal"
             aria-label={`Enviar producto ${product.name}`}
             disabled={isSending}
@@ -195,7 +195,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {onOutOfStock && !product.is_out_of_stock && (
           <button 
             onClick={() => onOutOfStock(product)}
-            className="p-1 px-1.5 text-gray-500 hover:text-orange-500 hover:bg-orange-500/10 rounded-none transition-colors text-[11px] flex items-center gap-1"
+            className="p-1 px-1.5 text-gray-500 hover:text-orange-500 hover:bg-orange-500/10 rounded-md transition-colors text-[11px] flex items-center gap-1"
             title="Marcar como agotado"
             aria-label={`Marcar ${product.name} como agotado`}
           >
@@ -206,7 +206,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {onAvailable && product.is_out_of_stock && (
           <button 
             onClick={() => onAvailable(product)}
-            className="p-1 px-1.5 text-gray-400 hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded-none transition-colors text-[11px] flex items-center gap-1"
+            className="p-1 px-1.5 text-gray-400 hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 rounded-md transition-colors text-[11px] flex items-center gap-1"
             title="Marcar como disponible"
             aria-label={`Marcar ${product.name} como disponible`}
           >
@@ -216,7 +216,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         )}
         <button 
           onClick={() => onEdit(product)}
-          className="p-1 px-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-none transition-colors text-[11px] flex items-center gap-1"
+          className="p-1 px-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-md transition-colors text-[11px] flex items-center gap-1"
           aria-label={`Editar producto ${product.name}`}
         >
           <Edit3 size={12} />
@@ -225,7 +225,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {product.parent_product_id && onUnlink && (
           <button 
             onClick={() => onUnlink(product)}
-            className="p-1 px-1.5 text-gray-500 hover:text-orange-400 hover:bg-orange-400/10 rounded-none transition-colors text-[11px] flex items-center gap-1"
+            className="p-1 px-1.5 text-gray-500 hover:text-orange-400 hover:bg-orange-400/10 rounded-md transition-colors text-[11px] flex items-center gap-1"
             title="Desvincular del catálogo origen"
             aria-label={`Desvincular producto ${product.name}`}
           >
@@ -235,7 +235,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         )}
         <button 
           onClick={handleShare}
-          className="p-1 px-1.5 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-none transition-colors text-[11px] flex items-center gap-1"
+          className="p-1 px-1.5 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-md transition-colors text-[11px] flex items-center gap-1"
           title="Compartir producto"
           aria-label={`Compartir producto ${product.name}`}
         >
@@ -244,7 +244,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {onToggleActive && (
           <button 
             onClick={() => onToggleActive(product)}
-            className={`p-1 px-1.5 rounded-none transition-colors text-[11px] flex items-center gap-1 ${
+            className={`p-1 px-1.5 rounded-md transition-colors text-[11px] flex items-center gap-1 ${
               product.is_active 
                 ? 'text-gray-500 hover:text-red-500 hover:bg-red-500/10' 
                 : 'text-gray-400 hover:text-emerald-500 hover:bg-emerald-500/10'
@@ -257,7 +257,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         )}
         <button 
           onClick={() => onDelete(product.id)}
-          className="p-1 px-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-none transition-colors text-[11px] flex items-center gap-1"
+          className="p-1 px-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors text-[11px] flex items-center gap-1"
           aria-label={`Eliminar producto ${product.name}`}
         >
           <Trash2 size={12} />
@@ -280,7 +280,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           )}
           {product.is_out_of_stock && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <span className="text-[7px] font-bold text-white uppercase tracking-widest border border-white/20 px-1 py-0.5 rounded-none bg-black/40">Agotado</span>
+              <span className="text-[7px] font-bold text-white uppercase tracking-widest border border-white/20 px-1 py-0.5 rounded-full bg-black/40">Agotado</span>
             </div>
           )}
         </div>
@@ -295,33 +295,45 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <div className="mt-1 flex items-center gap-1 flex-wrap">
             {renderAdminProductPrice()}
             {product.parent_product_id && product.base_price !== undefined && product.base_price !== null && (
-              <span className="text-secondary text-[9px] font-semibold tabular-nums mr-1 bg-surface-hover px-1 py-0.5 rounded-none border border-border/40 select-none" title="Precio original del catálogo origen">
+              <span className="text-secondary text-[9px] font-semibold tabular-nums mr-1 bg-surface-hover px-1 py-0.5 rounded-md border border-border/40 select-none" title="Precio original del catálogo origen">
                 Orig: {product.base_price} {product.currency}
               </span>
             )}
             {product.parent_product_id && (
-              <span className="text-[8px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-none font-black uppercase tracking-wider">
+              <span className="text-[8px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
                 Importado
               </span>
             )}
             {product.commission_amount && Number(product.commission_amount) > 0 ? (
-              <span className="text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1 py-0.5 rounded-none font-bold flex items-center gap-0.5 select-none" title="Comisión por venta para el promotor">
+              <span className="text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1 py-0.5 rounded-md font-bold flex items-center gap-0.5 select-none" title="Comisión por venta para el promotor">
                 <Coins size={9} />
                 +{product.commission_amount} {product.commission_currency || 'CUP'}
               </span>
             ) : null}
+            {product.delivery_cost !== null && product.delivery_cost !== undefined ? (
+              <span className="text-[9px] bg-sky-500/10 text-sky-400 border border-sky-500/20 px-1 py-0.5 rounded-md font-bold flex items-center gap-0.5 select-none" title="Costo de entrega a domicilio">
+                <Truck size={9} />
+                {Number(product.delivery_cost) === 0 ? 'Envío gratis' : `${product.delivery_cost} ${product.delivery_currency || 'CUP'}`}
+              </span>
+            ) : null}
+            {product.delivery_time_value !== null && product.delivery_time_value !== undefined ? (
+              <span className="text-[9px] bg-sky-500/10 text-sky-300 border border-sky-500/20 px-1 py-0.5 rounded-md font-bold flex items-center gap-0.5 select-none" title="Tiempo de entrega estimado">
+                <Clock size={9} />
+                {product.delivery_time_value} {product.delivery_time_unit === 'days' ? 'd' : 'h'}
+              </span>
+            ) : null}
             {product.is_discontinued && (
-              <span className="text-[8px] bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded-none font-black uppercase tracking-wider animate-pulse">
+              <span className="text-[8px] bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider animate-pulse">
                 Descontinuado
               </span>
             )}
             {product.is_out_of_stock && (
-              <span className="text-[8px] bg-orange-500/10 text-orange-500 px-1.5 py-0.5 rounded-none font-black uppercase tracking-wider">
+              <span className="text-[8px] bg-orange-500/10 text-orange-500 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
                 Agotado
               </span>
             )}
             {!product.is_active && (
-              <span className="text-[8px] bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded-none font-black uppercase tracking-wider">
+              <span className="text-[8px] bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
                 Inactivo
               </span>
             )}

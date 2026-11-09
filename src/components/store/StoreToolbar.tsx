@@ -27,7 +27,7 @@ const SORT_OPTIONS: { value: StoreSortBy; label: string }[] = [
 ];
 
 const iconButton =
-  'relative flex-shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-none bg-surface border border-border text-primary hover:bg-surface-hover transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]';
+  'relative flex-shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-lg bg-surface border border-border text-primary hover:bg-surface-hover transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]';
 
 /** Barra fija con búsqueda, agrupación por categorías, orden, carrito y categorías. */
 export const StoreToolbar: React.FC<StoreToolbarProps> = ({
@@ -80,13 +80,13 @@ export const StoreToolbar: React.FC<StoreToolbarProps> = ({
               value={searchQuery}
               onChange={e => onSearchChange(e.target.value)}
               placeholder={`Buscar en ${catalog.name}`}
-              className="w-full h-8 rounded-none bg-surface border border-border pl-8 pr-7 text-xs text-primary placeholder:text-secondary outline-none transition-colors focus:border-[var(--accent)] [&::-webkit-search-cancel-button]:appearance-none"
+              className="w-full h-8 rounded-lg bg-surface border border-border pl-8 pr-7 text-xs text-primary placeholder:text-secondary outline-none transition-colors focus:border-[var(--accent)] [&::-webkit-search-cancel-button]:appearance-none"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => onSearchChange('')}
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 inline-flex items-center justify-center rounded-none text-secondary hover:text-primary hover:bg-surface-hover"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 inline-flex items-center justify-center rounded-full text-secondary hover:text-primary hover:bg-surface-hover"
                 aria-label="Limpiar búsqueda"
               >
                 <X size={13} />
@@ -100,15 +100,15 @@ export const StoreToolbar: React.FC<StoreToolbarProps> = ({
               type="button"
               onClick={onToggleGroupByCategory}
               aria-pressed={groupByCategory}
+              aria-label={groupByCategory ? 'Desactivar agrupación por categoría' : 'Agrupar productos por categoría'}
               title={groupByCategory ? 'Desactivar agrupación por categoría' : 'Agrupar productos por categoría'}
-              className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-none border text-xs font-semibold transition-colors active:scale-95 flex-shrink-0 ${
+              className={`w-8 h-8 inline-flex items-center justify-center rounded-lg border transition-colors active:scale-95 flex-shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)] ${
                 groupByCategory
                   ? 'bg-[var(--accent)] text-[var(--accent-text)] border-[var(--accent)]'
                   : 'bg-surface text-secondary border-border hover:text-primary hover:bg-surface-hover'
               }`}
             >
-              <Layers size={13} />
-              <span className="hidden sm:inline">Agrupar</span>
+              <Layers size={14} />
             </button>
           )}
 
@@ -137,7 +137,7 @@ export const StoreToolbar: React.FC<StoreToolbarProps> = ({
             {cartCount > 0 && (
               <span
                 key={cartCount}
-                className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-none bg-[var(--accent)] text-[var(--accent-text)] text-[10px] font-bold leading-4 text-center ring-1 ring-background animate-store-pop"
+                className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[var(--accent)] text-[var(--accent-text)] text-[10px] font-bold leading-4 text-center ring-1 ring-background animate-store-pop"
               >
                 {cartCount}
               </span>

@@ -18,7 +18,7 @@ export const Select: React.FC<SelectProps> = ({
   ...props
 }) => {
   const selectClasses = `
-    w-full bg-surface-hover border rounded-none text-primary text-xs
+    w-full bg-surface-hover border rounded-lg text-primary text-xs
     outline-none transition-all duration-150 appearance-none cursor-pointer pr-8
     ${error ? 'border-danger/50 focus:border-danger' : 'border-border focus:border-accent focus:bg-surface'}
     h-8 py-0 px-2.5

@@ -30,7 +30,7 @@ export const BottomNav = () => {
                   {tab.name}
                 </span>
                 <div className={`
-                  w-3 h-0.5 rounded-none bg-accent transition-all
+                  w-3 h-0.5 rounded-full bg-accent transition-all
                   ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-0'}
                 `} />
               </>

@@ -20,7 +20,7 @@ export const Button: React.FC<ButtonProps> = ({
   disabled,
   ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-semibold rounded-none transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100';
+  const baseStyles = 'inline-flex items-center justify-center font-semibold rounded-lg transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100';
   
   const variants = {
     primary: 'bg-accent text-[var(--accent-text,black)] hover:bg-accent-hover',
@@ -42,7 +42,7 @@ export const Button: React.FC<ButtonProps> = ({
       {...props}
     >
       {loading ? (
-        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-none animate-spin" />
+        <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
       ) : (
         <>
           {Icon && (

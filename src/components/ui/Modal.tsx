@@ -115,7 +115,7 @@ export const Modal: React.FC<ModalProps> = ({
         }}
         className={`relative bg-surface border border-border w-full ${
           size.width ? '' : 'max-w-lg'
-        } rounded-none shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150`}
+        } rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150`}
       >
         {/* Tiradores de redimensionamiento en las 8 direcciones */}
         <div
@@ -158,7 +158,7 @@ export const Modal: React.FC<ModalProps> = ({
           <h2 className="text-sm font-bold text-primary truncate">{title}</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-surface-hover rounded-none transition-colors text-secondary hover:text-primary"
+            className="p-1 hover:bg-surface-hover rounded-full transition-colors text-secondary hover:text-primary"
             aria-label="Cerrar"
           >
             <X size={16} />

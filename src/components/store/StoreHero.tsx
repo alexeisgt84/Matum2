@@ -36,14 +36,14 @@ export const StoreHero: React.FC<StoreHeroProps> = ({
 }) => {
   const { user } = useAuthStore();
   const glassButton =
-    'inline-flex items-center justify-center gap-1.5 h-7 rounded-none bg-black/55 hover:bg-black/75 backdrop-blur-md text-white text-xs font-medium border border-white/20 transition-all active:scale-95 shadow';
+    'inline-flex items-center justify-center gap-1.5 h-7 rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white text-xs font-medium border border-white/20 transition-all active:scale-95 shadow';
 
   const redirectPath = encodeURIComponent(`/${catalog.slug || catalog.id}`);
 
   return (
     <header className="relative">
-      {/* Portada compacta */}
-      <div className="relative h-24 sm:h-32 md:h-36 w-full overflow-hidden">
+      {/* Portada compacta / fondo */}
+      <div className="relative h-28 sm:h-36 md:h-40 w-full overflow-hidden">
         {catalog.cover_url ? (
           <img
             src={catalog.cover_url}
@@ -58,7 +58,7 @@ export const StoreHero: React.FC<StoreHeroProps> = ({
         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-background via-background/40 to-transparent pointer-events-none" />
 
         <div className="absolute top-0 inset-x-0 z-10">
-          <div className="max-w-6xl mx-auto px-3 pt-[max(0.5rem,env(safe-area-inset-top))] flex items-center justify-between gap-2">
+          <div className="max-w-6xl mx-auto px-3 sm:px-4 pt-[max(0.5rem,env(safe-area-inset-top))] flex items-center justify-between gap-2">
             {showBackButton ? (
               <button type="button" onClick={onBack} className={`${glassButton} px-2.5`} aria-label="Volver">
                 <ArrowLeft size={13} />
@@ -82,7 +82,7 @@ export const StoreHero: React.FC<StoreHeroProps> = ({
                   </Link>
                   <Link
                     to={`/register?redirect=${redirectPath}`}
-                    className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-none bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-xs font-semibold backdrop-blur-md border border-[var(--accent)] transition-all active:scale-95 shadow"
+                    className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-xs font-semibold backdrop-blur-md border border-[var(--accent)] transition-all active:scale-95 shadow"
                     aria-label="Registrarse"
                   >
                     <UserPlus size={12} />
@@ -97,14 +97,14 @@ export const StoreHero: React.FC<StoreHeroProps> = ({
                       {affiliate?.status === 'approved' ? (
                         <Link
                           to="/profile/affiliates"
-                          className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-none bg-emerald-600/90 hover:bg-emerald-600 text-white text-[11px] font-semibold backdrop-blur-md border border-emerald-400/30 transition-all active:scale-95 shadow"
+                          className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-full bg-emerald-600/90 hover:bg-emerald-600 text-white text-[11px] font-semibold backdrop-blur-md border border-emerald-400/30 transition-all active:scale-95 shadow"
                           title="Ver programa de afiliados"
                         >
                           <Coins size={12} />
                           <span>Afiliado</span>
                         </Link>
                       ) : affiliate?.status === 'pending' ? (
-                        <span className="inline-flex items-center justify-center gap-1 h-7 px-2 rounded-none bg-amber-500/85 text-white text-[11px] font-medium backdrop-blur-md border border-amber-300/30">
+                        <span className="inline-flex items-center justify-center gap-1 h-7 px-2 rounded-full bg-amber-500/85 text-white text-[11px] font-medium backdrop-blur-md border border-amber-300/30">
                           <Clock size={11} />
                           <span className="hidden sm:inline">Revisión</span>
                         </span>
@@ -113,7 +113,7 @@ export const StoreHero: React.FC<StoreHeroProps> = ({
                           type="button"
                           disabled={affiliate?.loading}
                           onClick={affiliate?.onApply}
-                          className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-none bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-[11px] font-semibold backdrop-blur-md border border-[var(--accent)] transition-all active:scale-95 shadow disabled:opacity-60"
+                          className="inline-flex items-center justify-center gap-1 h-7 px-2.5 rounded-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-[11px] font-semibold backdrop-blur-md border border-[var(--accent)] transition-all active:scale-95 shadow disabled:opacity-60"
                           title="Solicitar ser afiliado para ganar comisiones"
                         >
                           <Coins size={12} />
@@ -148,40 +148,42 @@ export const StoreHero: React.FC<StoreHeroProps> = ({
       </div>
 
       {/* Identidad de la tienda */}
-      <div className="max-w-6xl mx-auto px-3">
-        <div className="flex flex-col md:flex-row md:items-end gap-2.5 md:gap-4 -mt-7 sm:-mt-8 relative z-10">
-          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-card overflow-hidden bg-surface ring-2 ring-background shadow-lg flex-shrink-0">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4">
+        <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-5 -mt-10 sm:-mt-12 md:-mt-14 relative z-10">
+          {/* Logo prominente */}
+          <div className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-card overflow-hidden bg-surface ring-4 ring-background shadow-xl flex-shrink-0">
             {catalog.logo_url ? (
               <img src={catalog.logo_url} alt={`Logo de ${catalog.name}`} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)] flex items-center justify-center text-[var(--accent-text)] font-display font-extrabold text-xl select-none">
+              <div className="w-full h-full bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)] flex items-center justify-center text-[var(--accent-text)] font-display font-extrabold text-2xl sm:text-3xl md:text-4xl select-none">
                 {catalog.name.charAt(0).toUpperCase()}
               </div>
             )}
           </div>
 
-          <div className="flex-1 min-w-0 md:pb-0.5">
+          {/* Nombre y eslogan */}
+          <div className="flex-1 min-w-0 md:pb-1">
             <h1
               style={{ color: titleColor }}
-              className="font-display text-lg leading-tight sm:text-xl font-extrabold tracking-tight break-words"
+              className="font-display text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight break-words"
             >
               {catalog.name}
             </h1>
             {catalog.slogan && (
-              <p className="text-secondary text-xs mt-0.5 max-w-2xl leading-relaxed whitespace-pre-line line-clamp-2">
+              <p className="text-secondary text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed whitespace-pre-line line-clamp-2 sm:line-clamp-3">
                 {catalog.slogan}
               </p>
             )}
           </div>
 
           {/* Acciones de contacto y compartir */}
-          <div className="flex items-center gap-1.5 md:pb-0.5">
+          <div className="flex items-center gap-2 md:pb-1">
             {vendorPhone && (
               <a
                 href={buildWhatsAppUrl(vendorPhone)}
                 target="_blank"
                 rel="noreferrer"
-                className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-none bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition-all active:scale-[0.98] shadow-sm"
+                className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-3.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] shadow-sm"
               >
                 <WhatsAppIcon size={14} />
                 Escríbenos
@@ -190,7 +192,7 @@ export const StoreHero: React.FC<StoreHeroProps> = ({
             <button
               type="button"
               onClick={onShare}
-              className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 h-8 px-3 rounded-none bg-surface hover:bg-surface-hover border border-border text-primary text-xs font-semibold transition-all active:scale-[0.98]"
+              className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-3.5 rounded-lg bg-surface hover:bg-surface-hover border border-border text-primary text-xs sm:text-sm font-semibold transition-all active:scale-[0.98]"
             >
               <Share2 size={13} />
               Compartir
@@ -202,18 +204,18 @@ export const StoreHero: React.FC<StoreHeroProps> = ({
         {(catalog.footer_schedule || catalog.footer_address || (productCount ?? 0) > 0) && (
           <div className="flex flex-wrap items-center gap-1.5 mt-2">
             {(productCount ?? 0) > 0 && (
-              <span className="inline-flex items-center h-5.5 px-2 rounded-none bg-surface border border-border text-[11px] font-medium text-secondary">
+              <span className="inline-flex items-center h-5.5 px-2 rounded-md bg-surface border border-border text-[11px] font-medium text-secondary">
                 {productCount} {productCount === 1 ? 'producto' : 'productos'}
               </span>
             )}
             {catalog.footer_schedule && (
-              <span className="inline-flex items-center gap-1 h-5.5 px-2 rounded-none bg-surface border border-border text-[11px] font-medium text-secondary max-w-full">
+              <span className="inline-flex items-center gap-1 h-5.5 px-2 rounded-md bg-surface border border-border text-[11px] font-medium text-secondary max-w-full">
                 <Clock size={11} className="text-[var(--accent)] flex-shrink-0" />
                 <span className="truncate">{catalog.footer_schedule}</span>
               </span>
             )}
             {catalog.footer_address && (
-              <span className="inline-flex items-center gap-1 h-5.5 px-2 rounded-none bg-surface border border-border text-[11px] font-medium text-secondary max-w-full">
+              <span className="inline-flex items-center gap-1 h-5.5 px-2 rounded-md bg-surface border border-border text-[11px] font-medium text-secondary max-w-full">
                 <MapPin size={11} className="text-[var(--accent)] flex-shrink-0" />
                 <span className="truncate">{catalog.footer_address}</span>
               </span>

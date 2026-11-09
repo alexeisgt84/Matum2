@@ -5,7 +5,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import type { Product, ProductForm } from '../../types/product';
 import type { Category } from '../../types/category';
-import { Save, Tag, Send, Coins, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings, Package } from 'lucide-react';
+import { Save, Tag, Send, Coins, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings, Package, Truck, Clock } from 'lucide-react';
 import { CalculatorModal } from '../ui/CalculatorModal';
 import { ImageUpload } from '../ui/ImageUpload';
 import { toast } from 'react-hot-toast';
@@ -52,6 +52,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     is_active: true,
     commission_amount: '',
     commission_currency: 'CUP',
+    delivery_cost: '',
+    delivery_currency: 'CUP',
+    delivery_time_value: '',
+    delivery_time_unit: 'hours',
   });
   const [localCategories, setLocalCategories] = useState<Category[]>(categories);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
@@ -218,6 +222,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         is_active: product.is_active ?? true,
         commission_amount: product.commission_amount !== null && product.commission_amount !== undefined ? product.commission_amount.toString() : '',
         commission_currency: (product.commission_currency as 'CUP' | 'USD') || 'CUP',
+        delivery_cost: product.delivery_cost !== null && product.delivery_cost !== undefined ? product.delivery_cost.toString() : '',
+        delivery_currency: (product.delivery_currency as 'CUP' | 'USD') || 'CUP',
+        delivery_time_value: product.delivery_time_value !== null && product.delivery_time_value !== undefined ? product.delivery_time_value.toString() : '',
+        delivery_time_unit: (product.delivery_time_unit as 'hours' | 'days') || 'hours',
       });
       setDetectedPrices([]);
       setPreview(product.imagen_url);
@@ -234,13 +242,31 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         is_active: true,
         commission_amount: '',
         commission_currency: 'CUP',
+        delivery_cost: parsed.delivery && parsed.delivery.cost !== null ? parsed.delivery.cost.toString() : '',
+        delivery_currency: parsed.delivery ? parsed.delivery.currency : 'CUP',
+        delivery_time_value: parsed.deliveryTime ? parsed.deliveryTime.value.toString() : '',
+        delivery_time_unit: parsed.deliveryTime ? parsed.deliveryTime.unit : 'hours',
       });
       setDetectedPrices(parsed.allPrices);
       setPreview(prefilledData.preview || null);
       setFile(prefilledData.file);
       setParentProductId(null);
     } else {
-      setForm({ name: '', description: '', price: '', currency: 'USD', imagen_url: null, category_id: null, is_active: true, commission_amount: '', commission_currency: 'CUP' });
+      setForm({
+        name: '',
+        description: '',
+        price: '',
+        currency: 'USD',
+        imagen_url: null,
+        category_id: null,
+        is_active: true,
+        commission_amount: '',
+        commission_currency: 'CUP',
+        delivery_cost: '',
+        delivery_currency: 'CUP',
+        delivery_time_value: '',
+        delivery_time_unit: 'hours',
+      });
       setDetectedPrices([]);
       setPreview(null);
       setFile(undefined);
@@ -557,6 +583,117 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               </div>
             </div>
 
+            {/* Costo del Domicilio y Tiempo de Entrega */}
+            <div className="p-3.5 bg-sky-500/5 border border-sky-500/20 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-sky-400 uppercase tracking-wider">
+                  <Truck size={14} className="text-sky-400" />
+                  <span>Domicilio y Tiempo de Entrega</span>
+                </div>
+                {form.delivery_cost === '0' && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    Envío Gratis
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {/* Costo de Domicilio */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold text-secondary">Costo del Domicilio</label>
+                    <button
+                      type="button"
+                      onClick={() => setForm(prev => ({ ...prev, delivery_cost: prev.delivery_cost === '0' ? '' : '0' }))}
+                      className="text-[10px] text-sky-400 hover:text-sky-300 underline cursor-pointer"
+                    >
+                      {form.delivery_cost === '0' ? 'Costo normal' : 'Marcar Gratis'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <div className="col-span-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        step={form.delivery_currency === 'USD' ? 0.25 : 10}
+                        placeholder="Ej: 500 (Opcional)"
+                        value={form.delivery_cost || ''}
+                        onChange={(e) => setForm(prev => ({ ...prev, delivery_cost: e.target.value }))}
+                        disabled={isAnalyzing}
+                      />
+                    </div>
+                    <div>
+                      <Select
+                        value={form.delivery_currency || 'CUP'}
+                        onChange={(e) => setForm(prev => ({ ...prev, delivery_currency: e.target.value as 'CUP' | 'USD' }))}
+                        disabled={isAnalyzing}
+                      >
+                        <option value="CUP" className="bg-surface text-primary">CUP</option>
+                        <option value="USD" className="bg-surface text-primary">USD</option>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tiempo de Entrega */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1">
+                    <Clock size={12} className="text-secondary" />
+                    <label className="text-[11px] font-semibold text-secondary">Tiempo de Entrega</label>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <div className="col-span-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        step={1}
+                        placeholder="Ej: 24 (Opcional)"
+                        value={form.delivery_time_value || ''}
+                        onChange={(e) => setForm(prev => ({ ...prev, delivery_time_value: e.target.value }))}
+                        disabled={isAnalyzing}
+                      />
+                    </div>
+                    <div>
+                      <Select
+                        value={form.delivery_time_unit || 'hours'}
+                        onChange={(e) => setForm(prev => ({ ...prev, delivery_time_unit: e.target.value as 'hours' | 'days' }))}
+                        disabled={isAnalyzing}
+                      >
+                        <option value="hours" className="bg-surface text-primary">Horas</option>
+                        <option value="days" className="bg-surface text-primary">Días</option>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Botones sugeridos rápidos */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                <span className="text-[10px] text-secondary">Sugerido:</span>
+                {[
+                  { label: '2 h', val: 2, unit: 'hours' as const },
+                  { label: '24 h', val: 24, unit: 'hours' as const },
+                  { label: '48 h', val: 48, unit: 'hours' as const },
+                  { label: '1 día', val: 1, unit: 'days' as const },
+                  { label: '2 días', val: 2, unit: 'days' as const },
+                  { label: '3 días', val: 3, unit: 'days' as const },
+                ].map(s => (
+                  <button
+                    key={s.label}
+                    type="button"
+                    onClick={() => setForm(prev => ({ ...prev, delivery_time_value: s.val.toString(), delivery_time_unit: s.unit }))}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors border ${
+                      form.delivery_time_value === s.val.toString() && form.delivery_time_unit === s.unit
+                        ? 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                        : 'bg-surface hover:bg-surface-hover text-secondary border-border'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Selector de Categoría con Icono */}
             <div className="space-y-1.5 relative" ref={categoryDropdownRef}>
               <div className="flex items-center justify-between">
@@ -698,20 +835,27 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 const newDesc = e.target.value;
                 setForm(prev => {
                   const updated = { ...prev, description: newDesc };
-                  if (newDesc && (!prev.price || prev.price === '')) {
+                  if (newDesc) {
                     const parsed = parseProductText(newDesc);
-                    if (parsed.bestPrice) {
-                      updated.price = parsed.bestPrice.price.toString();
-                      updated.currency = parsed.bestPrice.currency;
-                    }
-                    if (parsed.suggestedTitle && (!prev.name || prev.name === '')) {
-                      updated.name = parsed.suggestedTitle;
-                    }
-                    setDetectedPrices(parsed.allPrices);
-                  } else if (newDesc) {
-                    const parsed = parseProductText(newDesc);
-                    if (parsed.allPrices.length > 0) {
+                    if (!prev.price || prev.price === '') {
+                      if (parsed.bestPrice) {
+                        updated.price = parsed.bestPrice.price.toString();
+                        updated.currency = parsed.bestPrice.currency;
+                      }
+                      if (parsed.suggestedTitle && (!prev.name || prev.name === '')) {
+                        updated.name = parsed.suggestedTitle;
+                      }
                       setDetectedPrices(parsed.allPrices);
+                    } else if (parsed.allPrices.length > 0) {
+                      setDetectedPrices(parsed.allPrices);
+                    }
+                    if (parsed.delivery && (!prev.delivery_cost || prev.delivery_cost === '')) {
+                      updated.delivery_cost = parsed.delivery.cost !== null ? parsed.delivery.cost.toString() : '';
+                      updated.delivery_currency = parsed.delivery.currency;
+                    }
+                    if (parsed.deliveryTime && (!prev.delivery_time_value || prev.delivery_time_value === '')) {
+                      updated.delivery_time_value = parsed.deliveryTime.value.toString();
+                      updated.delivery_time_unit = parsed.deliveryTime.unit;
                     }
                   }
                   return updated;

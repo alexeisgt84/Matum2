@@ -134,7 +134,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         }}
         className={`relative bg-surface border-t border-x border-border w-full ${
           size.width ? '' : maxWidth
-        } rounded-none shadow-2xl overflow-hidden z-10 flex flex-col ${
+        } rounded-t-2xl sm:rounded-t-3xl shadow-2xl overflow-hidden z-10 flex flex-col ${
           size.height ? '' : maxHeight
         } transition-transform duration-200 animate-in slide-in-from-bottom`}
       >
@@ -162,7 +162,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             className="flex justify-center pt-1.5 pb-1 cursor-ns-resize select-none shrink-0"
             title="Arrastra para ajustar altura"
           >
-            <div className="w-10 h-1 rounded-none bg-border hover:bg-accent/60 transition-colors" />
+            <div className="w-10 h-1 rounded-full bg-border hover:bg-accent/60 transition-colors" />
           </div>
         )}
 
@@ -170,7 +170,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border shrink-0 gap-2.5">
           <div className="flex items-center gap-2.5 min-w-0">
             {Icon && (
-              <div className="w-7 h-7 rounded-none bg-surface-hover border border-border flex items-center justify-center text-accent shrink-0">
+              <div className="w-7 h-7 rounded-lg bg-surface-hover border border-border flex items-center justify-center text-accent shrink-0">
                 <Icon size={15} />
               </div>
             )}
@@ -186,7 +186,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
           <button 
             type="button"
             onClick={onClose}
-            className="p-1 hover:bg-surface-hover rounded-none transition-colors text-secondary hover:text-primary focus:outline-none shrink-0 active:scale-95"
+            className="p-1 hover:bg-surface-hover rounded-full transition-colors text-secondary hover:text-primary focus:outline-none shrink-0 active:scale-95"
             aria-label="Cerrar"
           >
             <X size={16} />

@@ -23,7 +23,7 @@ export const BackButton: React.FC<BackButtonProps> = ({
     }
   };
 
-  const baseStyles = "p-1.5 transition-all active:scale-95 group rounded-none";
+  const baseStyles = "p-1.5 transition-all active:scale-95 group rounded-lg";
   const variants = {
     minimal: "text-secondary hover:text-[var(--accent)] hover:bg-surface-hover",
     filled: "bg-surface-hover border border-border shadow-sm text-secondary hover:text-[var(--accent)] hover:bg-surface"

@@ -34,14 +34,14 @@ export const DropdownMenu = ({ items, trigger }: DropdownMenuProps) => {
       ) : (
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-1.5 hover:bg-[var(--surface-hover)] rounded-none transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          className="p-1.5 hover:bg-[var(--surface-hover)] rounded-lg transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         >
           <MoreVertical size={18} />
         </button>
       )}
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 w-48 rounded-none bg-surface border border-border shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute right-0 mt-1 w-48 rounded-xl bg-surface border border-border shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-150">
           {items.map((item, index) => (
             <button
               key={index}

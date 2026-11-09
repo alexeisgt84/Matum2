@@ -101,7 +101,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
     <div className="space-y-1 relative">
       {label && <label className="text-[11px] font-medium text-secondary ml-0.5 block">{label}</label>}
       
-      <div className={`group relative flex flex-col bg-surface border border-border rounded-none transition-all duration-150 focus-within:border-accent focus-within:bg-surface-hover overflow-hidden ${disabled ? 'opacity-50' : ''}`}>
+      <div className={`group relative flex flex-col bg-surface border border-border rounded-lg transition-all duration-150 focus-within:border-accent focus-within:bg-surface-hover overflow-hidden ${disabled ? 'opacity-50' : ''}`}>
         <textarea
           ref={textareaRef}
           className="w-full bg-transparent p-2.5 text-xs text-primary placeholder:text-secondary/50 outline-none resize-y min-h-[88px] leading-relaxed"
@@ -117,7 +117,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
           <button
             type="button"
             onClick={() => insertText('*', '*')}
-            className="p-1.5 text-secondary hover:text-accent hover:bg-accent/10 rounded-none transition-all disabled:opacity-50 disabled:pointer-events-none"
+            className="p-1.5 text-secondary hover:text-accent hover:bg-accent/10 rounded-md transition-all disabled:opacity-50 disabled:pointer-events-none"
             title="Negrita (*)"
             disabled={disabled}
           >
@@ -126,7 +126,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
           <button
             type="button"
             onClick={() => insertText('_', '_')}
-            className="p-1.5 text-secondary hover:text-accent hover:bg-accent/10 rounded-none transition-all disabled:opacity-50 disabled:pointer-events-none"
+            className="p-1.5 text-secondary hover:text-accent hover:bg-accent/10 rounded-md transition-all disabled:opacity-50 disabled:pointer-events-none"
             title="Cursiva (_)"
             disabled={disabled}
           >
@@ -137,7 +137,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
             <button
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className={`p-1.5 transition-all rounded-none disabled:opacity-50 disabled:pointer-events-none ${showEmojiPicker ? 'text-accent bg-accent/10' : 'text-secondary hover:text-accent hover:bg-accent/10'}`}
+              className={`p-1.5 transition-all rounded-md disabled:opacity-50 disabled:pointer-events-none ${showEmojiPicker ? 'text-accent bg-accent/10' : 'text-secondary hover:text-accent hover:bg-accent/10'}`}
               title="Emojis"
               disabled={disabled}
             >
@@ -150,7 +150,7 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
                   className="fixed inset-0 z-[60]" 
                   onClick={() => setShowEmojiPicker(false)} 
                 />
-                <div className="absolute bottom-full left-0 mb-2 z-[70] shadow-2xl animate-in zoom-in-95 duration-150 origin-bottom-left">
+                <div className="absolute bottom-full left-0 mb-2 z-[70] shadow-2xl rounded-xl overflow-hidden animate-in zoom-in-95 duration-150 origin-bottom-left">
                   <EmojiPicker
                     onEmojiClick={onEmojiClick}
                     theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}

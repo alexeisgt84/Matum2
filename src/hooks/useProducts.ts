@@ -251,6 +251,16 @@ export const useProducts = (
             ? 0
             : Number(form.commission_amount),
         commission_currency: form.commission_currency || 'CUP',
+        delivery_cost:
+          form.delivery_cost === '' || form.delivery_cost === null || form.delivery_cost === undefined
+            ? null
+            : Number(form.delivery_cost),
+        delivery_currency: form.delivery_currency || 'CUP',
+        delivery_time_value:
+          form.delivery_time_value === '' || form.delivery_time_value === null || form.delivery_time_value === undefined
+            ? null
+            : Number(form.delivery_time_value),
+        delivery_time_unit: form.delivery_time_unit || 'hours',
       };
 
       let result: Product | null = null;

@@ -55,20 +55,20 @@ export const MessageCard: React.FC<MessageCardProps> = ({
       {/* Checkbox de Selección */}
       <button
         onClick={() => onSelect?.(message.id)}
-        className={`absolute -top-1.5 -left-1.5 z-20 w-5 h-5 rounded-none border flex items-center justify-center transition-all shadow ${
+        className={`absolute -top-1.5 -left-1.5 z-20 w-5 h-5 rounded-full border flex items-center justify-center transition-all shadow ${
           isSelected 
             ? 'bg-accent border-accent text-black scale-105' 
             : 'bg-surface border-border text-transparent opacity-0 group-hover:opacity-100 hover:border-accent'
         }`}
       >
-        <div className={`w-2 h-2 rounded-none ${isSelected ? 'bg-black' : 'bg-transparent'}`} />
+        <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-black' : 'bg-transparent'}`} />
       </button>
 
       {/* Línea Superior: Botones de Acción */}
       <div className="flex justify-end gap-1 border-b border-border pb-1.5">
         <button 
           onClick={() => onSendNow?.(message)}
-          className="p-1.5 text-secondary hover:text-accent hover:bg-accent/10 rounded-none transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+          className="p-1.5 text-secondary hover:text-accent hover:bg-accent/10 rounded-md transition-colors flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
           title="Enviar ahora"
           aria-label={`Enviar mensaje ${message.name} ahora`}
           disabled={isSending}
@@ -80,7 +80,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
           <>
             <button 
               onClick={() => onToggleSequence?.(message)}
-              className={`p-1.5 rounded-none transition-colors flex items-center justify-center ${
+              className={`p-1.5 rounded-md transition-colors flex items-center justify-center ${
                 message.is_sequence 
                   ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' 
                   : 'text-gray-500 hover:text-yellow-400 hover:bg-yellow-500/10'
@@ -93,7 +93,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
 
             <button 
               onClick={() => onEdit(message)}
-              className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-none transition-colors flex items-center justify-center"
+              className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-md transition-colors flex items-center justify-center"
               title="Editar"
               aria-label={`Editar mensaje ${message.name}`}
             >
@@ -101,7 +101,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
             </button>
             <button 
               onClick={handleShare}
-              className="p-1.5 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-none transition-colors flex items-center justify-center"
+              className="p-1.5 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-md transition-colors flex items-center justify-center"
               title="Compartir mensaje"
               aria-label={`Compartir mensaje ${message.name}`}
             >
@@ -109,7 +109,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
             </button>
             <button 
               onClick={() => onDelete(message.id)}
-              className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-none transition-colors flex items-center justify-center"
+              className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-md transition-colors flex items-center justify-center"
               title="Eliminar"
               aria-label={`Eliminar mensaje ${message.name}`}
             >
@@ -126,7 +126,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
             <img src={message.image_url} alt="" className="w-full h-full object-cover" />
           </div>
         ) : (
-          <div className={`p-2 rounded-none flex-shrink-0 ${
+          <div className={`p-2 rounded-lg flex-shrink-0 ${
             isCatalog ? 'bg-accent text-black' :
             message.type === 'text' ? 'bg-blue-500/10 text-blue-500' :
             message.type === 'image' ? 'bg-purple-500/10 text-purple-500' :

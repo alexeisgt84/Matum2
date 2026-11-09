@@ -41,12 +41,12 @@ export const PublicCatalogCard: React.FC<PublicCatalogCardProps> = ({ catalog })
         {/* Badges superiores flotantes */}
         <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
           {(catalog as any).enable_affiliates && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-emerald-600/90 text-white text-[10px] font-bold backdrop-blur-md shadow-sm">
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-600/90 text-white text-[10px] font-bold backdrop-blur-md shadow-sm">
               <Coins size={11} />
               <span>Afiliados</span>
             </span>
           )}
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none bg-black/60 text-white text-[10px] font-semibold backdrop-blur-md shadow-sm">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-semibold backdrop-blur-md shadow-sm">
             <Package size={11} className="text-[var(--accent)]" />
             <span>
               {catalog.productCount ?? 0} {catalog.productCount === 1 ? 'producto' : 'productos'}

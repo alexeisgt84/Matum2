@@ -7,12 +7,11 @@
 @layer base {
   *, ::before, ::after {
     border-color: var(--border);
-    border-radius: 0px !important;
   }
 
   .card,
   .rounded-card {
-    border-radius: 10px !important;
+    border-radius: 10px;
   }
 
   :root {
@@ -61,11 +60,11 @@
   }
 
   .input-base {
-    @apply w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-none p-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent)] outline-none transition-all;
+    @apply w-full bg-[var(--surface-hover)] border border-[var(--border)] rounded-lg p-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent)] outline-none transition-all;
   }
 
   .btn-whatsapp {
-    @apply bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-black font-bold py-2 px-4 text-xs rounded-none transition-colors disabled:opacity-50;
+    @apply bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-black font-bold py-2 px-4 text-xs rounded-lg transition-colors disabled:opacity-50;
   }
 }
 
@@ -103,7 +102,7 @@
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 0px;
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);

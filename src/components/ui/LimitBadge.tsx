@@ -18,9 +18,9 @@ export const LimitBadge: React.FC<LimitBadgeProps> = ({ current, limit, label })
           {current} <span className="text-secondary font-normal">/ {limit}</span>
         </span>
       </div>
-      <div className="h-1 w-full bg-surface-hover rounded-none overflow-hidden">
+      <div className="h-1 w-full bg-surface-hover rounded-full overflow-hidden">
         <div 
-          className={`h-full transition-all duration-500 rounded-none ${
+          className={`h-full transition-all duration-500 rounded-full ${
             isNearLimit ? 'bg-danger' : 'bg-accent'
           }`}
           style={{ width: `${percentage}%` }}

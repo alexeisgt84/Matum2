@@ -20,6 +20,10 @@ export interface Product {
   category_id?: number | null;
   commission_amount?: number | null;
   commission_currency?: 'CUP' | 'USD';
+  delivery_cost?: number | null;
+  delivery_currency?: 'CUP' | 'USD' | null;
+  delivery_time_value?: number | null;
+  delivery_time_unit?: 'hours' | 'days' | null;
 }
 
 export interface ProductForm {
@@ -32,4 +36,8 @@ export interface ProductForm {
   is_active?: boolean;
   commission_amount?: number | string;
   commission_currency?: 'CUP' | 'USD';
+  delivery_cost?: number | string;
+  delivery_currency?: 'CUP' | 'USD';
+  delivery_time_value?: number | string;
+  delivery_time_unit?: 'hours' | 'days';
 }
