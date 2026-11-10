@@ -1,19 +1,42 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronRight, Coins, Package, Store } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Coins, Package, Store, Settings, Sparkles, Users, Edit3, Trash2 } from 'lucide-react';
 import type { PublicCatalogItem } from '../../hooks/usePublicCatalogs';
+import type { Catalog } from '../../types/catalog';
+import { useAuthStore } from '../../store/authStore';
 
-interface PublicCatalogCardProps {
-  catalog: PublicCatalogItem;
+export interface PublicCatalogCardProps {
+  catalog: PublicCatalogItem | (Catalog & { productCount?: number });
+  isOwner?: boolean;
+  isCollaborator?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }
 
-export const PublicCatalogCard: React.FC<PublicCatalogCardProps> = ({ catalog }) => {
+export const PublicCatalogCard: React.FC<PublicCatalogCardProps> = ({
+  catalog,
+  isOwner: isOwnerProp,
+  isCollaborator: isCollaboratorProp,
+  onEdit,
+  onDelete,
+}) => {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+
   const storeUrl = `/${catalog.slug || catalog.id}`;
+  const configUrl = `/catalogs/${catalog.id}`;
+
+  const isOwner = Boolean(
+    isOwnerProp ??
+      (user && ((catalog as any).user_id ? (catalog as any).user_id === user.id : false) || user?.role === 'admin')
+  );
+  const isCollaborator = Boolean(isCollaboratorProp);
+  const canConfigure = isOwner || isCollaborator;
 
   return (
-    <Link
-      to={storeUrl}
-      className="group relative flex flex-col bg-surface border border-border hover:border-accent/40 rounded-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.99]"
+    <div
+      onClick={() => navigate(storeUrl)}
+      className="group relative flex flex-col bg-surface border border-border hover:border-accent/40 rounded-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
     >
       {/* Portada panorámica */}
       <div className="relative h-28 sm:h-32 w-full overflow-hidden bg-surface-hover">
@@ -55,12 +78,12 @@ export const PublicCatalogCard: React.FC<PublicCatalogCardProps> = ({ catalog })
         </div>
       </div>
 
-      {/* Cuerpo de la tarjeta con logo superpuesto */}
+      {/* Cuerpo de la tarjeta con logo superpuesto aumentado */}
       <div className="relative px-3.5 pb-3.5 pt-0 flex-1 flex flex-col justify-between">
         <div>
-          {/* Logo superpuesto a la portada */}
-          <div className="-mt-6 mb-2 flex items-end justify-between">
-            <div className="w-12 h-12 rounded-card bg-surface ring-2 ring-background border border-border overflow-hidden shadow-md flex-shrink-0 flex items-center justify-center">
+          {/* Fila del logo superpuesto a la portada con badges / acciones */}
+          <div className="-mt-10 mb-2.5 flex items-end justify-between gap-2">
+            <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-2xl bg-surface ring-4 ring-surface border border-border/80 overflow-hidden shadow-md flex-shrink-0 flex items-center justify-center">
               {catalog.logo_url ? (
                 <img
                   src={catalog.logo_url}
@@ -70,7 +93,7 @@ export const PublicCatalogCard: React.FC<PublicCatalogCardProps> = ({ catalog })
                 />
               ) : (
                 <div
-                  className="w-full h-full flex items-center justify-center font-display font-extrabold text-base text-[var(--accent-text)] select-none"
+                  className="w-full h-full flex items-center justify-center font-display font-black text-2xl sm:text-3xl text-[var(--accent-text)] select-none"
                   style={{
                     backgroundColor: catalog.primary_color || 'var(--accent)',
                   }}
@@ -79,11 +102,57 @@ export const PublicCatalogCard: React.FC<PublicCatalogCardProps> = ({ catalog })
                 </div>
               )}
             </div>
+
+            {/* Badges de rol o botones de edición directa */}
+            <div className="flex items-center gap-1.5 mb-1 flex-shrink-0">
+              {isOwner && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-[10px] font-bold">
+                  <Sparkles size={10} />
+                  <span>Dueño</span>
+                </span>
+              )}
+              {isCollaborator && !isOwner && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-500/15 border border-blue-500/30 text-blue-400 text-[10px] font-bold">
+                  <Users size={10} />
+                  <span>Colaborador</span>
+                </span>
+              )}
+
+              {/* Botones de acción directa para dueño en gestión */}
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit();
+                  }}
+                  className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-colors border border-border/60 bg-surface/80"
+                  aria-label={`Editar catálogo ${catalog.name}`}
+                  title="Editar catálogo"
+                >
+                  <Edit3 size={13} />
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                  className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors border border-border/60 bg-surface/80"
+                  aria-label={`Eliminar catálogo ${catalog.name}`}
+                  title="Eliminar catálogo"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Nombre y eslogan */}
           <h3
-            className="font-display text-sm sm:text-base font-bold text-primary group-hover:text-accent transition-colors truncate"
+            className="font-display text-base font-bold text-primary group-hover:text-accent transition-colors truncate"
             style={{ color: catalog.title_color || undefined }}
           >
             {catalog.name}
@@ -104,17 +173,39 @@ export const PublicCatalogCard: React.FC<PublicCatalogCardProps> = ({ catalog })
           )}
         </div>
 
-        {/* Footer con llamada a la acción */}
-        <div className="pt-3 mt-3 border-t border-border flex items-center justify-between text-xs">
-          <span className="text-[11px] font-semibold text-secondary group-hover:text-primary transition-colors">
-            Ver productos
-          </span>
-          <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-accent group-hover:translate-x-0.5 transition-transform">
-            Entrar a tienda
-            <ChevronRight size={13} />
-          </span>
+        {/* Footer con los dos botones: "Entrar a tienda" y "Configurar" si es dueño o colaborador */}
+        <div className="pt-3 mt-3 border-t border-border flex items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(storeUrl);
+            }}
+            className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-all active:scale-[0.98] ${
+              canConfigure
+                ? 'flex-1 bg-surface-hover hover:bg-border/60 text-primary border border-border'
+                : 'w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] shadow-sm'
+            }`}
+          >
+            <Store size={14} className={canConfigure ? 'text-secondary' : ''} />
+            <span>Entrar a tienda</span>
+          </button>
+
+          {canConfigure && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(configUrl);
+              }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] text-xs font-semibold shadow-sm transition-all active:scale-[0.98]"
+            >
+              <Settings size={14} />
+              <span>Configurar</span>
+            </button>
+          )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 };

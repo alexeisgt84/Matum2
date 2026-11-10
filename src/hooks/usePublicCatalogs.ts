@@ -12,6 +12,7 @@ import {
 
 export interface PublicCatalogItem {
   id: string;
+  user_id?: string;
   name: string;
   slogan: string | null;
   description: string | null;
@@ -54,6 +55,7 @@ export const usePublicCatalogs = () => {
         .from('catalogs')
         .select(`
           id,
+          user_id,
           name,
           slogan,
           description,

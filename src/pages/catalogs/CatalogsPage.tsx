@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import { usePublicCatalogs } from '../../hooks/usePublicCatalogs';
@@ -62,14 +62,19 @@ export const CatalogsPage = () => {
   const [showUpgrade, setShowUpgrade] = useState(false);
   const [catalogToDelete, setCatalogToDelete] = useState<string | null>(null);
 
+  const myCatalogIds = useMemo(() => new Set(catalogs.map((c) => c.id)), [catalogs]);
+  const sharedCatalogIds = useMemo(() => new Set(sharedCatalogs.map((c) => c.id)), [sharedCatalogs]);
+
   useEffect(() => {
     getPublicCatalogs();
-    if (!isCustomer) {
-      getCatalogs();
+    if (user) {
+      if (!isCustomer) {
+        getCatalogs();
+        getPendingMemberInvitations();
+      }
       getSharedCatalogs();
-      getPendingMemberInvitations();
     }
-  }, [isCustomer, getPublicCatalogs, getCatalogs, getSharedCatalogs, getPendingMemberInvitations]);
+  }, [user, isCustomer, getPublicCatalogs, getCatalogs, getSharedCatalogs, getPendingMemberInvitations]);
 
   const handleCreateClick = () => {
     if (canCreateCatalog) {
@@ -201,9 +206,23 @@ export const CatalogsPage = () => {
             />
           ) : (
             <div className="grid gap-3.5">
-              {filteredCatalogs.map((catalog) => (
-                <PublicCatalogCard key={catalog.id} catalog={catalog} />
-              ))}
+              {filteredCatalogs.map((catalog) => {
+                const isOwner = Boolean(
+                  user &&
+                    ((catalog as any).user_id === user.id ||
+                      myCatalogIds.has(catalog.id) ||
+                      user.role === 'admin')
+                );
+                const isCollaborator = Boolean(sharedCatalogIds.has(catalog.id));
+                return (
+                  <PublicCatalogCard
+                    key={catalog.id}
+                    catalog={catalog}
+                    isOwner={isOwner}
+                    isCollaborator={isCollaborator}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
@@ -314,62 +333,15 @@ export const CatalogsPage = () => {
               onAction={handleCreateClick}
             />
           ) : (
-            <div className="grid gap-2.5">
+            <div className="grid gap-3.5">
               {catalogs.map((catalog: any) => (
-                <div
+                <PublicCatalogCard
                   key={catalog.id}
-                  className="card group hover:border-accent/30 transition-all cursor-pointer relative overflow-hidden"
-                  onClick={() => navigate(`/catalogs/${catalog.id}`)}
-                >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full -mr-12 -mt-12 blur-2xl group-hover:bg-accent/10 transition-colors" />
-
-                  <div className="relative flex justify-between items-start gap-2">
-                    <div className="space-y-0.5 flex-1 min-w-0">
-                      <h3 className="text-sm font-bold text-primary group-hover:text-accent transition-colors truncate">
-                        {catalog.name}
-                      </h3>
-                      <p className="text-secondary text-xs line-clamp-2 pr-4 leading-snug">
-                        {catalog.description || 'Sin descripción'}
-                      </p>
-                    </div>
-
-                    <div className="flex gap-1 flex-shrink-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/catalogs/${catalog.id}/edit`);
-                        }}
-                        className="p-1.5 text-secondary hover:text-primary hover:bg-surface-hover rounded-lg transition-colors"
-                        aria-label={`Editar catálogo ${catalog.name}`}
-                      >
-                        <Edit3 size={14} />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setCatalogToDelete(catalog.id);
-                        }}
-                        className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                        aria-label={`Eliminar catálogo ${catalog.name}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 mt-2.5 border-t border-border flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-secondary">
-                    <div className="flex items-center gap-1">
-                      <LayoutGrid size={11} />
-                      <span className="tabular-nums">
-                        {catalog.productCount || 0} Productos
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 group-hover:text-accent transition-colors">
-                      Abrir Catálogo
-                      <ExternalLink size={11} />
-                    </div>
-                  </div>
-                </div>
+                  catalog={catalog}
+                  isOwner={true}
+                  onEdit={() => navigate(`/catalogs/${catalog.id}/edit`)}
+                  onDelete={() => setCatalogToDelete(catalog.id)}
+                />
               ))}
             </div>
           )}
@@ -380,44 +352,13 @@ export const CatalogsPage = () => {
               <h2 className="text-[10px] font-black uppercase tracking-[0.15em] text-secondary px-0.5">
                 Catálogos en los que colaboras ({sharedCatalogs.length})
               </h2>
-              <div className="grid gap-2.5">
+              <div className="grid gap-3.5">
                 {sharedCatalogs.map((catalog: any) => (
-                  <div
+                  <PublicCatalogCard
                     key={catalog.id}
-                    className="card group hover:border-accent/30 transition-all cursor-pointer relative overflow-hidden"
-                    onClick={() => navigate(`/catalogs/${catalog.id}`)}
-                  >
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full -mr-12 -mt-12 blur-2xl" />
-
-                    <div className="relative flex justify-between items-start">
-                      <div className="space-y-0.5 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <h3 className="text-sm font-bold text-primary group-hover:text-accent transition-colors truncate">
-                            {catalog.name}
-                          </h3>
-                          <span className="text-[8px] bg-accent/10 text-accent px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
-                            Colaborador
-                          </span>
-                        </div>
-                        <p className="text-secondary text-xs line-clamp-2 pr-4 leading-snug">
-                          {catalog.description || 'Sin descripción'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="pt-3 mt-2.5 border-t border-border flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-secondary">
-                      <div className="flex items-center gap-1">
-                        <LayoutGrid size={11} />
-                        <span className="tabular-nums">
-                          {catalog.productCount || 0} Productos
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 group-hover:text-accent transition-colors">
-                        Abrir Catálogo
-                        <ExternalLink size={11} />
-                      </div>
-                    </div>
-                  </div>
+                    catalog={catalog}
+                    isCollaborator={true}
+                  />
                 ))}
               </div>
             </div>

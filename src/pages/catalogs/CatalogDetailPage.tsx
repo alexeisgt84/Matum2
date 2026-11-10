@@ -151,10 +151,10 @@ export const CatalogDetailPage = () => {
   const { categories, getCategories } = useCategories(catalogId);
 
   // Hooks de Producto
-  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, updateProductsOrder } = useProducts(catalogId, debouncedSearch, sortField, sortOrder, selectedCategoryId);
+  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, deleteProducts, updateProductsOrder } = useProducts(catalogId, debouncedSearch, sortField, sortOrder, selectedCategoryId);
   
   // Hooks de Mensaje
-  const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, updateMessagesOrder, toggleMessageSequence } = useMessages(catalogId);
+  const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, deleteMessages, updateMessagesOrder, toggleMessageSequence } = useMessages(catalogId);
   
   // Hooks de Grupos (Seguimos usándolos para el modal de grupos)
   const { linkedGroups, availableGroups, loading: groupsLoading, fetchError: groupsError, getLinkedGroups, fetchAvailableGroups, linkGroup, unlinkGroup, toggleGroupStatus, applyGroupPreset } = useWhatsAppGroups(catalogId);
@@ -378,6 +378,7 @@ export const CatalogDetailPage = () => {
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -1093,23 +1094,27 @@ export const CatalogDetailPage = () => {
 
   const executeBulkDelete = async () => {
     const total = selectedProductIds.length + selectedMessageIds.length;
-    const toastId = toast.loading('Eliminando ítems…');
+    if (total === 0) {
+      setIsBulkDeleteConfirmOpen(false);
+      return;
+    }
+
+    setIsBulkDeleting(true);
+    const toastId = toast.loading(`Eliminando ${total} ítem${total > 1 ? 's' : ''}…`);
     try {
       if (selectedProductIds.length > 0) {
-        const { error } = await supabase.from('products').delete().in('id', selectedProductIds);
-        if (error) throw error;
+        await deleteProducts(selectedProductIds);
       }
       if (selectedMessageIds.length > 0) {
-        const { error } = await supabase.from('whatsapp_messages').delete().in('id', selectedMessageIds);
-        if (error) throw error;
+        await deleteMessages(selectedMessageIds);
       }
-      toast.success('Ítems eliminados', { id: toastId });
-      getProducts(true);
-      getMessages();
+      toast.success(`${total} ítem${total > 1 ? 's eliminados' : ' eliminado'}`, { id: toastId });
       clearSelection();
       setIsBulkDeleteConfirmOpen(false);
     } catch (err: any) {
-      toast.error('Error al eliminar: ' + err.message, { id: toastId });
+      toast.error('Error al eliminar: ' + (err.message || 'Error desconocido'), { id: toastId });
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -2136,12 +2141,13 @@ export const CatalogDetailPage = () => {
 
       <ConfirmDialog
         isOpen={isBulkDeleteConfirmOpen}
-        onClose={() => setIsBulkDeleteConfirmOpen(false)}
+        onClose={() => !isBulkDeleting && setIsBulkDeleteConfirmOpen(false)}
         onConfirm={executeBulkDelete}
         title="Eliminar Selección"
         message={`¿Estás seguro de que deseas eliminar los ${selectedProductIds.length + selectedMessageIds.length} ítems seleccionados? Esta acción no se puede deshacer.`}
         variant="danger"
-        confirmLabel="Eliminar todos"
+        confirmLabel={isBulkDeleting ? "Eliminando..." : "Eliminar todos"}
+        loading={isBulkDeleting}
       />
 
       <UpgradeModal

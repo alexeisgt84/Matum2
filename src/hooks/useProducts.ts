@@ -270,10 +270,24 @@ export const useProducts = (
           .from('products')
           .update(productData)
           .eq('id', id)
-          .select()
-          .single();
+          .select();
+
         if (error) throw error;
-        result = data;
+
+        if (data && data.length > 0) {
+          result = data[0];
+        } else {
+          // Si PostgREST no retorna filas en el RETURNING (por ejemplo por políticas RLS en SELECT tras UPDATE),
+          // recuperamos el registro directamente para mantener el estado sincronizado
+          const { data: fetched, error: fetchError } = await supabase
+            .from('products')
+            .select('*')
+            .eq('id', id)
+            .maybeSingle();
+
+          if (fetchError) throw fetchError;
+          result = fetched || ({ id, catalog_id: catalogId, ...productData } as Product);
+        }
 
         setProducts((prev) => prev.map((p) => (p.id === id ? result! : p)));
       } else {
@@ -286,12 +300,14 @@ export const useProducts = (
               position: 0,
             },
           ])
-          .select()
-          .single();
-        if (error) throw error;
-        result = data;
+          .select();
 
-        setProducts((prev) => [result!, ...prev]);
+        if (error) throw error;
+        result = data && data.length > 0 ? data[0] : null;
+
+        if (result) {
+          setProducts((prev) => [result!, ...prev]);
+        }
       }
 
       if (result) {
@@ -339,21 +355,33 @@ export const useProducts = (
     }
   };
 
-  const deleteProduct = async (id: string) => {
+  const deleteProducts = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return true;
     try {
-      const { error } = await supabase.from('products').delete().eq('id', id);
+      const { error } = await supabase.from('products').delete().in('id', ids);
       if (error) throw error;
-      const updated = products.filter((p) => p.id !== id);
+      const idSet = new Set(ids);
+      const updated = products.filter((p) => !idSet.has(p.id));
       setProducts(updated);
       if (catalogId) {
         const cached = await getCatalogProductsFromCache(catalogId);
         if (cached) {
           await saveCatalogProductsToCache(
             catalogId,
-            cached.filter((p) => p.id !== id)
+            cached.filter((p) => !idSet.has(p.id))
           );
         }
       }
+      return true;
+    } catch (err: any) {
+      console.error('Error al eliminar productos:', err);
+      throw err;
+    }
+  };
+
+  const deleteProduct = async (id: string) => {
+    try {
+      await deleteProducts([id]);
       toast.success('Producto eliminado');
     } catch (err: any) {
       toast.error('Error al eliminar');
@@ -368,6 +396,7 @@ export const useProducts = (
     getProducts,
     saveProduct,
     deleteProduct,
+    deleteProducts,
     updateProductsOrder,
   };
 };

@@ -102,15 +102,27 @@ export const useMessages = (catalogId?: string) => {
     }
   };
 
-  const deleteMessage = async (id: string) => {
+  const deleteMessages = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return true;
     try {
-      const { error } = await supabase.from('whatsapp_messages').delete().eq('id', id);
+      const { error } = await supabase.from('whatsapp_messages').delete().in('id', ids);
       if (error) throw error;
-      const updated = messages.filter((m) => m.id !== id);
+      const idSet = new Set(ids);
+      const updated = messages.filter((m) => !idSet.has(m.id));
       setMessages(updated);
       if (catalogId) {
         await saveCachedList(`messages_${catalogId}`, updated);
       }
+      return true;
+    } catch (err: any) {
+      console.error('Error al eliminar mensajes:', err);
+      throw err;
+    }
+  };
+
+  const deleteMessage = async (id: string) => {
+    try {
+      await deleteMessages([id]);
       toast.success('Mensaje eliminado');
     } catch (err: any) {
       toast.error('Error al eliminar');
@@ -187,6 +199,7 @@ export const useMessages = (catalogId?: string) => {
     getMessages,
     saveMessage,
     deleteMessage,
+    deleteMessages,
     updateMessagesOrder,
     toggleMessageSequence,
   };
