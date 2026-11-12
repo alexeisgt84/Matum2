@@ -26,6 +26,7 @@ export interface PublicCatalogItem {
   title_color?: string | null;
   is_active: boolean;
   is_public: boolean;
+  catalog_type?: 'store' | 'marketplace' | string;
   created_at: string;
   productCount: number;
 }
@@ -69,6 +70,7 @@ export const usePublicCatalogs = () => {
           title_color,
           is_active,
           is_public,
+          catalog_type,
           created_at,
           products:products(count)
         `)
@@ -85,17 +87,25 @@ export const usePublicCatalogs = () => {
 
       setPublicCatalogs(formatted);
       await saveCachedList(PUBLIC_CATALOGS_CACHE_KEY, formatted);
-      formatted.forEach((cat) => {
+      // Guardar metadatos en caché local; limitar precarga profunda a los 4 primeros catálogos para no saturar conexiones lentas
+      formatted.forEach((cat, idx) => {
         saveCatalogToCache(cat);
-        syncCatalogForOffline(cat.id);
+        if (idx < 4) {
+          syncCatalogForOffline(cat.id);
+        }
       });
     } catch (err: any) {
       if (cached) {
         setPublicCatalogs(cached);
       }
-      console.error('Error cargando catálogos públicos:', err);
+      const isAbort = err?.name === 'AbortError' || String(err?.message || '').toLowerCase().includes('aborted');
+      if (isAbort) return;
+
       if (!isNetworkError(err)) {
+        console.error('Error cargando catálogos públicos:', err);
         toast.error('Error al cargar catálogos públicos');
+      } else {
+        console.warn('Red lenta o inestable cargando catálogos públicos (usando caché si está disponible):', err?.message || err);
       }
     } finally {
       setLoading(false);

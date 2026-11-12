@@ -51,6 +51,7 @@ export interface Catalog {
   min_payout_amount?: number;
   min_payout_amount_cup?: number;
   min_payout_amount_usd?: number;
+  catalog_type?: 'store' | 'marketplace' | string;
   created_at: string;
   updated_at: string;
 }
@@ -98,4 +99,5 @@ export interface CatalogForm {
   min_payout_amount?: number;
   min_payout_amount_cup?: number;
   min_payout_amount_usd?: number;
+  catalog_type?: 'store' | 'marketplace' | string;
 }

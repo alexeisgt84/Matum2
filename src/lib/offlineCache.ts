@@ -581,12 +581,12 @@ async function processSyncQueue(): Promise<void> {
   isProcessingSyncQueue = false;
 }
 
-export async function syncCatalogForOffline(catalogId: string): Promise<void> {
+export async function syncCatalogForOffline(catalogId: string, force: boolean = false): Promise<void> {
   if (
     !catalogId ||
     isOffline() ||
     syncingCatalogs.has(catalogId) ||
-    syncedCatalogsSession.has(catalogId) ||
+    (!force && syncedCatalogsSession.has(catalogId)) ||
     syncQueue.includes(catalogId)
   ) {
     return;

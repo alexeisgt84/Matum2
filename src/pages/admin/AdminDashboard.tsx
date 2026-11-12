@@ -116,6 +116,13 @@ export const AdminDashboard = () => {
       color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
     },
     {
+      title: 'Crear Grupo Tipo Nazaar',
+      description: 'Crear catálogo colaborativo Marketplace (solo administrador)',
+      icon: Store,
+      path: '/catalogs/new?type=marketplace',
+      color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+    },
+    {
       title: 'Servidores Evolution',
       description: 'Configurar credenciales, URLs y límites de capacidad',
       icon: Server,

@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Save, Info, Zap, Globe, AlertCircle, Camera, MapPin, Clock, Phone, Mail, Coins, DollarSign, ShoppingBag } from 'lucide-react';
+import { Save, Info, Zap, Globe, AlertCircle, Camera, MapPin, Clock, Phone, Mail, Coins, DollarSign, ShoppingBag, ShieldCheck } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Switch } from '../../components/ui/Switch';
 import { Select } from '../../components/ui/Select';
 import { useProfile } from '../../hooks/useProfile';
+import { useAuthStore } from '../../store/authStore';
 import { toast } from 'react-hot-toast';
 import { useSystemSettings } from '../../hooks/useSystemSettings';
 
@@ -52,12 +53,16 @@ const FacebookIcon = ({ size = 20, className, ...props }: { size?: number; class
 
 export const CatalogFormPage = () => {
   const { catalogId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { loading, createCatalog, updateCatalog } = useCatalogs();
   const { getAppUrl } = useSystemSettings();
   
   const { profile } = useProfile();
-  const hasDualityAccess = (profile?.plan && profile.plan !== 'free') || profile?.role === 'admin';
+  const { user } = useAuthStore();
+  const isAdmin = profile?.role === 'admin' || user?.role === 'admin';
+  const hasDualityAccess = (profile?.plan && profile.plan !== 'free') || isAdmin;
+  const requestedType = searchParams.get('type') === 'marketplace' ? 'marketplace' : 'store';
   
   const [form, setForm] = useState({
     nombre: '',
@@ -66,6 +71,7 @@ export const CatalogFormPage = () => {
     is_active: true,
     is_public: false,
     slug: '',
+    catalog_type: (isAdmin && requestedType === 'marketplace' ? 'marketplace' : 'store') as 'store' | 'marketplace',
     is_sequence_scheduled: false,
     is_individual_scheduled: false,
     sequence_start_time: '09:00',
@@ -102,6 +108,12 @@ export const CatalogFormPage = () => {
     }
   }, [catalogId]);
 
+  useEffect(() => {
+    if (!catalogId && isAdmin && requestedType === 'marketplace') {
+      setForm(prev => ({ ...prev, catalog_type: 'marketplace', is_public: true }));
+    }
+  }, [catalogId, isAdmin, requestedType]);
+
   const loadCatalog = async () => {
     const { data } = await supabase
       .from('catalogs')
@@ -117,6 +129,7 @@ export const CatalogFormPage = () => {
         is_active: data.is_active ?? true,
         is_public: data.is_public ?? false,
         slug: data.slug || '',
+        catalog_type: data.catalog_type === 'marketplace' ? 'marketplace' : 'store',
         is_sequence_scheduled: data.is_sequence_scheduled ?? false,
         is_individual_scheduled: data.is_individual_scheduled ?? false,
         sequence_start_time: data.sequence_start_time || '09:00',
@@ -261,6 +274,30 @@ export const CatalogFormPage = () => {
             value={form.descripcion}
             onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
           />
+
+          {isAdmin && (
+            <div className="pt-3 border-t border-border/50 space-y-2">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={15} className="text-amber-500" />
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                  Tipo de Catálogo (Solo Administrador)
+                </span>
+              </div>
+              <Select
+                label="Modalidad del Catálogo"
+                value={form.catalog_type}
+                onChange={(e) => setForm({ ...form, catalog_type: e.target.value as 'store' | 'marketplace' })}
+              >
+                <option value="store" className="bg-surface text-primary">Tienda Estándar</option>
+                <option value="marketplace" className="bg-surface text-primary">Grupo Tipo Nazaar (Marketplace Colaborativo)</option>
+              </Select>
+              <p className="text-[11px] text-secondary leading-relaxed">
+                {form.catalog_type === 'marketplace'
+                  ? 'Los catálogos tipo Nazaar permiten recibir productos desde un grupo de WhatsApp en MatumListener, manteniendo el contacto de cada vendedor y permitiéndoles gestionar su propio stock.'
+                  : 'Catálogo estándar administrado por su propietario.'}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Sección: Diseño de la Tienda (Logo y Banner) */}

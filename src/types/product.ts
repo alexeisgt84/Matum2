@@ -24,6 +24,8 @@ export interface Product {
   delivery_currency?: 'CUP' | 'USD' | null;
   delivery_time_value?: number | null;
   delivery_time_unit?: 'hours' | 'days' | null;
+  contact_phone?: string | null;
+  sender_name?: string | null;
 }
 
 export interface ProductForm {

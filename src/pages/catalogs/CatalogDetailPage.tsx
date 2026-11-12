@@ -1112,6 +1112,7 @@ export const CatalogDetailPage = () => {
       clearSelection();
       setIsBulkDeleteConfirmOpen(false);
     } catch (err: any) {
+      console.error('[BulkDelete] Error al eliminar selección:', err);
       toast.error('Error al eliminar: ' + (err.message || 'Error desconocido'), { id: toastId });
     } finally {
       setIsBulkDeleting(false);

@@ -29,7 +29,9 @@ import {
   getPriceParts,
   getPriceText,
 } from '../../lib/pricing';
-import { buildWhatsAppUrl } from '../../lib/whatsapp';
+import { buildWhatsAppUrl, isSamePhone } from '../../lib/whatsapp';
+import { toggleMarketplaceStock } from '../../lib/marketplace';
+import { MarketplaceProductEditModal } from '../../components/store/MarketplaceProductEditModal';
 import { applyStoreSeo } from '../../lib/seo';
 import {
   isOffline,
@@ -49,7 +51,7 @@ import { WhatsAppIcon } from '../../components/store/SocialIcons';
 import type { CartItem, PublicCatalog, PublicProduct } from '../../types/store';
 
 const CATALOG_SELECT =
-  'id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates';
+  'id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, catalog_type';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -72,6 +74,37 @@ export const PublicProductPage: React.FC = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const isMarketplace = Boolean(
+    catalog?.catalog_type === 'marketplace' ||
+    (catalog?.name && /naza+r/i.test(catalog.name)) ||
+    (catalog?.slug && /naza+r/i.test(catalog.slug))
+  );
+  const isProductOwner = Boolean(
+    user?.phone && product?.contact_phone && isSamePhone(user.phone, product.contact_phone)
+  );
+
+  const handleToggleStock = async () => {
+    if (!product) return;
+    const nextStatus = !product.is_out_of_stock;
+    const success = await toggleMarketplaceStock(product.id, nextStatus);
+    if (success) {
+      setProduct(prev => prev ? {
+        ...prev,
+        is_out_of_stock: nextStatus,
+        stock_status: nextStatus ? 'out_of_stock' : 'available'
+      } : null);
+      toast.success(nextStatus ? 'Producto marcado como agotado' : 'Producto disponible');
+    } else {
+      toast.error('No se pudo cambiar el estado');
+    }
+  };
+
+  const handleProductUpdated = (updated: Partial<PublicProduct>) => {
+    setProduct(prev => prev ? { ...prev, ...updated } : null);
+    toast.success('Publicación actualizada');
+  };
 
   // Formulario de pedido directo (recordado en el dispositivo)
   const [customerName, setCustomerName] = useState(() => {
@@ -196,7 +229,7 @@ export const PublicProductPage: React.FC = () => {
           supabase
             .from('products')
             .select(
-              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active'
+              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, contact_phone, sender_name'
             )
             .eq('id', productId)
             .eq('catalog_id', catData.id)
@@ -204,7 +237,7 @@ export const PublicProductPage: React.FC = () => {
           supabase
             .from('products')
             .select(
-              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position'
+              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name'
             )
             .eq('catalog_id', catData.id)
             .eq('is_active', true)
@@ -486,7 +519,11 @@ export const PublicProductPage: React.FC = () => {
       // ignore storage errors
     }
 
-    window.open(buildWhatsAppUrl(vendorPhone, messageText), '_blank');
+    const targetPhone = (isMarketplace && product?.contact_phone)
+      ? product.contact_phone
+      : (product?.contact_phone || vendorPhone);
+
+    window.open(buildWhatsAppUrl(targetPhone, messageText), '_blank');
     setIsOrderModalOpen(false);
     setShowOrderSuccess(true);
   };
@@ -809,23 +846,57 @@ export const PublicProductPage: React.FC = () => {
                 </div>
               )}
 
+              {/* Panel de control para el dueño del producto en Marketplace */}
+              {isProductOwner && (
+                <div className="p-3.5 rounded-2xl bg-accent/10 border border-accent/30 space-y-2 mb-2 animate-store-fade-up">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-accent">Tu publicación en Nazaar</span>
+                    <span className="text-[11px] text-secondary tabular-nums">{product.contact_phone}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={handleToggleStock}
+                      className={`h-10 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm ${
+                        isOutOfStock
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          : 'bg-amber-600 hover:bg-amber-700 text-white'
+                      }`}
+                    >
+                      {isOutOfStock ? 'Marcar Disponible' : 'Marcar Agotado'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditModalOpen(true)}
+                      className="h-10 px-3 rounded-xl bg-accent hover:bg-accent-hover text-accent-text font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm"
+                    >
+                      Editar Publicación
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Acciones principales para pantallas de escritorio */}
               <div className="space-y-2.5 pt-1">
                 {!isOutOfStock ? (
                   <div className="hidden md:grid grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={handleAddToCart}
-                      className="h-12 px-5 rounded-2xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 shadow-md shadow-accent/15 transition-all active:scale-[0.98]"
-                    >
-                      <Plus size={16} strokeWidth={2.5} /> Agregar al pedido
-                    </button>
+                    {!isMarketplace && (
+                      <button
+                        type="button"
+                        onClick={handleAddToCart}
+                        className="h-12 px-5 rounded-2xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 shadow-md shadow-accent/15 transition-all active:scale-[0.98]"
+                      >
+                        <Plus size={16} strokeWidth={2.5} /> Agregar al pedido
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setIsOrderModalOpen(true)}
-                      className="h-12 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98]"
+                      className={`h-12 px-5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm inline-flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-[0.98] ${
+                        isMarketplace ? 'col-span-2' : ''
+                      }`}
                     >
-                      <WhatsAppIcon size={16} /> Pedir por WhatsApp
+                      <WhatsAppIcon size={16} /> Contactar por WhatsApp
                     </button>
                   </div>
                 ) : (
@@ -1084,6 +1155,15 @@ export const PublicProductPage: React.FC = () => {
           </div>
         </div>
       </Modal>
+
+      {product && isEditModalOpen && (
+        <MarketplaceProductEditModal
+          product={product}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSaved={handleProductUpdated}
+        />
+      )}
     </div>
   );
 };

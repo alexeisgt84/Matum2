@@ -361,8 +361,7 @@ export const useProducts = (
       const { error } = await supabase.from('products').delete().in('id', ids);
       if (error) throw error;
       const idSet = new Set(ids);
-      const updated = products.filter((p) => !idSet.has(p.id));
-      setProducts(updated);
+      setProducts((prev) => prev.filter((p) => !idSet.has(p.id)));
       if (catalogId) {
         const cached = await getCatalogProductsFromCache(catalogId);
         if (cached) {
@@ -371,6 +370,7 @@ export const useProducts = (
             cached.filter((p) => !idSet.has(p.id))
           );
         }
+        await syncCatalogForOffline(catalogId, true);
       }
       return true;
     } catch (err: any) {

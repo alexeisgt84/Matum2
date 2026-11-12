@@ -229,6 +229,7 @@ export const useCatalogs = () => {
             display_currency: form.display_currency || 'original',
             min_order_amount: form.min_order_amount ?? 0.0,
             min_order_currency: form.min_order_currency || 'CUP',
+            ...(form.catalog_type ? { catalog_type: form.catalog_type } : {}),
           },
         ])
         .select()
@@ -338,6 +339,7 @@ export const useCatalogs = () => {
       if (form.display_currency !== undefined) updateData.display_currency = form.display_currency;
       if (form.min_order_amount !== undefined) updateData.min_order_amount = form.min_order_amount;
       if (form.min_order_currency !== undefined) updateData.min_order_currency = form.min_order_currency;
+      if (form.catalog_type !== undefined) updateData.catalog_type = form.catalog_type;
 
       const { error } = await supabase.from('catalogs').update(updateData).eq('id', id);
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Coins, Minus, Plus, Share2, ShoppingBag } from 'lucide-react';
+import { Coins, Minus, Plus, Share2, ShoppingBag, MessageCircle, Edit2, Ban, CheckCircle2, Truck } from 'lucide-react';
 import type { PublicProduct } from '../../types/store';
 import type { PriceParts } from '../../lib/pricing';
 import { PriceTag } from './PriceTag';
@@ -11,10 +11,15 @@ interface ProductCardProps {
   showCommission?: boolean;
   /** Carga la imagen con prioridad (primeras filas visibles) */
   priority?: boolean;
+  isMarketplace?: boolean;
+  isOwner?: boolean;
   onOpen: () => void;
   onAdd: () => void;
   onRemove: () => void;
   onShare: (e: React.MouseEvent) => void;
+  onToggleStock?: () => void;
+  onEditMarketplace?: () => void;
+  onContactWhatsApp?: () => void;
 }
 
 /** Tarjeta vertical de producto con la imagen como protagonista y radio de 10px (rounded-card). */
@@ -24,15 +29,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   price,
   showCommission = false,
   priority = false,
+  isMarketplace = false,
+  isOwner = false,
   onOpen,
   onAdd,
   onRemove,
   onShare,
+  onToggleStock,
+  onEditMarketplace,
+  onContactWhatsApp,
 }) => {
-  const stop = (fn: () => void) => (e: React.MouseEvent) => {
+  const stop = (fn?: () => void) => (e: React.MouseEvent) => {
     e.stopPropagation();
-    fn();
+    if (fn) fn();
   };
+
+  const isOutOfStock = Boolean(product.is_out_of_stock || product.stock_status === 'out_of_stock');
 
   return (
     <article
@@ -61,19 +73,70 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         )}
 
+        {/* Badges superiores: Tu publicación o Agotado */}
+        {isMarketplace && isOwner && (
+          <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent text-accent-text text-[9px] font-bold shadow-md z-10">
+            Tu producto
+          </span>
+        )}
+        {isOutOfStock && (
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center z-10 pointer-events-none">
+            <span className="px-2.5 py-1 rounded-md bg-red-600/90 text-white text-[10px] font-bold uppercase tracking-wider shadow-md">
+              Agotado
+            </span>
+          </div>
+        )}
+
         {/* Compartir (escritorio, al pasar el cursor) */}
         <button
           type="button"
           onClick={onShare}
-          className="hidden sm:inline-flex absolute top-1.5 right-1.5 w-7 h-7 items-center justify-center rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity"
+          className="hidden sm:inline-flex absolute top-1.5 right-1.5 w-7 h-7 items-center justify-center rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity z-10"
           aria-label={`Compartir ${product.name}`}
         >
           <Share2 size={13} />
         </button>
 
-        {/* Agregar / cantidad */}
-        <div className="absolute bottom-1.5 right-1.5" onClick={e => e.stopPropagation()}>
-          {quantity > 0 ? (
+        {/* Agregar / cantidad o acciones de Marketplace */}
+        <div className="absolute bottom-1.5 right-1.5 z-20" onClick={e => e.stopPropagation()}>
+          {isMarketplace ? (
+            isOwner ? (
+              <div className="flex items-center gap-1 bg-surface/95 backdrop-blur-md p-0.5 rounded-full border border-border shadow-md">
+                <button
+                  type="button"
+                  onClick={stop(onToggleStock)}
+                  title={isOutOfStock ? 'Marcar como disponible' : 'Marcar como agotado'}
+                  className={`w-7 h-7 inline-flex items-center justify-center rounded-full transition-all active:scale-90 ${
+                    isOutOfStock
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                      : 'bg-amber-600/80 text-white hover:bg-amber-700'
+                  }`}
+                  aria-label={isOutOfStock ? 'Marcar disponible' : 'Marcar agotado'}
+                >
+                  {isOutOfStock ? <CheckCircle2 size={13} /> : <Ban size={13} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={stop(onEditMarketplace)}
+                  title="Editar producto"
+                  className="w-7 h-7 inline-flex items-center justify-center rounded-full bg-accent text-accent-text hover:bg-accent-hover transition-all active:scale-90"
+                  aria-label={`Editar ${product.name}`}
+                >
+                  <Edit2 size={12} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={stop(onContactWhatsApp || onOpen)}
+                className="h-7 px-2.5 inline-flex items-center gap-1 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold shadow-md active:scale-90 transition-all"
+                aria-label={`Contactar por ${product.name}`}
+              >
+                <MessageCircle size={12} />
+                <span>Contactar</span>
+              </button>
+            )
+          ) : quantity > 0 ? (
             <div className="flex items-center h-7 rounded-full bg-surface/95 backdrop-blur-md border border-border shadow-md text-primary animate-store-fade-up">
               <button
                 type="button"
@@ -119,6 +182,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           className="text-xs sm:text-sm font-bold text-primary tracking-tight"
           secondaryClassName="text-[10px] font-medium text-secondary"
         />
+        {product.delivery_cost !== null && product.delivery_cost !== undefined && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-secondary">
+            <Truck size={10} className="text-accent" />
+            {Number(product.delivery_cost) === 0 ? 'Envío gratis' : `Envío: ${product.delivery_cost} ${product.delivery_currency || 'CUP'}`}
+          </span>
+        )}
         {showCommission && (product.commission_amount ?? 0) > 0 && (
           <span className="mt-0.5 inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold">
             <Coins size={10} />

@@ -34,34 +34,44 @@ const customFetch: typeof fetch = async (input, init) => {
 
   const timeoutMs =
     isStorageUpload || isEdgeFunction
-      ? 30000
+      ? 45000
       : isAuthRequest || isWriteRequest
-        ? 20000
-        : 12000;
+        ? 30000
+        : 25000;
 
   const controller = new AbortController();
   let abortedByCaller = false;
+  let abortedByTimeout = false;
+
+  const handleCallerAbort = () => {
+    abortedByCaller = true;
+    const reason = init?.signal?.reason || new DOMException('The user aborted a request.', 'AbortError');
+    try {
+      controller.abort(reason);
+    } catch {
+      controller.abort();
+    }
+  };
+
   if (init?.signal) {
     if (init.signal.aborted) {
-      abortedByCaller = true;
-      controller.abort();
+      handleCallerAbort();
     } else {
-      init.signal.addEventListener(
-        'abort',
-        () => {
-          abortedByCaller = true;
-          controller.abort();
-        },
-        { once: true }
-      );
+      init.signal.addEventListener('abort', handleCallerAbort, { once: true });
     }
   }
 
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => {
-      controller.abort();
-      reject(new TypeError('Failed to fetch: network timeout'));
+      abortedByTimeout = true;
+      const timeoutErr = new DOMException('Failed to fetch: network timeout', 'TimeoutError');
+      try {
+        controller.abort(timeoutErr);
+      } catch {
+        controller.abort();
+      }
+      reject(timeoutErr);
     }, timeoutMs);
   });
 
@@ -74,8 +84,8 @@ const customFetch: typeof fetch = async (input, init) => {
     lastNetworkSuccessAt = Date.now();
     dispatchNetworkStatus(true);
     return response;
-  } catch (err) {
-    if (abortedByCaller) {
+  } catch (err: any) {
+    if (abortedByCaller || (!abortedByTimeout && err?.name === 'AbortError')) {
       throw err;
     }
 
@@ -92,6 +102,9 @@ const customFetch: typeof fetch = async (input, init) => {
     throw err;
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
+    if (init?.signal) {
+      init.signal.removeEventListener('abort', handleCallerAbort);
+    }
   }
 };
 

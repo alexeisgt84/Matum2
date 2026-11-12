@@ -15,7 +15,9 @@ import {
   getPriceText,
   getUnifiedTotal,
 } from '../../lib/pricing';
-import { buildWhatsAppUrl } from '../../lib/whatsapp';
+import { buildWhatsAppUrl, isSamePhone } from '../../lib/whatsapp';
+import { toggleMarketplaceStock } from '../../lib/marketplace';
+import { MarketplaceProductEditModal } from '../../components/store/MarketplaceProductEditModal';
 import { applyStoreSeo } from '../../lib/seo';
 import {
   isOffline,
@@ -55,7 +57,7 @@ export interface PublicCatalogPageProps {
 }
 
 const CATALOG_SELECT =
-  'id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount';
+  'id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount, catalog_type';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -84,6 +86,13 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   const [loading, setLoading] = useState(true);
   const [productsLoading, setProductsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<PublicProduct | null>(null);
+
+  const isMarketplace = Boolean(
+    catalog?.catalog_type === 'marketplace' ||
+    (catalog?.name && /naza+r/i.test(catalog.name)) ||
+    (catalog?.slug && /naza+r/i.test(catalog.slug))
+  );
 
   // Estado de exploración y carrito
   const [searchQuery, setSearchQuery] = useState('');
@@ -368,7 +377,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           supabase
             .from('products')
             .select(
-              'id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position'
+              'id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name'
             )
             .eq('catalog_id', catData.id)
             .eq('is_active', true)
@@ -779,7 +788,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   };
 
   const handleAskProductWhatsApp = (product: PublicProduct) => {
-    let messageText = `¡Hola! Me interesa este producto de tu catálogo:\n\n`;
+    let messageText = `¡Hola! Me interesa este producto:\n\n`;
     messageText += `🛍️ *${product.name}*\n`;
     if (product.price !== null) {
       messageText += `💵 *Precio:* ${getPriceText(product, pricingCtx)}\n`;
@@ -788,9 +797,38 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       const currentHost = typeof window !== 'undefined' ? window.location.host : 'matum.vercel.app';
       messageText += `🔗 *Enlace:* ${currentHost}/${slug}\n`;
     }
-    messageText += `\n¿Tienen disponibilidad?`;
+    messageText += `\n¿Está disponible?`;
 
-    window.open(buildWhatsAppUrl(vendorPhone, messageText), '_blank');
+    const targetPhone = (isMarketplace && product.contact_phone)
+      ? product.contact_phone
+      : (product.contact_phone || vendorPhone);
+
+    window.open(buildWhatsAppUrl(targetPhone, messageText), '_blank');
+  };
+
+  const handleToggleProductStock = async (product: PublicProduct) => {
+    const nextStatus = !product.is_out_of_stock;
+    const success = await toggleMarketplaceStock(product.id, nextStatus);
+    if (success) {
+      setProducts(prev =>
+        prev.map(p =>
+          p.id === product.id
+            ? { ...p, is_out_of_stock: nextStatus, stock_status: nextStatus ? 'out_of_stock' : 'available' }
+            : p
+        )
+      );
+      toast.success(nextStatus ? 'Producto marcado como agotado' : 'Producto disponible');
+    } else {
+      toast.error('No se pudo cambiar el estado. Inicia sesión con el número de WhatsApp correspondiente.');
+    }
+  };
+
+  const handleProductUpdated = (updated: Partial<PublicProduct>) => {
+    if (!editingProduct) return;
+    setProducts(prev =>
+      prev.map(p => (p.id === editingProduct.id ? { ...p, ...updated } : p))
+    );
+    toast.success('Publicación actualizada');
   };
 
   const openProductDetail = (product: PublicProduct) => {
@@ -967,10 +1005,15 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
                             price={getPriceParts(product, pricingCtx)}
                             showCommission={canSeeCommissions}
                             priority={groupIdx === 0 && idx < 4}
+                            isMarketplace={isMarketplace}
+                            isOwner={Boolean(user?.phone && isSamePhone(user.phone, product.contact_phone))}
                             onOpen={() => openProductDetail(product)}
                             onAdd={() => addToCart(product)}
                             onRemove={() => removeFromCart(product.id)}
                             onShare={e => handleShareProduct(product, e)}
+                            onToggleStock={() => handleToggleProductStock(product)}
+                            onEditMarketplace={() => setEditingProduct(product)}
+                            onContactWhatsApp={() => handleAskProductWhatsApp(product)}
                           />
                         ))}
                       </div>
@@ -997,10 +1040,15 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
                   price={getPriceParts(product, pricingCtx)}
                   showCommission={canSeeCommissions}
                   priority={idx < 4}
+                  isMarketplace={isMarketplace}
+                  isOwner={Boolean(user?.phone && isSamePhone(user.phone, product.contact_phone))}
                   onOpen={() => openProductDetail(product)}
                   onAdd={() => addToCart(product)}
                   onRemove={() => removeFromCart(product.id)}
                   onShare={e => handleShareProduct(product, e)}
+                  onToggleStock={() => handleToggleProductStock(product)}
+                  onEditMarketplace={() => setEditingProduct(product)}
+                  onContactWhatsApp={() => handleAskProductWhatsApp(product)}
                 />
               ))}
             </div>
@@ -1046,12 +1094,23 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         </div>
       )}
 
-      <CartFab
-        count={totalItemsCount}
-        totals={totals}
-        onOpen={() => setIsCartOpen(true)}
-        bottomOffsetClass={embedded ? 'bottom-16' : 'bottom-3'}
-      />
+      {!isMarketplace && (
+        <CartFab
+          count={totalItemsCount}
+          totals={totals}
+          onOpen={() => setIsCartOpen(true)}
+          bottomOffsetClass={embedded ? 'bottom-16' : 'bottom-3'}
+        />
+      )}
+
+      {editingProduct && (
+        <MarketplaceProductEditModal
+          product={editingProduct}
+          isOpen={!!editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSaved={handleProductUpdated}
+        />
+      )}
 
       <CartSheet
         open={isCartOpen}

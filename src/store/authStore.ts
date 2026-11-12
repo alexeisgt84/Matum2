@@ -213,7 +213,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const sessionResult = await Promise.race([
         supabase.auth.getSession(),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Failed to fetch: session timeout')), 4000)
+          setTimeout(() => reject(new Error('Failed to fetch: session timeout')), 12000)
         ),
       ]);
 

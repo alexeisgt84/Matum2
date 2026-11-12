@@ -284,8 +284,9 @@ export const CatalogSettingsPage = () => {
   const navigate = useNavigate();
   
   const { profile } = useProfile();
-  const hasDualityAccess = (profile?.plan && profile.plan !== 'free') || profile?.role === 'admin';
-  const isPremium = profile?.plan === 'premium' || profile?.role === 'admin';
+  const isAdmin = profile?.role === 'admin';
+  const hasDualityAccess = (profile?.plan && profile.plan !== 'free') || isAdmin;
+  const isPremium = profile?.plan === 'premium' || isAdmin;
   
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get('tab') as SettingsTab) || 'menu';
@@ -320,6 +321,7 @@ export const CatalogSettingsPage = () => {
     is_active: true,
     is_public: false,
     slug: '',
+    catalog_type: 'store' as 'store' | 'marketplace',
     is_sequence_scheduled: false,
     is_individual_scheduled: false,
     sequence_start_time: '09:00',
@@ -486,6 +488,7 @@ export const CatalogSettingsPage = () => {
           is_active: data.is_active ?? true,
           is_public: data.is_public ?? false,
           slug: data.slug || '',
+          catalog_type: data.catalog_type === 'marketplace' ? 'marketplace' : 'store',
           is_sequence_scheduled: data.is_sequence_scheduled ?? false,
           is_individual_scheduled: data.is_individual_scheduled ?? false,
           sequence_start_time: data.sequence_start_time || '09:00',
@@ -1176,6 +1179,30 @@ export const CatalogSettingsPage = () => {
                 value={storeForm.descripcion}
                 onChange={(e) => setStoreForm({ ...storeForm, descripcion: e.target.value })}
               />
+
+              {isAdmin && (
+                <div className="pt-3 border-t border-border/40 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Shield size={14} className="text-amber-500" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-amber-500">
+                      Tipo de Catálogo (Solo Administrador)
+                    </span>
+                  </div>
+                  <Select
+                    label="Modalidad del Catálogo"
+                    value={storeForm.catalog_type}
+                    onChange={(e) => setStoreForm({ ...storeForm, catalog_type: e.target.value as 'store' | 'marketplace' })}
+                  >
+                    <option value="store" className="bg-surface text-primary">Tienda Estándar</option>
+                    <option value="marketplace" className="bg-surface text-primary">Grupo Tipo Nazaar (Marketplace Colaborativo)</option>
+                  </Select>
+                  <p className="text-[11px] text-secondary leading-relaxed">
+                    {storeForm.catalog_type === 'marketplace'
+                      ? 'Este catálogo funciona como grupo tipo Nazaar: puedes vincularlo en MatumListener a un grupo de WhatsApp para escuchar y publicar productos con contacto directo del vendedor.'
+                      : 'Catálogo estándar administrado por su propietario.'}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Diseño de la tienda */}

@@ -16,3 +16,19 @@ export const buildWhatsAppUrl = (phone: string | null | undefined, text?: string
   const base = `https://wa.me/${normalizeWhatsAppPhone(phone)}`;
   return text ? `${base}?text=${encodeURIComponent(text)}` : base;
 };
+
+/**
+ * Comprueba si dos números de teléfono corresponden a la misma persona
+ * comparando los últimos 8 dígitos o el formato limpio normalizado.
+ */
+export const isSamePhone = (phoneA?: string | null, phoneB?: string | null): boolean => {
+  if (!phoneA || !phoneB) return false;
+  const cleanA = phoneA.replace(/\D/g, '');
+  const cleanB = phoneB.replace(/\D/g, '');
+  if (!cleanA || !cleanB) return false;
+  if (cleanA === cleanB) return true;
+  if (cleanA.length >= 8 && cleanB.length >= 8) {
+    return cleanA.slice(-8) === cleanB.slice(-8);
+  }
+  return false;
+};

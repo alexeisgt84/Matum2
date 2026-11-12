@@ -30,6 +30,7 @@ export interface PublicCatalog {
   display_currency?: DisplayCurrency;
   share_template?: string | null;
   enable_affiliates?: boolean;
+  catalog_type?: 'store' | 'marketplace' | string;
 }
 
 export interface PublicProduct {
@@ -52,6 +53,8 @@ export interface PublicProduct {
   delivery_time_value?: number | null;
   delivery_time_unit?: 'hours' | 'days' | null;
   position?: number | null;
+  contact_phone?: string | null;
+  sender_name?: string | null;
 }
 
 export interface StoreCategory {

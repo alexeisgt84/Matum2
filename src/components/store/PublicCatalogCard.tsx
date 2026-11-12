@@ -63,6 +63,12 @@ export const PublicCatalogCard: React.FC<PublicCatalogCardProps> = ({
 
         {/* Badges superiores flotantes */}
         <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+          {(catalog as any).catalog_type === 'marketplace' && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/90 text-slate-950 text-[10px] font-bold backdrop-blur-md shadow-sm">
+              <Sparkles size={10} />
+              <span>Nazaar</span>
+            </span>
+          )}
           {(catalog as any).enable_affiliates && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-600/90 text-white text-[10px] font-bold backdrop-blur-md shadow-sm">
               <Coins size={11} />
