@@ -12,10 +12,8 @@ import {
   AlertTriangle,
   Store,
   ChevronRight,
-  ShieldCheck,
   Truck,
   Clock,
-  MessageCircle,
   Sparkles,
   Star,
 } from 'lucide-react';
@@ -682,25 +680,6 @@ export const PublicProductPage: React.FC = () => {
               >
                 <Share2 size={14} />
               </button>
-            </div>
-
-            {/* Badges de confianza de nivel mundial */}
-            <div className="grid grid-cols-3 gap-2 pt-1">
-              <div className="p-2.5 rounded-2xl bg-surface/60 border border-border/60 text-center flex flex-col items-center justify-center gap-1">
-                <MessageCircle size={15} className="text-emerald-500" />
-                <span className="text-[10px] font-semibold text-primary leading-tight">Atención directa</span>
-                <span className="text-[9px] text-secondary">Por WhatsApp</span>
-              </div>
-              <div className="p-2.5 rounded-2xl bg-surface/60 border border-border/60 text-center flex flex-col items-center justify-center gap-1">
-                <Truck size={15} className="text-sky-500" />
-                <span className="text-[10px] font-semibold text-primary leading-tight">Entrega rápida</span>
-                <span className="text-[9px] text-secondary">Coordinada</span>
-              </div>
-              <div className="p-2.5 rounded-2xl bg-surface/60 border border-border/60 text-center flex flex-col items-center justify-center gap-1">
-                <ShieldCheck size={15} className="text-amber-500" />
-                <span className="text-[10px] font-semibold text-primary leading-tight">Catálogo verificado</span>
-                <span className="text-[9px] text-secondary">100% confiable</span>
-              </div>
             </div>
           </div>
 
