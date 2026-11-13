@@ -521,6 +521,12 @@ export const CatalogSettingsPage = () => {
         });
 
         fetchQueueStats();
+
+        setAffiliatesForm({
+          enable_affiliates: !!data.enable_affiliates,
+          min_payout_amount_cup: Number(data.min_payout_amount_cup) || 0,
+          min_payout_amount_usd: Number(data.min_payout_amount_usd) || 0,
+        });
       }
     } catch (err: any) {
       toast.error('Error al cargar datos: ' + err.message);
@@ -942,6 +948,29 @@ export const CatalogSettingsPage = () => {
   };
 
   // Guardar Plantillas
+  // Cambiar estado directo del programa de afiliados (Auto-save inmediato)
+  const handleToggleAffiliates = async (enabled: boolean) => {
+    setAffiliatesForm(prev => ({ ...prev, enable_affiliates: enabled }));
+    if (!catalogId) return;
+    try {
+      const { error } = await supabase
+        .from('catalogs')
+        .update({ enable_affiliates: enabled })
+        .eq('id', catalogId);
+
+      if (error) throw error;
+      setCatalog((prev: any) => prev ? ({ ...prev, enable_affiliates: enabled }) : prev);
+      toast.success(
+        enabled 
+          ? 'Programa de afiliados habilitado' 
+          : 'Programa de afiliados deshabilitado'
+      );
+    } catch (err: any) {
+      setAffiliatesForm(prev => ({ ...prev, enable_affiliates: !enabled }));
+      toast.error('Error al cambiar estado de afiliados: ' + err.message);
+    }
+  };
+
   const handleSaveAffiliates = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!catalogId) return;
@@ -2130,7 +2159,7 @@ export const CatalogSettingsPage = () => {
                 </div>
                 <Switch
                   checked={affiliatesForm.enable_affiliates}
-                  onChange={(val) => setAffiliatesForm(prev => ({ ...prev, enable_affiliates: val }))}
+                  onChange={handleToggleAffiliates}
                 />
               </div>
 
