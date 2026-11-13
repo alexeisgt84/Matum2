@@ -73,17 +73,39 @@ export const AffiliatesPage: React.FC = () => {
         notes: payoutNotes,
       };
 
+      // Verificar y refrescar sesión si es necesario
+      let { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed?.session?.user) {
+          session = refreshed.session;
+        }
+      }
+
+      const activeUserId = session?.user?.id || user.id;
+
       const { error } = await supabase
         .from('users')
         .update({ payout_info })
-        .eq('id', user.id);
+        .eq('id', activeUserId);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === '42501' || error.message?.toLowerCase().includes('row-level')) {
+          toast.error('Tu sesión ha expirado o no tienes permisos para guardar estos datos. Inicia sesión nuevamente.');
+          return;
+        }
+        throw error;
+      }
       await loadUser();
       toast.success('Datos de cobro guardados correctamente');
       setEditingPayout(false);
     } catch (err: any) {
-      toast.error('Error al guardar datos: ' + err.message);
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('row-level')) {
+        toast.error('Tu sesión ha expirado o no tienes permisos. Por favor inicia sesión nuevamente.');
+      } else {
+        toast.error('Error al guardar datos: ' + msg);
+      }
     } finally {
       setSavingPayout(false);
     }

@@ -899,8 +899,15 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           status: myAffiliation?.status,
           loading: affiliateActionLoading,
           onApply: async () => {
-            if (catalog.id && user?.id) {
-              await applyForAffiliation(catalog.id, user.id);
+            if (!user) {
+              navigate(`/login?redirect=/${slug}`);
+              return;
+            }
+            if (catalog.id) {
+              const res = await applyForAffiliation(catalog.id, user?.id);
+              if (res && (res as any).requireLogin) {
+                navigate(`/login?redirect=/${slug}`);
+              }
             }
           },
         }}
@@ -1082,8 +1089,15 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           status: myAffiliation?.status,
           loading: affiliateActionLoading,
           onApply: async () => {
-            if (catalog.id && user?.id) {
-              await applyForAffiliation(catalog.id, user.id);
+            if (!user) {
+              navigate(`/login?redirect=/${slug}`);
+              return;
+            }
+            if (catalog.id) {
+              const res = await applyForAffiliation(catalog.id, user?.id);
+              if (res && (res as any).requireLogin) {
+                navigate(`/login?redirect=/${slug}`);
+              }
             }
           },
         }}

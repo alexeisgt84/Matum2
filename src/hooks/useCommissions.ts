@@ -237,14 +237,58 @@ export const useCommissions = () => {
   }, []);
 
   // Postularse para ser afiliado desde la tienda
-  const applyForAffiliation = async (catalogId: string, userId: string) => {
+  const applyForAffiliation = async (catalogId: string, fallbackUserId?: string) => {
     setLoading(true);
     try {
+      // 1. Verificar si hay sesión activa en Supabase Auth
+      let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (!session?.user || sessionError) {
+        // Intentar refrescar la sesión si hay token guardado
+        try {
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          if (!refreshError && refreshData?.session?.user) {
+            session = refreshData.session;
+          }
+        } catch {
+          // fallo al refrescar
+        }
+      }
+
+      if (!session?.user) {
+        toast.error('Debes iniciar sesión con tu cuenta para ser afiliado');
+        return { requireLogin: true };
+      }
+
+      const activeUserId = session.user.id;
+
+      // 2. Intentar llamar a la RPC segura apply_for_affiliation
+      try {
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('apply_for_affiliation', { p_catalog_id: catalogId });
+
+        if (!rpcError && rpcData) {
+          const formatted = (typeof rpcData === 'object' ? rpcData : JSON.parse(rpcData)) as CatalogAffiliate;
+          setMyAffiliation(formatted);
+          toast.success('¡Solicitud de afiliado enviada con éxito! Espera la aprobación del dueño de la tienda.');
+          return formatted;
+        }
+
+        // Si la RPC devolvió un error de negocio legible
+        if (rpcError && rpcError.message && !rpcError.message.includes('function') && !rpcError.message.includes('schema cache')) {
+          toast.error(rpcError.message);
+          return null;
+        }
+      } catch (rpcErr) {
+        // Continuar con fallback directo
+      }
+
+      // 3. Fallback: Inserción directa en catalog_affiliates usando el ID real de Supabase Auth
       const { data, error } = await supabase
         .from('catalog_affiliates')
         .insert({
           catalog_id: catalogId,
-          user_id: userId,
+          user_id: activeUserId,
           status: 'pending'
         })
         .select()
@@ -253,6 +297,9 @@ export const useCommissions = () => {
       if (error) {
         if (error.code === '23505') {
           toast.error('Ya has enviado una solicitud para este catálogo');
+        } else if (error.code === '42501' || error.message?.toLowerCase().includes('row-level')) {
+          toast.error('Tu sesión ha expirado o no tienes permisos. Por favor inicia sesión nuevamente.');
+          return { requireLogin: true };
         } else {
           throw error;
         }
@@ -264,7 +311,12 @@ export const useCommissions = () => {
       return data;
     } catch (err: any) {
       console.error('Error applying for affiliation:', err);
-      toast.error('Error al enviar solicitud: ' + (err.message || 'Error inesperado'));
+      const msg = err.message || '';
+      if (msg.toLowerCase().includes('row-level')) {
+        toast.error('Tu sesión ha expirado o no tienes permisos. Por favor inicia sesión.');
+        return { requireLogin: true };
+      }
+      toast.error('Error al enviar solicitud: ' + (msg || 'Error inesperado'));
       return null;
     } finally {
       setLoading(false);
