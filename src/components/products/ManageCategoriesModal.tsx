@@ -4,9 +4,11 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { useCategories } from '../../hooks/useCategories';
 import type { Category } from '../../types/category';
-import { Plus, Trash2, Edit2, Save, ArrowUp, ArrowDown, X, Folder, Check } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X, Folder, ArrowUp, ArrowDown, ChevronDown, ChevronUp } from 'lucide-react';
 import { ConfirmDialog } from '../ui/ConfirmDialog';
 import { CategoryIcon } from '../ui/CategoryIcon';
+import { CategoryIconPicker } from '../ui/CategoryIconPicker';
+import { POPULAR_CATEGORY_ICONS, normalizeCategoryIconName } from '../../constants/categoryIcons';
 
 interface ManageCategoriesModalProps {
   isOpen: boolean;
@@ -35,7 +37,10 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
   } = useCategories(catalogId);
 
   const [newName, setNewName] = useState('');
-  const [newIcon, setNewIcon] = useState('Folder'); // Icono por defecto (Lucide Folder)
+  const [newIcon, setNewIcon] = useState('Folder');
+  const [hasManuallyPickedNewIcon, setHasManuallyPickedNewIcon] = useState(false);
+  const [showNewIconPicker, setShowNewIconPicker] = useState(false);
+
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [editIcon, setEditIcon] = useState('Folder');
@@ -48,6 +53,17 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
       getCategories();
     }
   }, [isOpen, catalogId, getCategories]);
+
+  // Si el usuario escribe un nombre y aún no ha elegido icono manualmente, sugerir uno
+  const handleNameChange = (val: string) => {
+    setNewName(val);
+    if (!hasManuallyPickedNewIcon && val.trim().length >= 3) {
+      const suggested = normalizeCategoryIconName(val);
+      if (suggested && suggested !== 'Folder') {
+        setNewIcon(suggested);
+      }
+    }
+  };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +78,8 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
     if (result) {
       setNewName('');
       setNewIcon('Folder');
+      setHasManuallyPickedNewIcon(false);
+      setShowNewIconPicker(false);
       if (onCategoriesChange) onCategoriesChange();
       if (onCategoryCreated) onCategoryCreated(result);
     }
@@ -118,29 +136,6 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
     if (onCategoriesChange) onCategoriesChange();
   };
 
-  const popularIcons = [
-    { label: 'Carpeta', value: 'Folder' },
-    { label: 'Ropa', value: 'Shirt' },
-    { label: 'Comida', value: 'Utensils' },
-    { label: 'Pizza', value: 'Pizza' },
-    { label: 'Café', value: 'Coffee' },
-    { label: 'Hogar', value: 'Home' },
-    { label: 'Móvil', value: 'Smartphone' },
-    { label: 'Laptop', value: 'Laptop' },
-    { label: 'Brillos', value: 'Sparkles' },
-    { label: 'Corazón', value: 'Heart' },
-    { label: 'Herramientas', value: 'Wrench' },
-    { label: 'Coche', value: 'Car' },
-    { label: 'Bolsa', value: 'ShoppingBag' },
-    { label: 'Regalo', value: 'Gift' },
-    { label: 'Libro', value: 'BookOpen' },
-    { label: 'Gamepad', value: 'Gamepad2' },
-    { label: 'Música', value: 'Music' },
-    { label: 'Etiqueta', value: 'Tag' }
-  ];
-
-  const activeIcon = editingId !== null ? editIcon : newIcon;
-
   return (
     <>
       <Modal
@@ -152,23 +147,28 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
         <div className="space-y-6">
           {/* Formulario para agregar nueva categoría */}
           <form onSubmit={handleAdd} className="space-y-4 bg-surface-hover/50 p-4 rounded-2xl border border-border">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-[var(--accent)]">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-accent">
               Nueva Categoría
             </h3>
             
             <div className="flex gap-3 items-end">
               <div className="flex flex-col gap-1.5 flex-shrink-0">
                 <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Icono</span>
-                <div className="w-10 h-10 bg-background border border-border rounded-xl flex items-center justify-center text-[var(--accent)] shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => setShowNewIconPicker(prev => !prev)}
+                  className="w-10 h-10 bg-background border border-border hover:border-accent rounded-xl flex items-center justify-center text-accent shadow-inner transition-colors active:scale-95"
+                  title="Haz clic para elegir o buscar un icono"
+                >
                   <CategoryIcon name={newIcon} size={20} />
-                </div>
+                </button>
               </div>
               <div className="flex-1">
                 <Input
                   label="Nombre de Categoría"
                   value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Ej: Bebidas, Postres..."
+                  onChange={(e) => handleNameChange(e.target.value)}
+                  placeholder="Ej: Paneles Solares, Splits, Neveras..."
                   required
                 />
               </div>
@@ -182,20 +182,35 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
               </Button>
             </div>
 
-            {/* Selector de iconos sugeridos para nueva categoría */}
+            {/* Fila de iconos sugeridos rápidos y botón para explorar todos */}
             <div className="flex flex-col gap-1.5 pt-1">
-              <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-                Selecciona un icono:
-              </span>
-              <div className="grid grid-cols-6 sm:grid-cols-9 gap-1.5">
-                {popularIcons.map(icon => (
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">
+                  Iconos recomendados:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowNewIconPicker(prev => !prev)}
+                  className="text-[11px] text-accent font-bold hover:underline flex items-center gap-1"
+                >
+                  <span>{showNewIconPicker ? 'Ocultar catálogo' : 'Buscar en +100 iconos'}</span>
+                  {showNewIconPicker ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </button>
+              </div>
+
+              {/* Iconos rápidos */}
+              <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
+                {POPULAR_CATEGORY_ICONS.slice(0, 12).map(icon => (
                   <button
                     key={icon.value}
                     type="button"
-                    onClick={() => setNewIcon(icon.value)}
+                    onClick={() => {
+                      setNewIcon(icon.value);
+                      setHasManuallyPickedNewIcon(true);
+                    }}
                     className={`h-8 rounded-lg flex items-center justify-center transition-all border ${
                       newIcon === icon.value 
-                        ? 'bg-[var(--accent)]/15 border-[var(--accent)] text-[var(--accent)] scale-105 shadow-sm shadow-accent/10' 
+                        ? 'bg-accent/15 border-accent text-accent scale-105 shadow-sm shadow-accent/10' 
                         : 'bg-background border-border hover:bg-surface-hover text-secondary hover:text-primary'
                     }`}
                     title={icon.label}
@@ -204,6 +219,20 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                   </button>
                 ))}
               </div>
+
+              {/* Selector completo expandible con buscador y pestañas */}
+              {showNewIconPicker && (
+                <div className="pt-2 animate-in fade-in duration-200">
+                  <CategoryIconPicker
+                    selectedIcon={newIcon}
+                    onSelectIcon={(val) => {
+                      setNewIcon(val);
+                      setHasManuallyPickedNewIcon(true);
+                    }}
+                    maxHeight="max-h-[240px]"
+                  />
+                </div>
+              )}
             </div>
           </form>
 
@@ -215,18 +244,18 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
 
             {loading && categories.length === 0 ? (
               <div className="flex justify-center py-6">
-                <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
               </div>
             ) : categories.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 text-center gap-2 border border-dashed border-border rounded-2xl bg-surface-hover/20">
-                <Folder size={32} className="text-gray-600" />
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Sin categorías creadas</span>
-                <p className="text-[10px] text-gray-500 max-w-[280px]">
+                <Folder size={32} className="text-secondary/60" />
+                <span className="text-xs font-bold text-secondary uppercase tracking-wider">Sin categorías creadas</span>
+                <p className="text-[10px] text-secondary/80 max-w-[280px]">
                   Crea tu primera categoría usando el formulario de arriba para empezar a clasificar tus productos.
                 </p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
                 {categories.map((cat, index) => {
                   const isEditing = editingId === cat.id;
 
@@ -292,12 +321,12 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                           </div>
                         </div>
 
-                        {/* Selector de icono desplegable en la fila */}
+                        {/* Selector de icono desplegable en la fila con buscador completo */}
                         {showEditIconPicker && (
                           <div className="pt-2 border-t border-border/50 animate-in fade-in duration-150">
                             <div className="flex items-center justify-between mb-1.5">
                               <span className="text-[10px] text-secondary font-bold uppercase tracking-wider">
-                                Elige un icono para esta categoría:
+                                Elige o busca un icono para esta categoría:
                               </span>
                               <button
                                 type="button"
@@ -307,26 +336,14 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                                 Ocultar
                               </button>
                             </div>
-                            <div className="grid grid-cols-6 sm:grid-cols-9 gap-1.5">
-                              {popularIcons.map(icon => (
-                                <button
-                                  key={icon.value}
-                                  type="button"
-                                  onClick={() => {
-                                    setEditIcon(icon.value);
-                                    setShowEditIconPicker(false);
-                                  }}
-                                  className={`h-8 rounded-lg flex items-center justify-center transition-all border ${
-                                    editIcon === icon.value 
-                                      ? 'bg-accent/15 border-accent text-accent scale-105 shadow-sm' 
-                                      : 'bg-background border-border hover:bg-surface text-secondary hover:text-primary'
-                                  }`}
-                                  title={icon.label}
-                                >
-                                  <CategoryIcon name={icon.value} size={15} />
-                                </button>
-                              ))}
-                            </div>
+                            <CategoryIconPicker
+                              selectedIcon={editIcon}
+                              onSelectIcon={(val) => {
+                                setEditIcon(val);
+                                setShowEditIconPicker(false);
+                              }}
+                              maxHeight="max-h-[220px]"
+                            />
                           </div>
                         )}
                       </div>
@@ -380,7 +397,7 @@ export const ManageCategoriesModal: React.FC<ManageCategoriesModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setCategoryToDelete(cat)}
-                          className="p-1.5 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                          className="p-1.5 text-secondary/60 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
                           title="Eliminar categoría"
                         >
                           <Trash2 size={14} />

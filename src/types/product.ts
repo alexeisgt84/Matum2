@@ -8,6 +8,7 @@ export interface Product {
   imagen_url: string | null;
   position: number;
   is_active: boolean;
+  is_featured?: boolean;
   is_out_of_stock: boolean;
   stock_status: 'available' | 'out_of_stock';
   created_at: string;
@@ -36,6 +37,7 @@ export interface ProductForm {
   imagen_url?: string | null;
   category_id?: number | null;
   is_active?: boolean;
+  is_featured?: boolean;
   commission_amount?: number | string;
   commission_currency?: 'CUP' | 'USD';
   delivery_cost?: number | string;

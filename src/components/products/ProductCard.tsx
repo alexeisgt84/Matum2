@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Product } from '../../types/product';
-import { Edit3, Trash2, Tag, Coins, Send, PackageX, PackageCheck, GripVertical, Share2, Link2Off, Eye, EyeOff, Truck, Clock } from 'lucide-react';
+import { Edit3, Trash2, Tag, Coins, Send, PackageX, PackageCheck, GripVertical, Share2, Link2Off, Eye, EyeOff, Truck, Clock, Star } from 'lucide-react';
 
 import { shareContent } from '../../lib/share';
 import { getAppBaseUrl } from '../../lib/urlHelper';
@@ -14,6 +14,7 @@ interface ProductCardProps {
   onOutOfStock?: (product: Product) => void;
   onAvailable?: (product: Product) => void;
   onToggleActive?: (product: Product) => void;
+  onToggleFeatured?: (product: Product) => void;
   onUnlink?: (product: Product) => void;
   dragHandleProps?: any;
   isSelected?: boolean;
@@ -38,6 +39,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onOutOfStock, 
   onAvailable,
   onToggleActive,
+  onToggleFeatured,
   onUnlink,
   dragHandleProps,
   isSelected,
@@ -233,6 +235,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <span className="hidden sm:inline">Desvincular</span>
           </button>
         )}
+        {onToggleFeatured && (
+          <button 
+            onClick={() => onToggleFeatured(product)}
+            className={`p-1 px-1.5 rounded-md transition-colors text-[11px] flex items-center gap-1 ${
+              product.is_featured 
+                ? 'text-amber-400 hover:text-amber-300 hover:bg-amber-400/10' 
+                : 'text-gray-400 hover:text-amber-400 hover:bg-amber-400/10'
+            }`}
+            title={product.is_featured ? "Quitar de destacados" : "Marcar como destacado"}
+            aria-label={product.is_featured ? `Quitar de destacados a ${product.name}` : `Marcar ${product.name} como destacado`}
+          >
+            <Star size={12} className={product.is_featured ? 'fill-amber-400 text-amber-400' : ''} />
+            <span className="hidden sm:inline">{product.is_featured ? 'Destacado' : 'Destacar'}</span>
+          </button>
+        )}
         <button 
           onClick={handleShare}
           className="p-1 px-1.5 text-gray-500 hover:text-blue-500 hover:bg-blue-500/10 rounded-md transition-colors text-[11px] flex items-center gap-1"
@@ -322,6 +339,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 {product.delivery_time_value} {product.delivery_time_unit === 'days' ? 'd' : 'h'}
               </span>
             ) : null}
+            {product.is_featured && (
+              <span className="text-[9px] bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-md font-bold flex items-center gap-1 select-none" title="Producto destacado">
+                <Star size={10} className="fill-amber-400 text-amber-400" />
+                Destacado
+              </span>
+            )}
             {product.is_discontinued && (
               <span className="text-[8px] bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider animate-pulse">
                 Descontinuado

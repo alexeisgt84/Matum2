@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, Check, ChevronDown, ChevronRight, Folder, Search, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import { matchesSearchTerms } from '../../lib/searchTerms';
 import { useCommissions } from '../../hooks/useCommissions';
 import { useAuthStore } from '../../store/authStore';
 import { useStoreTheme } from '../../hooks/useStoreTheme';
@@ -96,13 +97,13 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
 
   // Estado de exploración y carrito
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<StoreSortBy>('category');
+  const [sortBy, setSortBy] = useState<StoreSortBy>('default');
   const [groupByCategory, setGroupByCategory] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('matum_store_group_by_category');
-      return saved !== null ? saved === 'true' : true;
+      return saved !== null ? saved === 'true' : false;
     } catch {
-      return true;
+      return false;
     }
   });
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
@@ -377,10 +378,11 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           supabase
             .from('products')
             .select(
-              'id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name'
+              'id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name, is_featured'
             )
             .eq('catalog_id', catData.id)
             .eq('is_active', true)
+            .order('is_featured', { ascending: false })
             .order('position', { ascending: true }),
           supabase
             .from('categories')
@@ -518,16 +520,13 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
 
   // Filtrado y orden de productos
   const filteredProducts = useMemo(() => {
-    const q = searchQuery.toLowerCase();
     const sortedCats = [...categories].sort(
       (c1, c2) => (c1.display_order ?? 0) - (c2.display_order ?? 0)
     );
 
     return products
       .filter(p => {
-        const matchesSearch =
-          p.name.toLowerCase().includes(q) ||
-          (p.description && p.description.toLowerCase().includes(q));
+        const matchesSearch = matchesSearchTerms(p, searchQuery);
         const matchesCategory =
           selectedCategoryId === null ||
           (selectedCategoryId === 'none' && !p.category_id) ||
@@ -549,7 +548,17 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           const orderA = idxA !== -1 ? idxA : Number.MAX_SAFE_INTEGER;
           const orderB = idxB !== -1 ? idxB : Number.MAX_SAFE_INTEGER;
           if (orderA !== orderB) return orderA - orderB;
+
+          // Dentro de la misma categoría, productos destacados primero
+          const featDiff = Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured));
+          if (featDiff !== 0) return featDiff;
+          return (a.position ?? 0) - (b.position ?? 0);
         }
+
+        // Orden 'default' (Destacados primero):
+        const featDiff = Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured));
+        if (featDiff !== 0) return featDiff;
+
         return (a.position ?? 0) - (b.position ?? 0);
       });
   }, [products, categories, searchQuery, selectedCategoryId, sortBy]);
@@ -795,7 +804,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
     }
     if (slug) {
       const currentHost = typeof window !== 'undefined' ? window.location.host : 'matum.vercel.app';
-      messageText += `🔗 *Enlace:* ${currentHost}/${slug}\n`;
+      messageText += `🔗 *Enlace del producto:* ${currentHost}/${slug}/p/${product.id}\n`;
     }
     messageText += `\n¿Está disponible?`;
 

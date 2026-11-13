@@ -11,6 +11,7 @@ import {
   saveCatalogProductsToCache,
   syncCatalogForOffline,
 } from '../lib/offlineCache';
+import { matchesSearchTerms, buildSupabaseSearchFilter } from '../lib/searchTerms';
 
 function filterAndSortCachedProducts(
   allProducts: Product[],
@@ -30,20 +31,15 @@ function filterAndSortCachedProducts(
   }
 
   if (search && search.trim() !== '') {
-    const q = search.trim().toLowerCase();
-    const numSearch = Number(search.trim());
-    result = result.filter((p) => {
-      const matchName = p.name?.toLowerCase().includes(q);
-      const matchDesc = p.description?.toLowerCase().includes(q);
-      const matchPrice = !isNaN(numSearch) && p.price !== null && Number(p.price) === numSearch;
-      return Boolean(matchName || matchDesc || matchPrice);
-    });
+    result = result.filter((p) => matchesSearchTerms(p, search, { matchPrice: true }));
   }
 
   result.sort((a: any, b: any) => {
     if (sortField === 'position') {
       const stockDiff = Number(Boolean(a.is_out_of_stock)) - Number(Boolean(b.is_out_of_stock));
       if (stockDiff !== 0) return stockDiff;
+      const featuredDiff = Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured));
+      if (featuredDiff !== 0) return featuredDiff;
       return (a.position ?? 0) - (b.position ?? 0);
     }
 
@@ -146,19 +142,15 @@ export const useProducts = (
           }
         }
 
-        if (search && search.trim() !== '') {
-          const s = `%${search.trim()}%`;
-          const numSearch = Number(search.trim());
-          if (!isNaN(numSearch)) {
-            query = query.or(`name.ilike.${s},description.ilike.${s},price.eq.${numSearch}`);
-          } else {
-            query = query.or(`name.ilike.${s},description.ilike.${s}`);
-          }
+        const searchFilter = buildSupabaseSearchFilter(search);
+        if (searchFilter) {
+          query = query.or(searchFilter);
         }
 
         if (sortField === 'position') {
           query = query
             .order('is_out_of_stock', { ascending: true })
+            .order('is_featured', { ascending: false })
             .order('position', { ascending: true });
         } else {
           query = query.order(sortField, { ascending: sortOrder === 'asc' });
@@ -246,6 +238,7 @@ export const useProducts = (
         imagen_url,
         category_id: form.category_id || null,
         is_active: form.is_active !== undefined ? form.is_active : true,
+        is_featured: form.is_featured !== undefined ? Boolean(form.is_featured) : false,
         commission_amount:
           form.commission_amount === '' || form.commission_amount === null || form.commission_amount === undefined
             ? 0
@@ -340,6 +333,7 @@ export const useProducts = (
         imagen_url: p.imagen_url,
         position: index,
         is_active: p.is_active,
+        is_featured: Boolean(p.is_featured),
         is_out_of_stock: p.is_out_of_stock,
         category_id: p.category_id || null,
       }));
@@ -388,6 +382,30 @@ export const useProducts = (
     }
   };
 
+  const toggleProductFeatured = async (product: Product): Promise<boolean> => {
+    const nextFeatured = !product.is_featured;
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_featured: nextFeatured })
+        .eq('id', product.id);
+
+      if (error) throw error;
+
+      const updated = { ...product, is_featured: nextFeatured };
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
+      if (catalogId) {
+        await upsertCatalogProductsInCache(catalogId, [updated]);
+      }
+      toast.success(nextFeatured ? 'Producto marcado como destacado' : 'Producto quitado de destacados');
+      return true;
+    } catch (err: any) {
+      console.error('Error toggling featured product:', err);
+      toast.error('Error al actualizar producto: ' + (err.message || 'Error desconocido'));
+      return false;
+    }
+  };
+
   return {
     products,
     loading,
@@ -398,5 +416,6 @@ export const useProducts = (
     deleteProduct,
     deleteProducts,
     updateProductsOrder,
+    toggleProductFeatured,
   };
 };

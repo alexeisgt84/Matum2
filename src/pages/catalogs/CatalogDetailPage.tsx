@@ -42,7 +42,8 @@ import {
   FolderHeart,
   Eye,
   EyeOff,
-  Link2Off
+  Link2Off,
+  Star
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { shareContent } from '../../lib/share';
@@ -151,7 +152,7 @@ export const CatalogDetailPage = () => {
   const { categories, getCategories } = useCategories(catalogId);
 
   // Hooks de Producto
-  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, deleteProducts, updateProductsOrder } = useProducts(catalogId, debouncedSearch, sortField, sortOrder, selectedCategoryId);
+  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, deleteProducts, updateProductsOrder, toggleProductFeatured } = useProducts(catalogId, debouncedSearch, sortField, sortOrder, selectedCategoryId);
   
   // Hooks de Mensaje
   const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, deleteMessages, updateMessagesOrder, toggleMessageSequence } = useMessages(catalogId);
@@ -1052,6 +1053,24 @@ export const CatalogDetailPage = () => {
     }
   };
 
+  const handleBulkFeaturedStatus = async (isFeatured: boolean) => {
+    if (selectedProductIds.length === 0) return;
+    const toastId = toast.loading(`${isFeatured ? 'Marcando como destacados' : 'Quitando de destacados'} ${selectedProductIds.length} productos…`);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ is_featured: isFeatured })
+        .in('id', selectedProductIds);
+
+      if (error) throw error;
+      toast.success(`${selectedProductIds.length} productos actualizados`, { id: toastId });
+      clearSelection();
+      getProducts(true);
+    } catch (err: any) {
+      toast.error(`Error al actualizar productos: ${err.message}`, { id: toastId });
+    }
+  };
+
   const handleBulkUnlink = async () => {
     if (selectedProductIds.length === 0) return;
     
@@ -1412,6 +1431,24 @@ export const CatalogDetailPage = () => {
                     <span className="text-[8px] font-bold uppercase tracking-widest">Desactivar</span>
                   </button>
 
+                  <button 
+                    onClick={() => handleBulkFeaturedStatus(true)}
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-amber-500/10 text-secondary hover:text-amber-400 border border-border hover:border-amber-500/20 transition-all group"
+                    title="Marcar como destacados"
+                  >
+                    <Star size={16} className="group-hover:scale-110 transition-transform fill-amber-400 text-amber-400" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest">Destacar</span>
+                  </button>
+
+                  <button 
+                    onClick={() => handleBulkFeaturedStatus(false)}
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-zinc-500/10 text-secondary hover:text-primary border border-border hover:border-zinc-500/20 transition-all group"
+                    title="Quitar de destacados"
+                  >
+                    <Star size={16} className="group-hover:scale-110 transition-transform text-secondary" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest">No Destacar</span>
+                  </button>
+
                   {products.some(p => selectedProductIds.includes(p.id) && p.parent_product_id) && (
                     <button 
                       onClick={handleBulkUnlink}
@@ -1516,7 +1553,7 @@ export const CatalogDetailPage = () => {
                 }
                 items={[
                   {
-                    label: 'Orden manual',
+                    label: 'Orden manual (Destacados primero)',
                     icon: GripVertical,
                     onClick: () => { setSortField('position'); setSortOrder('asc'); }
                   },
@@ -1684,6 +1721,7 @@ export const CatalogDetailPage = () => {
                                     onOutOfStock={(p) => setProductToAgotado(p)}
                                     onAvailable={(p) => setProductToAvailable(p)}
                                     onToggleActive={handleToggleProductActive}
+                                    onToggleFeatured={toggleProductFeatured}
                                     onUnlink={handleUnlinkProduct}
                                   />
                             </div>

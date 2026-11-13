@@ -5,7 +5,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import type { Product, ProductForm } from '../../types/product';
 import type { Category } from '../../types/category';
-import { Save, Tag, Send, Coins, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings, Package, Truck, Clock } from 'lucide-react';
+import { Save, Tag, Send, Coins, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings, Package, Truck, Clock, Star } from 'lucide-react';
 import { CalculatorModal } from '../ui/CalculatorModal';
 import { ImageUpload } from '../ui/ImageUpload';
 import { toast } from 'react-hot-toast';
@@ -50,6 +50,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     imagen_url: null,
     category_id: null,
     is_active: true,
+    is_featured: false,
     commission_amount: '',
     commission_currency: 'CUP',
     delivery_cost: '',
@@ -220,6 +221,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         imagen_url: product.imagen_url,
         category_id: product.category_id || null,
         is_active: product.is_active ?? true,
+        is_featured: Boolean(product.is_featured),
         commission_amount: product.commission_amount !== null && product.commission_amount !== undefined ? product.commission_amount.toString() : '',
         commission_currency: (product.commission_currency as 'CUP' | 'USD') || 'CUP',
         delivery_cost: product.delivery_cost !== null && product.delivery_cost !== undefined ? product.delivery_cost.toString() : '',
@@ -240,6 +242,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         imagen_url: null,
         category_id: null,
         is_active: true,
+        is_featured: false,
         commission_amount: '',
         commission_currency: 'CUP',
         delivery_cost: parsed.delivery && parsed.delivery.cost !== null ? parsed.delivery.cost.toString() : '',
@@ -260,6 +263,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         imagen_url: null,
         category_id: null,
         is_active: true,
+        is_featured: false,
         commission_amount: '',
         commission_currency: 'CUP',
         delivery_cost: '',
@@ -863,6 +867,29 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               }}
               disabled={isAnalyzing}
             />
+
+            {/* Switch de Producto Destacado */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-surface-hover/50 border border-border">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                  <Star size={13} className={form.is_featured ? 'fill-amber-400 text-amber-400' : 'text-secondary'} />
+                  Producto Destacado
+                </span>
+                <span className="text-[11px] text-secondary">
+                  {form.is_featured
+                    ? 'Aparecerá de primero en la tienda y en el catálogo.'
+                    : 'Aparece en su orden habitual en la tienda y en el catálogo.'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm(prev => ({ ...prev, is_featured: !prev.is_featured }))}
+                className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${form.is_featured ? 'bg-amber-500' : 'bg-secondary/40'}`}
+                aria-label={form.is_featured ? 'Quitar de destacados' : 'Marcar como destacado'}
+              >
+                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${form.is_featured ? 'left-7' : 'left-1'}`} />
+              </button>
+            </div>
 
             {/* Estado del Producto (Activo/Inactivo) */}
             <div className="flex items-center justify-between p-3.5 rounded-2xl bg-surface-hover/50 border border-border">

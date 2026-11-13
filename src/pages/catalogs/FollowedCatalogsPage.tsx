@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { matchesSearchTerms } from '../../lib/searchTerms';
 import { useAuthStore } from '../../store/authStore';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -548,11 +549,7 @@ export const FollowedCatalogsPage = () => {
   // Productos filtrados y ordenados
   const filteredAndSortedProducts = catalogProducts
     .filter(product => {
-      if (!searchQueryProduct) return true;
-      const query = searchQueryProduct.toLowerCase();
-      const prodName = product.name?.toLowerCase() || '';
-      const prodDesc = product.description?.toLowerCase() || '';
-      return prodName.includes(query) || prodDesc.includes(query);
+      return matchesSearchTerms(product, searchQueryProduct);
     })
     .sort((a, b) => {
       if (sortProductBy === 'name_asc') {

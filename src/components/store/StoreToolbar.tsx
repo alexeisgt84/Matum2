@@ -20,8 +20,8 @@ interface StoreToolbarProps {
 }
 
 const SORT_OPTIONS: { value: StoreSortBy; label: string }[] = [
-  { value: 'category', label: 'Por categoría' },
   { value: 'default', label: 'Destacados' },
+  { value: 'category', label: 'Por categoría' },
   { value: 'price-asc', label: 'Precio: menor a mayor' },
   { value: 'price-desc', label: 'Precio: mayor a menor' },
 ];

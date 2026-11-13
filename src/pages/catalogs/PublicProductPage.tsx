@@ -17,6 +17,7 @@ import {
   Clock,
   MessageCircle,
   Sparkles,
+  Star,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -229,7 +230,7 @@ export const PublicProductPage: React.FC = () => {
           supabase
             .from('products')
             .select(
-              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, contact_phone, sender_name'
+              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, contact_phone, sender_name, is_featured'
             )
             .eq('id', productId)
             .eq('catalog_id', catData.id)
@@ -237,11 +238,12 @@ export const PublicProductPage: React.FC = () => {
           supabase
             .from('products')
             .select(
-              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name'
+              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name, is_featured'
             )
             .eq('catalog_id', catData.id)
             .eq('is_active', true)
             .neq('id', productId)
+            .order('is_featured', { ascending: false })
             .order('position', { ascending: true })
             .limit(8),
           supabase.from('users').select('phone, plan').eq('id', catData.user_id).maybeSingle(),
@@ -706,13 +708,21 @@ export const PublicProductPage: React.FC = () => {
           <div className="flex flex-col justify-between space-y-5">
             <div className="space-y-4">
               <div>
-                <Link
-                  to={`/${slug}${location.search}`}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface border border-border/60 text-[11px] font-semibold text-secondary hover:text-accent mb-2 transition-colors"
-                >
-                  <Store size={12} />
-                  <span>{catalog.name}</span>
-                </Link>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <Link
+                    to={`/${slug}${location.search}`}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-surface border border-border/60 text-[11px] font-semibold text-secondary hover:text-accent transition-colors"
+                  >
+                    <Store size={12} />
+                    <span>{catalog.name}</span>
+                  </Link>
+                  {product.is_featured && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 text-[11px] font-bold">
+                      <Star size={11} className="fill-amber-500" />
+                      Producto Destacado
+                    </span>
+                  )}
+                </div>
                 <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-primary tracking-tight leading-tight">
                   {product.name}
                 </h1>
@@ -1002,6 +1012,7 @@ export const PublicProductPage: React.FC = () => {
                     quantity={relQty}
                     price={getPriceParts(rel, pricingCtx)}
                     showCommission={canSeeCommissions}
+                    isMarketplace={isMarketplace}
                     onOpen={() => navigate(`/${slug}/p/${rel.id}${location.search}`)}
                     onAdd={() =>
                       setCart(prev => {
