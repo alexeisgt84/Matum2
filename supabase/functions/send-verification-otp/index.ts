@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
     // 2. Obtener configuración de Evolution API
     const evolutionUrl = Deno.env.get('VITE_EVOLUTION_DEFAULT_URL') || Deno.env.get('EVOLUTION_DEFAULT_URL') || '';
     const apiKey = Deno.env.get('VITE_EVOLUTION_API_KEY') || Deno.env.get('EVOLUTION_API_KEY') || '';
-    const instanceName = Deno.env.get('VITE_EVOLUTION_INSTANCE') || Deno.env.get('EVOLUTION_INSTANCE') || 'matum_instance';
+    const instanceName = Deno.env.get('VITE_EVOLUTION_INSTANCE') || Deno.env.get('EVOLUTION_INSTANCE') || 'nazzar_instance';
 
     if (!evolutionUrl || !apiKey) {
       throw new Error('Falta la configuración de Evolution API en las variables de entorno del servidor');

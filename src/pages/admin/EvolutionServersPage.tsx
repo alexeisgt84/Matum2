@@ -455,7 +455,7 @@ export const EvolutionServersPage = () => {
                 placeholder="https://evolution.dominio.com"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                helperText="URL base del servidor de Evolution API (ej: https://api.matum.app)."
+                helperText="URL base del servidor de Evolution API (ej: https://api.nazzar.shop)."
                 required
                 disabled={saving}
                 type="url"

@@ -43,7 +43,8 @@ import {
   Eye,
   EyeOff,
   Link2Off,
-  Star
+  Star,
+  ShieldAlert
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { shareContent } from '../../lib/share';
@@ -107,6 +108,9 @@ export const CatalogDetailPage = () => {
   const [catLoading, setCatLoading] = useState(true);
 
   const isOwner = catalog ? catalog.user_id === user?.id : false;
+  const [catalogOwnerPlan, setCatalogOwnerPlan] = useState<string | null>(null);
+  const catalogPlan = catalogOwnerPlan || user?.plan || 'free';
+  const isPremium = catalogPlan === 'premium';
 
   // Redirigir a colaboradores a la pestaña de productos por seguridad
   useEffect(() => {
@@ -125,12 +129,12 @@ export const CatalogDetailPage = () => {
   const hasInstance = !!instance;
   const isConnected = instance?.status === 'connected';
 
-  // Redirigir si la vista activa es 'sequences' pero no hay conexión
+  // Redirigir si la vista activa es 'sequences' pero no hay conexión o no es Premium
   useEffect(() => {
-    if (view === 'sequences' && !hasInstance) {
+    if (!catLoading && view === 'sequences' && (!hasInstance || !isPremium)) {
       setView('individual');
     }
-  }, [view, hasInstance]);
+  }, [view, hasInstance, isPremium, catLoading]);
 
   // Estados de Búsqueda y Ordenación
   const [searchQuery, setSearchQuery] = useState('');
@@ -491,27 +495,32 @@ export const CatalogDetailPage = () => {
             label: 'Configurar Plantillas', 
             icon: Layout, 
             onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=templates`) 
-          },
-          { 
-            label: 'Conectar WhatsApp', 
-            icon: Smartphone, 
-            onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=whatsapp`) 
           }
         );
 
-        if (hasInstance) {
+        if (isPremium) {
           optionsItems.push(
             { 
-              label: 'Grupos Vinculados', 
-              icon: Users, 
-              onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=groups`) 
-            },
-            { 
-              label: 'Automatización y Colas', 
-              icon: Zap, 
-              onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=automation`) 
+              label: 'Conectar WhatsApp', 
+              icon: Smartphone, 
+              onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=whatsapp`) 
             }
           );
+
+          if (hasInstance) {
+            optionsItems.push(
+              { 
+                label: 'Grupos Vinculados', 
+                icon: Users, 
+                onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=groups`) 
+              },
+              { 
+                label: 'Automatización y Colas', 
+                icon: Zap, 
+                onClick: () => navigate(`/catalogs/${catalogId}/settings?tab=automation`) 
+              }
+            );
+          }
         }
 
         optionsItems.push(
@@ -607,6 +616,18 @@ export const CatalogDetailPage = () => {
       if (data) {
         setCatalog(data);
         await saveCatalogToCache(data);
+        if (data.user_id === user?.id) {
+          setCatalogOwnerPlan(user?.plan || 'free');
+        } else {
+          const { data: ownerData } = await supabase
+            .from('users')
+            .select('plan')
+            .eq('id', data.user_id)
+            .single();
+          if (ownerData?.plan) {
+            setCatalogOwnerPlan(ownerData.plan);
+          }
+        }
       }
     } catch (err) {
       console.warn('Error loading catalog details, using cache if available:', err);
@@ -1280,6 +1301,24 @@ export const CatalogDetailPage = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] max-w-lg mx-auto w-full">
+      {/* Banner de bloqueo administrativo */}
+      {catalog?.is_blocked && (
+        <div className="mx-3 mt-2 px-3.5 py-2.5 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-xs text-red-500 animate-in fade-in">
+          <ShieldAlert size={16} className="flex-shrink-0 mt-0.5 text-red-500" />
+          <div className="flex-1">
+            <p className="font-bold">Catálogo bloqueado por la administración</p>
+            {catalog.blocked_reason && (
+              <p className="text-red-400 text-[11px] mt-0.5 leading-relaxed">
+                Motivo: {catalog.blocked_reason}
+              </p>
+            )}
+            <p className="text-secondary text-[10px] mt-1">
+              Tu tienda pública está temporalmente suspendida y los visitantes no pueden ver productos ni hacer compras.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Barra de compartir catálogo (Ancho completo debajo del header) */}
       {catalog?.follow_code && (
         <div 
@@ -1485,7 +1524,7 @@ export const CatalogDetailPage = () => {
               <span className="font-bold text-[9px] sm:text-[10px] uppercase tracking-wider text-center truncate w-full px-1">Mensajes</span>
             </button>
 
-            {hasInstance && (
+            {isPremium && hasInstance && (
               <button
                 onClick={() => setView('sequences')}
                 className={`relative z-10 flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-all duration-300 min-w-0 ${
@@ -1501,8 +1540,8 @@ export const CatalogDetailPage = () => {
             <div 
               className="absolute top-1.5 bottom-1.5 left-1.5 transition-all duration-500 ease-out bg-primary/10 rounded-xl border border-primary/10 shadow-lg shadow-accent/10"
               style={{ 
-                width: hasInstance ? 'calc((100% - 12px) / 3)' : 'calc((100% - 8px) / 2)',
-                transform: hasInstance
+                width: (isPremium && hasInstance) ? 'calc((100% - 12px) / 3)' : 'calc((100% - 8px) / 2)',
+                transform: (isPremium && hasInstance)
                   ? `translateX(${view === 'products' ? '0%' : view === 'individual' ? '100%' : view === 'sequences' ? '200%' : '0%'})`
                   : `translateX(${view === 'products' ? '0%' : view === 'individual' ? '100%' : '0%'})`
               }}
@@ -1710,6 +1749,7 @@ export const CatalogDetailPage = () => {
                                     usdToCupRate={catalog?.usd_to_cup_rate}
                                     cupToUsdRate={catalog?.cup_to_usd_rate}
                                     ownerPlan={user?.plan}
+                                    referralCode={user?.referral_code}
                                     appUrl={getAppUrl()}
                                     onEdit={(p) => {
                                       setEditingProduct(p);

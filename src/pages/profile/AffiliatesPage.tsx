@@ -47,7 +47,7 @@ export const AffiliatesPage: React.FC = () => {
   }, [getMyCommissions, user]);
 
   const referralCode = user?.referral_code || 'ref_' + (user?.id ? user.id.substring(0, 6) : '');
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://matum.vercel.app';
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://nazzar.shop';
   const referralDemoLink = `${baseUrl}/?ref=${referralCode}`;
 
   const handleCopyCode = async () => {
@@ -326,7 +326,7 @@ export const AffiliatesPage: React.FC = () => {
               <Coins size={32} className="mx-auto text-secondary/40 mb-2" />
               <p className="font-bold text-sm text-secondary">Aún no tienes ventas referidas</p>
               <p className="text-xs text-secondary/70 mt-1">
-                Comparte productos de cualquier tienda activa en Matum para empezar a ganar comisiones.
+                Comparte productos de cualquier tienda activa en Nazzar para empezar a ganar comisiones.
               </p>
             </div>
           ) : (

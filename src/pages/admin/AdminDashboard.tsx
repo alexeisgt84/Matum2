@@ -11,10 +11,15 @@ import {
   ShoppingBag,
   Share2,
   TrendingUp,
-  ArrowRight
+  ArrowRight,
+  Layers,
+  Lock
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { Switch } from '../../components/ui/Switch';
 import { fetchViewsAnalytics, type OverallAnalyticsSummary } from '../../lib/analytics';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
+import { toast } from 'react-hot-toast';
 
 interface MenuItemProps {
   icon: React.ComponentType<{ className?: string; size?: number }>;
@@ -71,6 +76,27 @@ export const AdminDashboard = () => {
   const navigate = useNavigate();
   const [summary, setSummary] = useState<OverallAnalyticsSummary | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
+  const {
+    isGlobalCatalogCreationEnabled,
+    setGlobalCatalogCreation,
+    loading: settingsLoading,
+  } = useSystemSettings();
+  const [togglingCreation, setTogglingCreation] = useState(false);
+
+  const handleToggleCatalogCreation = async (enabled: boolean) => {
+    setTogglingCreation(true);
+    const res = await setGlobalCatalogCreation(enabled);
+    if (res.success) {
+      toast.success(
+        enabled
+          ? 'Creación de catálogos activada para usuarios'
+          : 'Creación de catálogos desactivada para usuarios'
+      );
+    } else {
+      toast.error('Error al actualizar: ' + (res.error || 'Intente de nuevo'));
+    }
+    setTogglingCreation(false);
+  };
 
   useEffect(() => {
     fetchViewsAnalytics('all')
@@ -80,6 +106,13 @@ export const AdminDashboard = () => {
   }, []);
 
   const adminModules = [
+    {
+      title: 'Gestión de Catálogos',
+      description: 'Supervisar, bloquear o eliminar catálogos y toda su información',
+      icon: Layers,
+      path: '/admin/catalogs',
+      color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+    },
     {
       title: 'Contador de Vistas y Tráfico',
       description: 'Vistas de tiendas y productos por tienda, usuarios y referidos',
@@ -201,6 +234,56 @@ export const AdminDashboard = () => {
           <span>Organizar por tiendas, usuarios y referidos</span>
           <ChevronRight size={14} />
         </button>
+      </div>
+
+      {/* Control rápido de creación de catálogos */}
+      <div
+        className={`card p-4 border transition-all ${
+          isGlobalCatalogCreationEnabled
+            ? 'bg-emerald-500/5 border-emerald-500/20'
+            : 'bg-red-500/5 border-red-500/30'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div
+              className={`p-2.5 rounded-xl flex-shrink-0 ${
+                isGlobalCatalogCreationEnabled
+                  ? 'bg-emerald-500/15 text-emerald-500'
+                  : 'bg-red-500/15 text-red-500'
+              }`}
+            >
+              {isGlobalCatalogCreationEnabled ? <Store size={18} /> : <Lock size={18} />}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-sm text-primary truncate">
+                  Creación de Catálogos
+                </h3>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    isGlobalCatalogCreationEnabled
+                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                      : 'bg-red-500/10 text-red-500 border-red-500/20'
+                  }`}
+                >
+                  {isGlobalCatalogCreationEnabled ? 'Activa' : 'Desactivada'}
+                </span>
+              </div>
+              <p className="text-[11px] text-secondary mt-0.5 leading-snug">
+                {isGlobalCatalogCreationEnabled
+                  ? 'Los usuarios pueden crear nuevos catálogos.'
+                  : 'Creación bloqueada globalmente para usuarios.'}
+              </p>
+            </div>
+          </div>
+
+          <Switch
+            checked={isGlobalCatalogCreationEnabled}
+            onChange={handleToggleCatalogCreation}
+            disabled={settingsLoading || togglingCreation}
+          />
+        </div>
       </div>
 
       <div>

@@ -28,6 +28,7 @@ interface ProductCardProps {
   cupToUsdRate?: number;
   ownerPlan?: string;
   appUrl?: string;
+  referralCode?: string | null;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -52,7 +53,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   usdToCupRate,
   cupToUsdRate,
   ownerPlan,
-  appUrl
+  appUrl,
+  referralCode
 }) => {
   const getDisplayPriceInfo = () => {
     const price = product.price;
@@ -140,8 +142,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const handleShare = async () => {
     const { priceText, currencyText } = getDisplayPriceInfo();
     const baseUrl = appUrl || getAppBaseUrl();
-    const productUrl = catalogSlug ? `${baseUrl}/${catalogSlug}/p/${product.id}` : '';
-    const storeUrl = catalogSlug ? `${baseUrl}/${catalogSlug}` : '';
+    const affiliateParam = referralCode ? `?ref=${referralCode}` : '';
+    const productUrl = catalogSlug ? `${baseUrl}/${catalogSlug}/p/${product.id}${affiliateParam}` : '';
+    const storeUrl = catalogSlug ? `${baseUrl}/${catalogSlug}${affiliateParam}` : '';
     let text = '';
     if (shareTemplate) {
       const contactPhone = contactNumber || '';
@@ -153,7 +156,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         .replace(/{catalog_name}/g, (catalogName || '').trim())
         .replace(/{contact_number}/g, contactPhone)
         .replace(/{store_url}/g, productUrl || storeUrl)
-        .replace(/{product_url}/g, productUrl || storeUrl);
+        .replace(/{product_url}/g, productUrl || storeUrl)
+        .replace(/{product_referral_url}/g, productUrl || storeUrl);
     } else {
       text = `*${product.name}*\n\nPrecio: ${priceText} ${currencyText}\n\n${product.description || ''}${productUrl ? `\n\nVer producto: ${productUrl}` : ''}`.trim();
     }

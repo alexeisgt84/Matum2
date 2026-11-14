@@ -50,7 +50,7 @@ import { WhatsAppIcon } from '../../components/store/SocialIcons';
 import type { CartItem, PublicCatalog, PublicProduct } from '../../types/store';
 
 const CATALOG_SELECT =
-  'id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, catalog_type';
+  'id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, catalog_type, is_blocked, blocked_reason';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -77,8 +77,8 @@ export const PublicProductPage: React.FC = () => {
 
   const isMarketplace = Boolean(
     catalog?.catalog_type === 'marketplace' ||
-    (catalog?.name && /naza+r/i.test(catalog.name)) ||
-    (catalog?.slug && /naza+r/i.test(catalog.slug))
+    (catalog?.name && /naz+a+r/i.test(catalog.name)) ||
+    (catalog?.slug && /naz+a+r/i.test(catalog.slug))
   );
   const isProductOwner = Boolean(
     user?.phone && product?.contact_phone && isSamePhone(user.phone, product.contact_phone)
@@ -215,6 +215,12 @@ export const PublicProductPage: React.FC = () => {
         }
 
         if (catError) throw catError;
+
+        if (catData?.is_blocked) {
+          setError(catData.blocked_reason ? `Catálogo suspendido: ${catData.blocked_reason}` : 'Este catálogo ha sido bloqueado o suspendido por la administración.');
+          setLoading(false);
+          return;
+        }
 
         if (!catData || !catData.is_active) {
           if (!cachedProd) setError('Tienda no disponible o inactiva.');
@@ -368,8 +374,9 @@ export const PublicProductPage: React.FC = () => {
   const productShareUrl = useMemo(() => {
     if (typeof window === 'undefined' || !slug || !product) return '';
     const baseUrl = `${window.location.protocol}//${window.location.host}`;
-    const affiliateParam =
-      isApprovedAffiliate && user?.referral_code ? `?ref=${user.referral_code}` : '';
+    const affiliateCode =
+      (isApprovedAffiliate && user?.referral_code) || user?.referral_code;
+    const affiliateParam = affiliateCode ? `?ref=${affiliateCode}` : '';
     return `${baseUrl}/${slug}/p/${product.id}${affiliateParam}`;
   }, [slug, product, isApprovedAffiliate, user?.referral_code]);
 
@@ -387,6 +394,7 @@ export const PublicProductPage: React.FC = () => {
           .replace(/{contact_number}/g, vendorPhone || '')
           .replace(/{store_url}/g, productShareUrl)
           .replace(/{product_url}/g, productShareUrl)
+          .replace(/{product_referral_url}/g, productShareUrl)
       : `*${product.name}*\n\nPrecio: ${priceText}\n\n${product.description || ''}\n\nVer producto: ${productShareUrl}`.trim();
 
     await shareContent({
@@ -446,12 +454,21 @@ export const PublicProductPage: React.FC = () => {
     const unitPrice = Number(product.price) || 0;
     const totalPrice = unitPrice * quantity;
 
-    let messageText = `🛍️ *Nuevo Pedido - Matum*\n`;
+    const activeRef =
+      (slug ? localStorage.getItem(`matum_ref_${slug}`) : null) ||
+      localStorage.getItem('matum_active_ref');
+    const orderRef = 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+
+    let messageText = `🛍️ *Nuevo Pedido - Nazzar*\n`;
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
     messageText += `*Tienda:* ${catalog.name}\n`;
     if (slug) {
-      const currentHost = typeof window !== 'undefined' ? window.location.host : 'matum.vercel.app';
-      messageText += `*Enlace del producto:* ${currentHost}/${slug}/p/${product.id}\n`;
+      const baseUrl =
+        typeof window !== 'undefined'
+          ? `${window.location.protocol}//${window.location.host}`
+          : 'https://nazzar.shop';
+      const refParam = activeRef ? `?ref=${activeRef}` : '';
+      messageText += `*Enlace del producto:* ${baseUrl}/${slug}/p/${product.id}${refParam}\n`;
     }
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
     messageText += `👤 *Datos del Cliente:*\n`;
@@ -476,11 +493,6 @@ export const PublicProductPage: React.FC = () => {
       messageText += `  *Tiempo de entrega:* ${product.delivery_time_value} ${uText}\n`;
     }
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
-
-    const activeRef =
-      (slug ? localStorage.getItem(`matum_ref_${slug}`) : null) ||
-      localStorage.getItem('matum_active_ref');
-    const orderRef = 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 
     if (activeRef) {
       messageText += `🤝 *Referido por:* @${activeRef}\n`;
@@ -1018,7 +1030,12 @@ export const PublicProductPage: React.FC = () => {
                     }
                     onShare={e => {
                       e.stopPropagation();
-                      const relUrl = `${window.location.origin}/${slug}/p/${rel.id}${location.search}`;
+                      const affiliateCode =
+                        (isApprovedAffiliate && user?.referral_code) || user?.referral_code;
+                      const refParam = affiliateCode
+                        ? `?ref=${affiliateCode}`
+                        : (location.search || '');
+                      const relUrl = `${window.location.origin}/${slug}/p/${rel.id}${refParam}`;
                       shareContent({
                         title: rel.name,
                         text: `${rel.name} · ${getPriceText(rel, pricingCtx)}\n${relUrl}`,

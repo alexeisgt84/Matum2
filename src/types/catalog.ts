@@ -19,6 +19,9 @@ export interface Catalog {
   product_edit_template: string | null;
   is_active: boolean;
   is_public: boolean;
+  is_blocked?: boolean;
+  blocked_reason?: string | null;
+  blocked_at?: string | null;
   slug: string | null;
   follow_code?: string | null;
   logo_url: string | null;
@@ -52,6 +55,7 @@ export interface Catalog {
   min_payout_amount_cup?: number;
   min_payout_amount_usd?: number;
   catalog_type?: 'store' | 'marketplace' | string;
+  views_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -101,3 +105,16 @@ export interface CatalogForm {
   min_payout_amount_usd?: number;
   catalog_type?: 'store' | 'marketplace' | string;
 }
+
+export interface AdminCatalog extends Catalog {
+  product_count?: number;
+  owner?: {
+    id: string;
+    full_name?: string | null;
+    phone?: string | null;
+    avatar_url?: string | null;
+    plan?: string | null;
+    role?: string | null;
+  } | null;
+}
+

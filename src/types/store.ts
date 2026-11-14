@@ -31,6 +31,8 @@ export interface PublicCatalog {
   share_template?: string | null;
   enable_affiliates?: boolean;
   catalog_type?: 'store' | 'marketplace' | string;
+  is_blocked?: boolean;
+  blocked_reason?: string | null;
 }
 
 export interface PublicProduct {

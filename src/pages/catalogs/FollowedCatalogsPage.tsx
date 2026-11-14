@@ -547,8 +547,11 @@ export const FollowedCatalogsPage = () => {
     });
 
   // Productos filtrados y ordenados
-  const filteredAndSortedProducts = catalogProducts
+  const seenIds = new Set<string>();
+  const filteredAndSortedProducts: Product[] = catalogProducts
     .filter(product => {
+      if (!product?.id || seenIds.has(product.id)) return false;
+      seenIds.add(product.id);
       return matchesSearchTerms(product, searchQueryProduct);
     })
     .sort((a, b) => {

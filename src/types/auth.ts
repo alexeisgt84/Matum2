@@ -7,6 +7,7 @@ export type AuthUser = {
   avatar_url: string | null;
   plan: string;
   role: AuthRole;
+  can_create_catalogs?: boolean;
   referral_code?: string | null;
   payout_info?: {
     method?: string;

@@ -59,6 +59,7 @@ const TemplateSection = ({
         '{product_description}',
         '{product_price}',
         '{product_currency}',
+        '{product_url}',
         '{catalog_name}',
         '{contact_number}',
         '{store_url}'
@@ -114,7 +115,7 @@ export const CatalogTemplatesPage = () => {
       setCatalogName(data.name);
       setForm({
         plantilla: data.template || '',
-        share_template: data.share_template || '✨ *¡Mira este producto!* ✨\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n💬 Escríbenos para ordenarlo o ver más detalles en el catálogo: *{catalog_name}*',
+        share_template: data.share_template || '✨ *¡Mira este producto!* ✨\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n🔗 *Ver producto:* {product_url}\n\n💬 Escríbenos para ordenarlo o ver más detalles en el catálogo: *{catalog_name}*',
         out_of_stock_template: data.out_of_stock_template || '⚠️ *¡Se agotó!* ⚠️\n\nEl artículo *{product_name}* ha volado y no nos queda stock por el momento.\n\n👉 Mira otros productos similares en nuestro catálogo: *{catalog_name}*',
         new_product_template: data.new_product_template || '🔥 *¡NUEVO INGRESO!* 🔥\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n🚀 ¡Pide el tuyo ahora escribiéndonos antes de que se agote!',
         available_template: data.available_template || '🎉 *¡DE VUELTA EN STOCK!* 🎉\n\nLo estabas esperando y ya está disponible nuevamente:\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n⚡ Las unidades son muy limitadas. ¡Escríbenos para asegurar el tuyo ahora mismo!',
@@ -203,7 +204,7 @@ export const CatalogTemplatesPage = () => {
             }}
             value={form.share_template}
             onChange={(val) => setForm({ ...form, share_template: val })}
-            info="Esta plantilla se usará al compartir un producto individual."
+            info="Esta plantilla se usará al compartir un producto individual. La etiqueta {product_url} inserta el enlace del producto con el código de referido."
             helperText="Plantilla personalizada para compartir productos individualmente."
             tagPrefix="_s"
             sectionRef={shareRef}

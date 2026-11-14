@@ -32,14 +32,14 @@ Deno.serve(async (req) => {
     const nemuId = record?.id || old_record?.id;
 
     if (type === 'DELETE') {
-      // Eliminar el producto en Matum2
+      // Eliminar el producto en Nazzar
       const { error } = await supabase
         .from('products')
         .delete()
         .eq('nemu_product_id', nemuId);
       
       if (error) throw error;
-      console.log(`Producto ${nemuId} eliminado en Matum2`);
+      console.log(`Producto ${nemuId} eliminado en Nazzar`);
       return new Response(JSON.stringify({ success: true, action: "deleted" }));
     }
 
@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: "Product not found in Nemu" }), { status: 404 });
       }
 
-      // 2. Buscar si tenemos este producto en Matum2
+      // 2. Buscar si tenemos este producto en Nazzar
       const { data: localProducts, error: localError } = await supabase
         .from('products')
         .select('id, catalog_id, imagen_url')
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
       if (localError) throw localError;
 
       if (!localProducts || localProducts.length === 0) {
-        return new Response(JSON.stringify({ message: "Product not linked in Matum2" }), { status: 200 });
+        return new Response(JSON.stringify({ message: "Product not linked in Nazzar" }), { status: 200 });
       }
 
       // 3. Procesar imagen si es necesario
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
            }
         }
 
-        // 4. Actualizar Matum2
+        // 4. Actualizar Nazzar
         const { error: updateError } = await supabase
           .from('products')
           .update({

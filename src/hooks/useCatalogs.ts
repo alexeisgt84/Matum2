@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import type { Catalog, CatalogForm } from '../types/catalog';
 import { toast } from 'react-hot-toast';
 import { optimizeImage, blobToFile } from '../lib/imageOptimizer';
+import { evaluateCatalogCreationPermission } from './useSystemSettings';
 import {
   isOffline,
   isNetworkError,
@@ -130,6 +131,43 @@ export const useCatalogs = () => {
     if (!user) return;
     setLoading(true);
     try {
+      if (user.role !== 'admin') {
+        const [{ data: settingsRows }, { data: userRow }] = await Promise.all([
+          supabase
+            .from('system_settings')
+            .select('key, value')
+            .in('key', ['allow_user_catalog_creation', 'disabled_catalog_creation_users']),
+          supabase
+            .from('users')
+            .select('can_create_catalogs')
+            .eq('id', user.id)
+            .maybeSingle(),
+        ]);
+
+        const settingsMap: Record<string, string> = {};
+        (settingsRows || []).forEach((row: any) => {
+          settingsMap[row.key] = row.value;
+        });
+
+        const permission = evaluateCatalogCreationPermission({
+          settings: settingsMap,
+          userId: user.id,
+          userRole: user.role,
+          userCanCreateFlag:
+            typeof userRow?.can_create_catalogs === 'boolean'
+              ? userRow.can_create_catalogs
+              : user.can_create_catalogs !== false,
+        });
+
+        if (!permission.allowed) {
+          toast.error(
+            permission.message ||
+              'La creación de nuevos catálogos está desactivada por el administrador.'
+          );
+          return null;
+        }
+      }
+
       let logo_url = form.logo_url || null;
       let cover_url = form.cover_url || null;
 
@@ -192,7 +230,7 @@ export const useCatalogs = () => {
               '🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n✨ Ver catálogo completo: *{catalog_name}*',
             share_template:
               form.share_template ||
-              '✨ *¡Mira este producto!* ✨\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n💬 Escríbenos para ordenarlo o ver más detalles en el catálogo: *{catalog_name}*',
+              '✨ *¡Mira este producto!* ✨\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n🔗 *Ver producto:* {product_url}\n\n💬 Escríbenos para ordenarlo o ver más detalles en el catálogo: *{catalog_name}*',
             out_of_stock_template:
               form.out_of_stock_template ||
               '⚠️ *¡Se agotó!* ⚠️\n\nEl artículo *{product_name}* ha volado y no nos queda stock por el momento.\n\n👉 Mira otros productos similares en nuestro catálogo: *{catalog_name}*',

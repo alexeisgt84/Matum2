@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
         .eq('id', catalog.user_id)
         .single();
       const contactNumber = userData?.phone || '';
-      const storeUrl = catalog.slug ? `https://matum.com/${catalog.slug}` : '';
+      const storeUrl = catalog.slug ? `https://nazzar.shop/${catalog.slug}` : '';
 
       // Obtener todos los grupos vinculados
       const { data: groups } = await supabase

@@ -112,7 +112,7 @@ export const useNemuImport = (catalogId?: string) => {
                 }
             }
 
-            // 2. Insertar o actualizar en Matum2
+            // 2. Insertar o actualizar en Nazzar
             if (existingProduct) {
                 const { error: updateError } = await supabase
                     .from('products')

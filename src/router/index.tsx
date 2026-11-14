@@ -23,6 +23,7 @@ import { PaymentsPage } from '../pages/admin/PaymentsPage';
 import { AdminSettingsPage } from '../pages/admin/AdminSettingsPage';
 import { EvolutionServersPage } from '../pages/admin/EvolutionServersPage';
 import { ViewsAnalyticsPage } from '../pages/admin/ViewsAnalyticsPage';
+import { AdminCatalogsPage } from '../pages/admin/AdminCatalogsPage';
 import { useAuthStore } from '../store/authStore';
 import { ErrorPage } from '../pages/ErrorPage';
 import { PublicCatalogPage } from '../pages/catalogs/PublicCatalogPage';
@@ -146,6 +147,10 @@ export const router = createBrowserRouter([
       {
         path: 'admin/views',
         element: <AdminRoute><ViewsAnalyticsPage /></AdminRoute>,
+      },
+      {
+        path: 'admin/catalogs',
+        element: <AdminRoute><AdminCatalogsPage /></AdminRoute>,
       },
       {
         path: ':slug/p/:productId',

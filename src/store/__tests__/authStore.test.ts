@@ -48,7 +48,7 @@ describe('authStore', () => {
   });
 
   it('debe iniciar sesión correctamente y guardar los datos del usuario en el store', async () => {
-    const mockUser = { id: 'user-123', email: '5351234567@matum.app' };
+    const mockUser = { id: 'user-123', email: '5351234567@nazzar.shop' };
     const mockProfile = {
       full_name: 'Juan Pérez',
       avatar_url: 'https://example.com/avatar.jpg',

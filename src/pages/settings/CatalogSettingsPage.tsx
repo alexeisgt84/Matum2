@@ -168,6 +168,7 @@ const TemplateSection = ({
         '{product_description}',
         '{product_price}',
         '{product_currency}',
+        '{product_url}',
         '{catalog_name}',
         '{contact_number}',
         '{store_url}'
@@ -286,7 +287,9 @@ export const CatalogSettingsPage = () => {
   const { profile } = useProfile();
   const isAdmin = profile?.role === 'admin';
   const hasDualityAccess = (profile?.plan && profile.plan !== 'free') || isAdmin;
-  const isPremium = profile?.plan === 'premium' || isAdmin;
+  const [catalogOwnerPlan, setCatalogOwnerPlan] = useState<string | null>(null);
+  const catalogPlan = catalogOwnerPlan || profile?.plan || 'free';
+  const isPremium = catalogPlan === 'premium';
   
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get('tab') as SettingsTab) || 'menu';
@@ -404,12 +407,18 @@ export const CatalogSettingsPage = () => {
   const hasInstance = !!instance;
   const isConnected = instance?.status === 'connected';
 
-  // Redirigir si la pestaña activa requiere conexión y no la hay
+  // Redirigir si la pestaña activa requiere conexión o plan Premium
   useEffect(() => {
-    if ((activeTab === 'groups' || activeTab === 'automation') && !hasInstance) {
-      setActiveTab('whatsapp');
+    if (!catLoading) {
+      if (!isPremium && (activeTab === 'whatsapp' || activeTab === 'groups' || activeTab === 'automation' || activeTab === 'history')) {
+        setActiveTab('menu');
+        return;
+      }
+      if ((activeTab === 'groups' || activeTab === 'automation') && !hasInstance) {
+        setActiveTab('whatsapp');
+      }
     }
-  }, [activeTab, hasInstance]);
+  }, [activeTab, hasInstance, isPremium, catLoading]);
 
   // Hooks de Grupos
   const { 
@@ -482,6 +491,18 @@ export const CatalogSettingsPage = () => {
       if (error) throw error;
       if (data) {
         setCatalog(data);
+        if (data.user_id === profile?.id) {
+          setCatalogOwnerPlan(profile?.plan || 'free');
+        } else {
+          const { data: ownerData } = await supabase
+            .from('users')
+            .select('plan')
+            .eq('id', data.user_id)
+            .single();
+          if (ownerData?.plan) {
+            setCatalogOwnerPlan(ownerData.plan);
+          }
+        }
         setStoreForm({
           nombre: data.name,
           descripcion: data.description || '',
@@ -514,7 +535,7 @@ export const CatalogSettingsPage = () => {
 
         setTemplatesForm({
           plantilla: data.template || '',
-          share_template: data.share_template || '✨ *¡Mira este producto!* ✨\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n💬 Escríbenos para ordenarlo o ver más detalles en el catálogo: *{catalog_name}*',
+          share_template: data.share_template || '✨ *¡Mira este producto!* ✨\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n🔗 *Ver producto:* {product_url}\n\n💬 Escríbenos para ordenarlo o ver más detalles en el catálogo: *{catalog_name}*',
           out_of_stock_template: data.out_of_stock_template || '⚠️ *¡Se agotó!* ⚠️\n\nEl artículo *{product_name}* ha volado y no nos queda stock por el momento.\n\n👉 Mira otros productos similares en nuestro catálogo: *{catalog_name}*',
           new_product_template: data.new_product_template || '🔥 *¡NUEVO INGRESO!* 🔥\n\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n🚀 ¡Pide el tuyo ahora escribiéndonos antes de que se agote!',
           available_template: data.available_template || '🎉 *¡DE VUELTA EN STOCK!* 🎉\n\nLo estabas esperando y ya está disponible nuevamente:\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n⚡ Las unidades son muy limitadas. ¡Escríbenos para asegurar el tuyo ahora mismo!',
@@ -1028,15 +1049,19 @@ export const CatalogSettingsPage = () => {
 
   const tabs: { id: SettingsTab; label: string; icon: any }[] = [
     { id: 'store' as SettingsTab, label: 'Tienda', icon: ShoppingBag },
-    { id: 'whatsapp' as SettingsTab, label: 'WhatsApp', icon: Smartphone },
-    ...(hasInstance ? [
-      { id: 'groups' as SettingsTab, label: 'Grupos', icon: Users },
-      { id: 'automation' as SettingsTab, label: 'Automatización', icon: Zap }
+    ...(isPremium ? [
+      { id: 'whatsapp' as SettingsTab, label: 'WhatsApp', icon: Smartphone },
+      ...(hasInstance ? [
+        { id: 'groups' as SettingsTab, label: 'Grupos', icon: Users },
+        { id: 'automation' as SettingsTab, label: 'Automatización', icon: Zap }
+      ] : []),
     ] : []),
     { id: 'templates' as SettingsTab, label: 'Plantillas', icon: Layout },
     { id: 'affiliates' as SettingsTab, label: 'Afiliados y Comisiones', icon: Coins },
     { id: 'members' as SettingsTab, label: 'Miembros', icon: Users },
-    { id: 'history' as SettingsTab, label: 'Historial', icon: Clock },
+    ...(isPremium ? [
+      { id: 'history' as SettingsTab, label: 'Historial', icon: Clock }
+    ] : []),
   ];
 
   interface MenuItemProps {
@@ -1133,39 +1158,41 @@ export const CatalogSettingsPage = () => {
                 onClick={() => setActiveTab('templates')}
                 iconBgColorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400"
               />
-              <MenuItem
-                icon={Smartphone}
-                label="WhatsApp"
-                value="Conecta tu número y gestiona grupos o colas de automatización"
-                onClick={() => setActiveTab('whatsapp')}
-                iconBgColorClass="bg-orange-500/10 text-orange-600 dark:text-orange-400"
-              />
-              {hasInstance && (
+              {isPremium && (
                 <>
                   <MenuItem
-                    icon={Users}
-                    label="Grupos"
-                    value={isConnected ? "Vincula y gestiona los grupos de WhatsApp para envíos" : "WhatsApp desconectado - Ver grupos vinculados"}
-                    onClick={() => setActiveTab('groups')}
-                    iconBgColorClass={isConnected ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-zinc-500/10 text-zinc-500 dark:text-zinc-400"}
+                    icon={Smartphone}
+                    label="WhatsApp"
+                    value="Conecta tu número y gestiona grupos o colas de automatización"
+                    onClick={() => setActiveTab('whatsapp')}
+                    iconBgColorClass="bg-orange-500/10 text-orange-600 dark:text-orange-400"
                   />
+                  {hasInstance && (
+                    <>
+                      <MenuItem
+                        icon={Users}
+                        label="Grupos"
+                        value={isConnected ? "Vincula y gestiona los grupos de WhatsApp para envíos" : "WhatsApp desconectado - Ver grupos vinculados"}
+                        onClick={() => setActiveTab('groups')}
+                        iconBgColorClass={isConnected ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-zinc-500/10 text-zinc-500 dark:text-zinc-400"}
+                      />
+                      <MenuItem
+                        icon={Zap}
+                        label="Automatización"
+                        value={isConnected ? "Configura secuencias de mensajes y tiempos de envío" : "WhatsApp desconectado - Ver horarios"}
+                        onClick={() => setActiveTab('automation')}
+                        iconBgColorClass={isConnected ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-zinc-500/10 text-zinc-500 dark:text-zinc-400"}
+                      />
+                    </>
+                  )}
                   <MenuItem
-                    icon={Zap}
-                    label="Automatización"
-                    value={isConnected ? "Configura secuencias de mensajes y tiempos de envío" : "WhatsApp desconectado - Ver horarios"}
-                    onClick={() => setActiveTab('automation')}
-                    iconBgColorClass={isConnected ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "bg-zinc-500/10 text-zinc-500 dark:text-zinc-400"}
+                    icon={Globe}
+                    label="Vincular con Nemu"
+                    value="Importa productos y sincroniza el catálogo con tu app Nemu"
+                    onClick={() => setIsNemuImportOpen(true)}
+                    iconBgColorClass="bg-pink-500/10 text-pink-600 dark:text-pink-400"
                   />
                 </>
-              )}
-              {isPremium && (
-                <MenuItem
-                  icon={Globe}
-                  label="Vincular con Nemu"
-                  value="Importa productos y sincroniza el catálogo con tu app Nemu"
-                  onClick={() => setIsNemuImportOpen(true)}
-                  iconBgColorClass="bg-pink-500/10 text-pink-600 dark:text-pink-400"
-                />
               )}
               <MenuItem
                 icon={Users}
@@ -1173,15 +1200,18 @@ export const CatalogSettingsPage = () => {
                 value="Gestiona los miembros colaboradores y seguidores del catálogo"
                 onClick={() => setActiveTab('members')}
                 iconBgColorClass="bg-teal-500/10 text-teal-600 dark:text-teal-400"
+                isLast={!isPremium}
               />
-              <MenuItem
-                icon={Clock}
-                label="Historial de Envíos"
-                value="Visualiza el historial y estados de los mensajes de la cola"
-                onClick={() => setActiveTab('history')}
-                iconBgColorClass="bg-secondary/10 text-secondary"
-                isLast
-              />
+              {isPremium && (
+                <MenuItem
+                  icon={Clock}
+                  label="Historial de Envíos"
+                  value="Visualiza el historial y estados de los mensajes de la cola"
+                  onClick={() => setActiveTab('history')}
+                  iconBgColorClass="bg-secondary/10 text-secondary"
+                  isLast
+                />
+              )}
             </div>
           </div>
         </div>
@@ -1227,7 +1257,7 @@ export const CatalogSettingsPage = () => {
                   </Select>
                   <p className="text-[11px] text-secondary leading-relaxed">
                     {storeForm.catalog_type === 'marketplace'
-                      ? 'Este catálogo funciona como grupo tipo Nazaar: puedes vincularlo en MatumListener a un grupo de WhatsApp para escuchar y publicar productos con contacto directo del vendedor.'
+                      ? 'Este catálogo funciona como grupo tipo Nazaar: puedes vincularlo en NazzarListener a un grupo de WhatsApp para escuchar y publicar productos con contacto directo del vendedor.'
                       : 'Catálogo estándar administrado por su propietario.'}
                   </p>
                 </div>
@@ -1730,7 +1760,7 @@ export const CatalogSettingsPage = () => {
         )}
 
         {/* PESTAÑA: WHATSAPP */}
-        {activeTab === 'whatsapp' && (
+        {isPremium && activeTab === 'whatsapp' && (
           <div className="animate-in fade-in duration-300 space-y-4">
             <EvolutionConfig 
               catalogId={catalogId} 
@@ -1743,7 +1773,7 @@ export const CatalogSettingsPage = () => {
         )}
 
         {/* PESTAÑA: GRUPOS */}
-        {activeTab === 'groups' && (
+        {isPremium && activeTab === 'groups' && (
           <div className="animate-in fade-in duration-300 space-y-6">
             {!isConnected && (
               <div className="flex items-center gap-3 p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-orange-600 dark:text-orange-400">
@@ -1847,7 +1877,7 @@ export const CatalogSettingsPage = () => {
         )}
 
         {/* PESTAÑA: AUTOMATIZACIÓN Y COLAS */}
-        {activeTab === 'automation' && (
+        {isPremium && activeTab === 'automation' && (
           <div className="animate-in fade-in duration-300 space-y-6">
             {!isConnected && (
               <div className="flex items-center gap-3 p-4 bg-orange-500/10 border border-orange-500/20 rounded-2xl text-orange-600 dark:text-orange-400">
@@ -2054,7 +2084,7 @@ export const CatalogSettingsPage = () => {
                 }}
                 value={templatesForm.share_template}
                 onChange={(val) => setTemplatesForm({ ...templatesForm, share_template: val })}
-                info="Esta plantilla se usará al compartir un producto individual."
+                info="Esta plantilla se usará al compartir un producto individual. La etiqueta {product_url} inserta el enlace del producto con el código de referido."
                 helperText="Plantilla personalizada para compartir productos individualmente."
                 tagPrefix="_s"
                 sectionRef={shareRef}
@@ -2415,7 +2445,7 @@ export const CatalogSettingsPage = () => {
         )}
 
         {/* PESTAÑA: HISTORIAL */}
-        {activeTab === 'history' && (
+        {isPremium && activeTab === 'history' && (
           <HistoryTabContent catalogId={catalogId!} />
         )}
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Coins, Package, Store, Settings, Sparkles, Users, Edit3, Trash2 } from 'lucide-react';
+import { Coins, Package, Store, Settings, Sparkles, Users, Edit3, Trash2, ShieldAlert, Lock } from 'lucide-react';
 import type { PublicCatalogItem } from '../../hooks/usePublicCatalogs';
 import type { Catalog } from '../../types/catalog';
 import { useAuthStore } from '../../store/authStore';
@@ -63,6 +63,12 @@ export const PublicCatalogCard: React.FC<PublicCatalogCardProps> = ({
 
         {/* Badges superiores flotantes */}
         <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+          {(catalog as any).is_blocked && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-600/95 text-white text-[10px] font-bold backdrop-blur-md shadow-sm animate-pulse">
+              <ShieldAlert size={11} />
+              <span>Bloqueado</span>
+            </span>
+          )}
           {(catalog as any).catalog_type === 'marketplace' && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/90 text-slate-950 text-[10px] font-bold backdrop-blur-md shadow-sm">
               <Sparkles size={10} />

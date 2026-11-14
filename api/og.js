@@ -30,13 +30,13 @@ export default async function handler(req, res) {
   const productId = req.query.productId ? String(req.query.productId).trim() : null;
 
   const proto = req.headers['x-forwarded-proto'] || 'https';
-  const host = req.headers['x-forwarded-host'] || req.headers.host || 'matum.vercel.app';
+  const host = req.headers['x-forwarded-host'] || req.headers.host || 'nazzar.shop';
   const baseUrl = `${proto}://${host}`;
   const canonicalUrl = productId
     ? `${baseUrl}/${encodeURIComponent(slug)}/p/${encodeURIComponent(productId)}`
     : `${baseUrl}/${encodeURIComponent(slug)}`;
 
-  let title = 'Tienda en Matum';
+  let title = 'Tienda en Nazzar';
   let description = 'Explora el catálogo y haz tu pedido directo por WhatsApp.';
   let image = `${baseUrl}/icon.png`;
 
@@ -99,7 +99,7 @@ export default async function handler(req, res) {
     <meta charset="UTF-8" />
     <title>${escapeHtml(title)}</title>
     <meta name="description" content="${escapeHtml(description)}" />
-    <meta property="og:site_name" content="Matum" />
+    <meta property="og:site_name" content="Nazzar" />
     <meta property="og:type" content="${productId ? 'product' : 'website'}" />
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />

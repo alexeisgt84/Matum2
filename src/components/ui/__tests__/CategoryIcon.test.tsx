@@ -16,7 +16,7 @@ describe('Category Icons System', () => {
     expect(CATEGORY_ICON_GROUPS.length).toBeGreaterThan(10);
   });
 
-  it('normaliza términos reales analizados en MatumListener a sus iconos correspondientes', () => {
+  it('normaliza términos reales analizados en NazzarListener a sus iconos correspondientes', () => {
     // Energía
     expect(normalizeCategoryIconName('solar')).toBe('Sun');
     expect(normalizeCategoryIconName('paneles solares')).toBe('Sun');

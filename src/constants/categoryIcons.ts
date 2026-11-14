@@ -689,7 +689,7 @@ export const CATEGORY_ICONS: CategoryIconItem[] = [
   }
 ];
 
-// Selección rápida de iconos más representativos según las ventas reales de Matum
+// Selección rápida de iconos más representativos según las ventas reales de Nazzar
 export const POPULAR_CATEGORY_ICONS: CategoryIconItem[] = CATEGORY_ICONS.filter(item => [
   'Sun',              // Energía Solar
   'Zap',              // Inversores / Electricidad

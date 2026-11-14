@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Product, ProductForm } from '../types/product';
 import { toast } from 'react-hot-toast';
@@ -75,6 +75,16 @@ export const useProducts = (
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 20;
 
+  const pageRef = useRef(0);
+  const isLoadingRef = useRef(false);
+  const requestSeqRef = useRef(0);
+
+  const deduplicate = (existing: Product[], incoming: Product[]): Product[] => {
+    const existingIds = new Set(existing.map((p) => p.id));
+    const uniqueIncoming = incoming.filter((p) => p && p.id && !existingIds.has(p.id));
+    return [...existing, ...uniqueIncoming];
+  };
+
   const loadFromOfflineCache = useCallback(
     async (isInitial: boolean, currentPage: number) => {
       if (!catalogId) return false;
@@ -87,10 +97,13 @@ export const useProducts = (
       const pageSlice = filtered.slice(from, to);
 
       if (isInitial) {
-        setProducts(pageSlice);
+        const unique = Array.from(new Map(pageSlice.map((p) => [p.id, p])).values());
+        setProducts(unique);
+        pageRef.current = 1;
         setPage(1);
       } else {
-        setProducts((prev) => [...prev, ...pageSlice]);
+        setProducts((prev) => deduplicate(prev, pageSlice));
+        pageRef.current = currentPage + 1;
         setPage((prev) => prev + 1);
       }
       setHasMore(to < filtered.length);
@@ -103,28 +116,38 @@ export const useProducts = (
     async (isInitial = true) => {
       if (!catalogId) return;
 
-      const currentPage = isInitial ? 0 : page;
+      // Evitar peticiones concurrentes accidentales en loadMore
+      if (isLoadingRef.current && !isInitial) return;
+
+      const seq = ++requestSeqRef.current;
+      isLoadingRef.current = true;
+      setLoading(true);
+
+      if (isInitial) {
+        pageRef.current = 0;
+        setPage(0);
+      }
+      const currentPage = isInitial ? 0 : pageRef.current;
 
       // Mostrar productos desde la caché local de inmediato (0ms) si existen
       let hadCached = false;
       if (isInitial) {
         hadCached = await loadFromOfflineCache(true, 0);
+        if (seq !== requestSeqRef.current) return;
       }
 
       if (isOffline()) {
         if (!isInitial) {
           await loadFromOfflineCache(false, currentPage);
         }
-        setLoading(false);
+        if (seq === requestSeqRef.current) {
+          isLoadingRef.current = false;
+          setLoading(false);
+        }
         return;
       }
 
-      if (!hadCached) {
-        setLoading(true);
-      }
       if (isInitial) {
-        setPage(0);
-        setHasMore(true);
         syncCatalogForOffline(catalogId);
       }
 
@@ -151,21 +174,30 @@ export const useProducts = (
           query = query
             .order('is_out_of_stock', { ascending: true })
             .order('is_featured', { ascending: false })
-            .order('position', { ascending: true });
+            .order('position', { ascending: true })
+            .order('id', { ascending: true });
         } else {
-          query = query.order(sortField, { ascending: sortOrder === 'asc' });
+          query = query
+            .order(sortField, { ascending: sortOrder === 'asc' })
+            .order('id', { ascending: true });
         }
 
         const { data, error } = await query.range(from, to);
 
+        if (seq !== requestSeqRef.current) return;
         if (error) throw error;
 
         const newProducts = data || [];
 
         if (isInitial) {
-          setProducts(newProducts);
+          const unique = Array.from(new Map(newProducts.map((p) => [p.id, p])).values());
+          setProducts(unique);
+          pageRef.current = 1;
+          setPage(1);
         } else {
-          setProducts((prev) => [...prev, ...newProducts]);
+          setProducts((prev) => deduplicate(prev, newProducts));
+          pageRef.current = currentPage + 1;
+          setPage((prev) => prev + 1);
         }
 
         if (newProducts.length > 0) {
@@ -173,12 +205,8 @@ export const useProducts = (
         }
 
         setHasMore(newProducts.length === PAGE_SIZE);
-        if (!isInitial) {
-          setPage((prev) => prev + 1);
-        } else {
-          setPage(1);
-        }
       } catch (err: any) {
+        if (seq !== requestSeqRef.current) return;
         if (!hadCached) {
           const loadedOffline = await loadFromOfflineCache(isInitial, currentPage);
           if (!loadedOffline && !isNetworkError(err)) {
@@ -186,17 +214,20 @@ export const useProducts = (
           }
         }
       } finally {
-        setLoading(false);
+        if (seq === requestSeqRef.current) {
+          isLoadingRef.current = false;
+          setLoading(false);
+        }
       }
     },
-    [catalogId, page, search, sortField, sortOrder, categoryId, loadFromOfflineCache]
+    [catalogId, search, sortField, sortOrder, categoryId, loadFromOfflineCache]
   );
 
   const loadMore = useCallback(() => {
-    if (!loading && hasMore) {
+    if (!isLoadingRef.current && hasMore) {
       getProducts(false);
     }
-  }, [getProducts, loading, hasMore]);
+  }, [getProducts, hasMore]);
 
   const saveProduct = async (form: ProductForm, id?: string, file?: File): Promise<Product | null> => {
     if (!catalogId) return null;

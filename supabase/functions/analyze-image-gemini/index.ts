@@ -212,7 +212,7 @@ Deno.serve(async (req: Request) => {
       throw new Error('La imagen en formato base64 es requerida');
     }
 
-    // Diseñar prompt optimizado estrictamente para ficha técnica e-commerce con búsqueda web (estilo MatumListener)
+    // Diseñar prompt optimizado estrictamente para ficha técnica e-commerce con búsqueda web (estilo NazzarListener)
     const promptText = `Actúa como un especialista en fichas técnicas de productos e-commerce.
 Analiza con rigor la IMAGEN adjunta del producto (etiquetas, empaques, logos, modelo físico visible, detalles y especificaciones impresas) y la información provista:
 

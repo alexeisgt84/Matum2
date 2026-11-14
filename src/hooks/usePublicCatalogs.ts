@@ -26,6 +26,8 @@ export interface PublicCatalogItem {
   title_color?: string | null;
   is_active: boolean;
   is_public: boolean;
+  enable_affiliates?: boolean;
+  is_blocked?: boolean;
   catalog_type?: 'store' | 'marketplace' | string;
   created_at: string;
   productCount: number;
@@ -70,6 +72,8 @@ export const usePublicCatalogs = () => {
           title_color,
           is_active,
           is_public,
+          enable_affiliates,
+          is_blocked,
           catalog_type,
           created_at,
           products:products(count)

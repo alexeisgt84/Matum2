@@ -12,8 +12,8 @@ describe('urlHelper - getAppBaseUrl', () => {
     // Simulamos un entorno no-localhost
     delete (window as any).location;
     (window as any).location = {
-      hostname: 'matum.vercel.app',
-      origin: 'https://matum.vercel.app',
+      hostname: 'nazzar.shop',
+      origin: 'https://nazzar.shop',
     };
 
     expect(getAppBaseUrl('miapp.com')).toBe('https://miapp.com');
@@ -22,8 +22,8 @@ describe('urlHelper - getAppBaseUrl', () => {
   it('debe respetar el protocolo existente y limpiar la barra final de la URL configurada', () => {
     delete (window as any).location;
     (window as any).location = {
-      hostname: 'matum.vercel.app',
-      origin: 'https://matum.vercel.app',
+      hostname: 'nazzar.shop',
+      origin: 'https://nazzar.shop',
     };
 
     expect(getAppBaseUrl('https://custom-domain.com/')).toBe('https://custom-domain.com');
@@ -37,7 +37,7 @@ describe('urlHelper - getAppBaseUrl', () => {
       origin: 'https://production.com',
     };
 
-    expect(getAppBaseUrl()).toBe('https://matum.vercel.app');
+    expect(getAppBaseUrl()).toBe('https://nazzar.shop');
   });
 
   it('debe priorizar localhost en desarrollo local', () => {

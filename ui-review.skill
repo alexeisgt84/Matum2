@@ -1,6 +1,6 @@
 # Web Interface Guidelines Skill
 
-Este archivo contiene las directrices de diseño y accesibilidad para revisar las interfaces del proyecto Matum2.
+Este archivo contiene las directrices de diseño y accesibilidad para revisar las interfaces del proyecto Nazzar.
 
 ## Accesibilidad
 - Los botones que solo tienen iconos necesitan un `aria-label`.

@@ -43,7 +43,7 @@ export const STORE_THEME_PRESETS: StoreThemePreset[] = [
   {
     id: 'noir',
     name: 'Noir',
-    subtitle: 'Oscuro Matum',
+    subtitle: 'Oscuro Nazzar',
     colors: {
       primary_color: '#ff782e',
       background_color: '#0a0a0a',

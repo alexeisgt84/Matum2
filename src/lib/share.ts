@@ -108,7 +108,7 @@ export const shareContent = async (options: ShareOptions) => {
       }
 
       const nativeShareOptions: any = {
-        title: title || 'Matum 2',
+        title: title || 'Nazzar',
         text: text || '',
       };
 
@@ -128,7 +128,7 @@ export const shareContent = async (options: ShareOptions) => {
     } else {
       // Browser logic (Web Share API)
       const shareData: any = {
-        title: title || 'Matum 2',
+        title: title || 'Nazzar',
         text: text || '',
       };
 

@@ -113,6 +113,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         avatar_url: profile?.avatar_url || null,
         plan: profile?.plan || 'free',
         role: profile?.role || 'user',
+        ...(profile?.can_create_catalogs !== undefined
+          ? { can_create_catalogs: Boolean(profile.can_create_catalogs) }
+          : {}),
         referral_code: profile?.referral_code || null,
         payout_info: profile?.payout_info || null,
       };
@@ -251,6 +254,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           avatar_url: profile?.avatar_url ?? cachedUser?.avatar_url ?? null,
           plan: profile?.plan || cachedUser?.plan || 'free',
           role: profile?.role || cachedUser?.role || 'user',
+          ...(profile?.can_create_catalogs !== undefined
+            ? { can_create_catalogs: Boolean(profile.can_create_catalogs) }
+            : cachedUser?.can_create_catalogs !== undefined
+            ? { can_create_catalogs: Boolean(cachedUser.can_create_catalogs) }
+            : {}),
           referral_code: profile?.referral_code ?? cachedUser?.referral_code ?? null,
           payout_info: profile?.payout_info ?? cachedUser?.payout_info ?? null,
         };
@@ -333,6 +341,11 @@ supabase.auth.onAuthStateChange(async (event, session) => {
             avatar_url: profile?.avatar_url ?? cachedUser?.avatar_url ?? null,
             plan: profile?.plan || cachedUser?.plan || 'free',
             role: profile?.role || cachedUser?.role || 'user',
+            ...(profile?.can_create_catalogs !== undefined
+              ? { can_create_catalogs: Boolean(profile.can_create_catalogs) }
+              : cachedUser?.can_create_catalogs !== undefined
+              ? { can_create_catalogs: Boolean(cachedUser.can_create_catalogs) }
+              : {}),
             referral_code: profile?.referral_code ?? cachedUser?.referral_code ?? null,
             payout_info: profile?.payout_info ?? cachedUser?.payout_info ?? null,
           };

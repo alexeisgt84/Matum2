@@ -58,7 +58,7 @@ export interface PublicCatalogPageProps {
 }
 
 const CATALOG_SELECT =
-  'id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount, catalog_type';
+  'id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount, catalog_type, is_blocked, blocked_reason';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -91,8 +91,8 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
 
   const isMarketplace = Boolean(
     catalog?.catalog_type === 'marketplace' ||
-    (catalog?.name && /naza+r/i.test(catalog.name)) ||
-    (catalog?.slug && /naza+r/i.test(catalog.slug))
+    (catalog?.name && /naz+a+r/i.test(catalog.name)) ||
+    (catalog?.slug && /naz+a+r/i.test(catalog.slug))
   );
 
   // Estado de exploración y carrito
@@ -301,11 +301,16 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
     ]);
 
     if (cachedProds) {
-      setProducts(
-        cachedProds.filter(
-          (p: any) => p.is_active !== false && !p.is_out_of_stock && p.stock_status !== 'out_of_stock'
-        )
+      const uniqueCached = Array.from(
+        new Map(
+          cachedProds
+            .filter(
+              (p: any) => p.is_active !== false && !p.is_out_of_stock && p.stock_status !== 'out_of_stock'
+            )
+            .map((p: any) => [p.id, p])
+        ).values()
       );
+      setProducts(uniqueCached);
     }
     if (cachedCats) {
       setCategories(cachedCats.filter((c: any) => c.is_active !== false));
@@ -363,6 +368,13 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         return;
       }
 
+      if (catData.is_blocked) {
+        setError(catData.blocked_reason ? `Catálogo suspendido: ${catData.blocked_reason}` : 'Este catálogo ha sido bloqueado o suspendido por la administración.');
+        setLoading(false);
+        setProductsLoading(false);
+        return;
+      }
+
       if (!catData.is_active || !catData.is_public) {
         setError('Este catálogo no se encuentra disponible actualmente.');
         setLoading(false);
@@ -395,9 +407,14 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
 
         if (prodResult.error) throw prodResult.error;
         const allActiveProducts = prodResult.data || [];
-        setProducts(
-          allActiveProducts.filter(p => !p.is_out_of_stock && p.stock_status !== 'out_of_stock')
+        const uniqueActiveProducts = Array.from(
+          new Map(
+            allActiveProducts
+              .filter(p => !p.is_out_of_stock && p.stock_status !== 'out_of_stock')
+              .map(p => [p.id, p])
+          ).values()
         );
+        setProducts(uniqueActiveProducts);
         await saveCatalogProductsToCache(catData.id, allActiveProducts);
 
         if (!catKeysResult.error && catKeysResult.data) {
@@ -406,7 +423,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         }
 
         let vPhone = catData.footer_phone || '';
-        let vName = 'Vendedor Matum';
+        let vName = 'Vendedor Nazzar';
         let vPlan = 'free';
         if (!userResult.error && userResult.data) {
           vPhone = userResult.data.phone || vPhone;
@@ -524,8 +541,13 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       (c1, c2) => (c1.display_order ?? 0) - (c2.display_order ?? 0)
     );
 
+    const seenIds = new Set<string>();
+
     return products
       .filter(p => {
+        if (!p?.id || seenIds.has(p.id)) return false;
+        seenIds.add(p.id);
+
         const matchesSearch = matchesSearchTerms(p, searchQuery);
         const matchesCategory =
           selectedCategoryId === null ||
@@ -640,11 +662,11 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   ) => {
     if (cart.length === 0 || !catalog) return;
 
-    let messageText = `🛒 *Nuevo Pedido - Matum*\n`;
+    let messageText = `🛒 *Nuevo Pedido - Nazzar*\n`;
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
     messageText += `*Tienda:* ${catalog.name}\n`;
     if (slug) {
-      const currentHost = typeof window !== 'undefined' ? window.location.host : 'matum.vercel.app';
+      const currentHost = typeof window !== 'undefined' ? window.location.host : 'nazzar.shop';
       messageText += `*Enlace:* ${currentHost}/${slug}\n`;
     }
     messageText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -770,8 +792,9 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   const handleShareProduct = async (product: PublicProduct, e?: React.MouseEvent) => {
     e?.stopPropagation();
     const priceText = getPriceText(product, pricingCtx);
-    const affiliateParam =
-      isApprovedAffiliate && user?.referral_code ? `?ref=${user.referral_code}` : '';
+    const affiliateCode =
+      (isApprovedAffiliate && user?.referral_code) || user?.referral_code;
+    const affiliateParam = affiliateCode ? `?ref=${affiliateCode}` : '';
     const baseUrl =
       typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
     const productUrl = slug ? `${baseUrl}/${slug}/p/${product.id}${affiliateParam}` : '';
@@ -786,6 +809,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           .replace(/{contact_number}/g, vendorPhone || '')
           .replace(/{store_url}/g, productUrl)
           .replace(/{product_url}/g, productUrl)
+          .replace(/{product_referral_url}/g, productUrl)
       : `*${product.name}*\n\nPrecio: ${priceText}\n\n${product.description || ''}\n\nVer producto: ${productUrl}`.trim();
 
     await shareContent({
@@ -797,14 +821,25 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   };
 
   const handleAskProductWhatsApp = (product: PublicProduct) => {
+    const activeRef =
+      (slug ? localStorage.getItem(`matum_ref_${slug}`) : null) ||
+      localStorage.getItem('matum_active_ref');
+
     let messageText = `¡Hola! Me interesa este producto:\n\n`;
     messageText += `🛍️ *${product.name}*\n`;
     if (product.price !== null) {
       messageText += `💵 *Precio:* ${getPriceText(product, pricingCtx)}\n`;
     }
     if (slug) {
-      const currentHost = typeof window !== 'undefined' ? window.location.host : 'matum.vercel.app';
-      messageText += `🔗 *Enlace del producto:* ${currentHost}/${slug}/p/${product.id}\n`;
+      const baseUrl =
+        typeof window !== 'undefined'
+          ? `${window.location.protocol}//${window.location.host}`
+          : 'https://nazzar.shop';
+      const refParam = activeRef ? `?ref=${activeRef}` : '';
+      messageText += `🔗 *Enlace del producto:* ${baseUrl}/${slug}/p/${product.id}${refParam}\n`;
+    }
+    if (activeRef) {
+      messageText += `\n🤝 *Referido por:* @${activeRef}\n`;
     }
     messageText += `\n¿Está disponible?`;
 
@@ -871,7 +906,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         </p>
         <Link to="/login">
           <Button variant="secondary" size="sm" icon={ArrowLeft}>
-            Volver a Matum
+            Volver a Nazzar
           </Button>
         </Link>
       </div>

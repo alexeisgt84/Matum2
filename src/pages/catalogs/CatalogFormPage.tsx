@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Save, Info, Zap, Globe, AlertCircle, Camera, MapPin, Clock, Phone, Mail, Coins, DollarSign, ShoppingBag, ShieldCheck } from 'lucide-react';
+import { Save, Info, Zap, Globe, AlertCircle, Camera, MapPin, Clock, Phone, Mail, Coins, DollarSign, ShoppingBag, ShieldCheck, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Switch } from '../../components/ui/Switch';
@@ -56,13 +56,17 @@ export const CatalogFormPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { loading, createCatalog, updateCatalog } = useCatalogs();
-  const { getAppUrl } = useSystemSettings();
+  const { getAppUrl, checkUserCatalogCreation } = useSystemSettings();
   
   const { profile } = useProfile();
   const { user } = useAuthStore();
+  const [catalogOwnerPlan, setCatalogOwnerPlan] = useState<string | null>(null);
   const isAdmin = profile?.role === 'admin' || user?.role === 'admin';
   const hasDualityAccess = (profile?.plan && profile.plan !== 'free') || isAdmin;
+  const isPremium = (catalogOwnerPlan || profile?.plan || user?.plan) === 'premium';
   const requestedType = searchParams.get('type') === 'marketplace' ? 'marketplace' : 'store';
+  const creationCheck = checkUserCatalogCreation(user, profile?.can_create_catalogs);
+  const isCreationBlocked = !catalogId && !creationCheck.allowed;
   
   const [form, setForm] = useState({
     nombre: '',
@@ -122,6 +126,18 @@ export const CatalogFormPage = () => {
       .single();
     
     if (data) {
+      if (data.user_id === profile?.id || data.user_id === user?.id) {
+        setCatalogOwnerPlan(profile?.plan || user?.plan || 'free');
+      } else {
+        const { data: ownerData } = await supabase
+          .from('users')
+          .select('plan')
+          .eq('id', data.user_id)
+          .single();
+        if (ownerData?.plan) {
+          setCatalogOwnerPlan(ownerData.plan);
+        }
+      }
       setForm({
         nombre: data.name,
         slogan: data.slogan || '',
@@ -224,6 +240,13 @@ export const CatalogFormPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isCreationBlocked) {
+      toast.error(
+        creationCheck.message || 'La creación de nuevos catálogos está desactivada por el administrador.'
+      );
+      return;
+    }
+
     if (form.is_public) {
       const isValid = await validateSlug(form.slug);
       if (!isValid) {
@@ -247,6 +270,20 @@ export const CatalogFormPage = () => {
         title={catalogId ? 'Editar Catálogo' : 'Nuevo Catálogo'} 
         subtitle="Configuración General"
       />
+
+      {isCreationBlocked && (
+        <div className="mb-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2.5">
+          <AlertCircle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="text-xs space-y-1">
+            <p className="font-bold text-amber-500">Creación de catálogos desactivada</p>
+            <p className="text-secondary leading-relaxed">
+              {creationCheck.message ||
+                'La creación de nuevos catálogos ha sido desactivada por el administrador.'}{' '}
+              Tus catálogos ya existentes siguen funcionando normalmente.
+            </p>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="card space-y-4">
@@ -293,7 +330,7 @@ export const CatalogFormPage = () => {
               </Select>
               <p className="text-[11px] text-secondary leading-relaxed">
                 {form.catalog_type === 'marketplace'
-                  ? 'Los catálogos tipo Nazaar permiten recibir productos desde un grupo de WhatsApp en MatumListener, manteniendo el contacto de cada vendedor y permitiéndoles gestionar su propio stock.'
+                  ? 'Los catálogos tipo Nazaar permiten recibir productos desde un grupo de WhatsApp en NazzarListener, manteniendo el contacto de cada vendedor y permitiéndoles gestionar su propio stock.'
                   : 'Catálogo estándar administrado por su propietario.'}
               </p>
             </div>
@@ -617,54 +654,61 @@ export const CatalogFormPage = () => {
           </div>
         </div>
 
-        <div className="card space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-primary uppercase tracking-wider flex items-center gap-2">
-                <Zap size={16} className="text-yellow-500" /> Automatización
-              </h3>
-              <p className="text-[10px] text-secondary uppercase tracking-widest mt-1">Configuración de envíos automáticos</p>
+        {isPremium && (
+          <div className="card space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-primary uppercase tracking-wider flex items-center gap-2">
+                  <Zap size={16} className="text-yellow-500" /> Automatización
+                </h3>
+                <p className="text-[10px] text-secondary uppercase tracking-widest mt-1">Configuración de envíos automáticos</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 border-t border-border pt-4">
+              <Switch
+                label="Envío de Secuencia Diaria"
+                subtitle="Dispara todos los mensajes de secuencia a la hora fijada"
+                checked={form.is_sequence_scheduled}
+                onChange={(checked) => setForm({ ...form, is_sequence_scheduled: checked })}
+              />
+
+              <Switch
+                label="Mensajes Individuales"
+                subtitle="Permite el envío programado de mensajes sueltos"
+                checked={form.is_individual_scheduled}
+                onChange={(checked) => setForm({ ...form, is_individual_scheduled: checked })}
+              />
+
+              {(form.is_sequence_scheduled || form.is_individual_scheduled) && (
+                <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Input
+                    label="Hora de Inicio Diaria"
+                    type="time"
+                    value={form.sequence_start_time}
+                    onChange={(e) => setForm({ ...form, sequence_start_time: e.target.value })}
+                    icon={Zap}
+                  />
+                </div>
+              )}
             </div>
           </div>
-
-          <div className="space-y-4 border-t border-border pt-4">
-            <Switch
-              label="Envío de Secuencia Diaria"
-              subtitle="Dispara todos los mensajes de secuencia a la hora fijada"
-              checked={form.is_sequence_scheduled}
-              onChange={(checked) => setForm({ ...form, is_sequence_scheduled: checked })}
-            />
-
-            <Switch
-              label="Mensajes Individuales"
-              subtitle="Permite el envío programado de mensajes sueltos"
-              checked={form.is_individual_scheduled}
-              onChange={(checked) => setForm({ ...form, is_individual_scheduled: checked })}
-            />
-
-            {(form.is_sequence_scheduled || form.is_individual_scheduled) && (
-              <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                <Input
-                  label="Hora de Inicio Diaria"
-                  type="time"
-                  value={form.sequence_start_time}
-                  onChange={(e) => setForm({ ...form, sequence_start_time: e.target.value })}
-                  icon={Zap}
-                />
-              </div>
-            )}
-          </div>
-        </div>
+        )}
 
         <div className="pt-4">
           <Button 
             type="submit" 
             className="w-full" 
             loading={loading || isCheckingSlug}
-            icon={Save}
+            disabled={isCreationBlocked}
+            icon={isCreationBlocked ? Lock : Save}
             size="lg"
           >
-            {catalogId ? 'Guardar Cambios' : 'Crear Catálogo'}
+            {catalogId
+              ? 'Guardar Cambios'
+              : isCreationBlocked
+              ? 'Creación Desactivada por Admin'
+              : 'Crear Catálogo'}
           </Button>
         </div>
       </form>

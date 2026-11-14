@@ -11,20 +11,31 @@ import {
   AlertCircle,
   Key,
   Trash2,
-  Lock
+  Lock,
+  Store
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
+import { Switch } from '../../components/ui/Switch';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { toast } from 'react-hot-toast';
 import type { AuthRole } from '../../types/auth';
 
 export const UsersPage = () => {
-  const { users, loading, getUsers, updateUserRole, updateUserPlan, deleteUser, changePassword } = useAdminUserStore();
+  const { users, loading, getUsers, updateUserRole, updateUserPlan, toggleUserCatalogCreation, deleteUser, changePassword } = useAdminUserStore();
   const { plans, getPlans } = usePlanStore();
+  const {
+    isGlobalCatalogCreationEnabled,
+    setGlobalCatalogCreation,
+    refresh: refreshSettings,
+    loading: settingsLoading,
+  } = useSystemSettings();
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'user' | 'admin'>('all');
+  const [updatingGlobal, setUpdatingGlobal] = useState(false);
+  const [updatingUsers, setUpdatingUsers] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     getUsers();
@@ -91,12 +102,82 @@ export const UsersPage = () => {
     }
   };
 
+  const handleToggleGlobalCatalogCreation = async (enabled: boolean) => {
+    setUpdatingGlobal(true);
+    const res = await setGlobalCatalogCreation(enabled);
+    if (res.success) {
+      toast.success(
+        enabled
+          ? 'Creación global de catálogos activada'
+          : 'Creación global de catálogos desactivada'
+      );
+    } else {
+      toast.error('Error al actualizar permiso global: ' + (res.error || 'Intente de nuevo'));
+    }
+    setUpdatingGlobal(false);
+  };
+
+  const handleToggleUserCatalogCreation = async (userId: string, canCreate: boolean) => {
+    setUpdatingUsers((prev) => ({ ...prev, [userId]: true }));
+    try {
+      await toggleUserCatalogCreation(userId, canCreate);
+      await refreshSettings();
+      toast.success(
+        canCreate
+          ? 'Creación de catálogos activada para este usuario'
+          : 'Creación de catálogos desactivada para este usuario'
+      );
+    } catch (err: any) {
+      toast.error('Error al actualizar permiso del usuario: ' + (err?.message || 'Intente de nuevo'));
+    } finally {
+      setUpdatingUsers((prev) => ({ ...prev, [userId]: false }));
+    }
+  };
+
   return (
     <div className="p-4 max-w-lg mx-auto pb-24 space-y-6 animate-in fade-in duration-500">
       <PageHeader 
         title="Usuarios" 
         subtitle="Gestión de Roles y Planes" 
       />
+
+      {/* Control Global de Creación de Catálogos */}
+      <div
+        className={`card p-3.5 border transition-all ${
+          isGlobalCatalogCreationEnabled
+            ? 'bg-emerald-500/5 border-emerald-500/20'
+            : 'bg-red-500/5 border-red-500/30'
+        }`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className={`p-2 rounded-xl flex-shrink-0 ${
+                isGlobalCatalogCreationEnabled
+                  ? 'bg-emerald-500/15 text-emerald-500'
+                  : 'bg-red-500/15 text-red-500'
+              }`}
+            >
+              {isGlobalCatalogCreationEnabled ? <Store size={16} /> : <Lock size={16} />}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-primary leading-tight">
+                Creación global de catálogos: {isGlobalCatalogCreationEnabled ? 'Activada' : 'Desactivada'}
+              </p>
+              <p className="text-[11px] text-secondary mt-0.5 leading-snug">
+                {isGlobalCatalogCreationEnabled
+                  ? 'Aplica a todos los usuarios salvo los bloqueados individualmente abajo.'
+                  : 'Todos los usuarios (excepto admins) tienen la creación desactivada.'}
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={isGlobalCatalogCreationEnabled}
+            onChange={handleToggleGlobalCatalogCreation}
+            disabled={settingsLoading || updatingGlobal}
+          />
+        </div>
+      </div>
 
       {/* Filtros y Búsqueda */}
       <div className="flex flex-col gap-4">
@@ -221,6 +302,47 @@ export const UsersPage = () => {
                      <span>Estado: {user.plan !== 'free' ? 'Suscrito' : 'Gratuito'}</span>
                    </div>
                 </div>
+              </div>
+
+              {/* Control individual de creación de catálogos */}
+              <div className="pt-3 border-t border-border/50">
+                {user.role === 'admin' ? (
+                  <div className="flex items-center gap-2 text-[11px] text-blue-500 font-semibold">
+                    <Shield size={13} />
+                    <span>Admin: Creación siempre habilitada</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-primary">
+                          Creación de Catálogos
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
+                            user.can_create_catalogs !== false
+                              ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                              : 'bg-red-500/10 text-red-500 border-red-500/20'
+                          }`}
+                        >
+                          {user.can_create_catalogs !== false ? 'Permitido' : 'Desactivado'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-secondary mt-0.5">
+                        {user.can_create_catalogs === false
+                          ? 'El usuario no podrá crear nuevos catálogos.'
+                          : !isGlobalCatalogCreationEnabled
+                          ? 'Permitido individualmente, pero el ajuste global está desactivado.'
+                          : 'El usuario puede crear catálogos dentro de su plan.'}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={user.can_create_catalogs !== false}
+                      onChange={(checked) => handleToggleUserCatalogCreation(user.id, checked)}
+                      disabled={Boolean(updatingUsers[user.id])}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           ))
