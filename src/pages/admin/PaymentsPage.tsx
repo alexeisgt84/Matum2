@@ -7,7 +7,6 @@ import { Button } from '../../components/ui/Button';
 import { 
   Check, 
   X, 
-  ArrowLeft, 
   User, 
   Phone, 
   Calendar, 
@@ -89,18 +88,11 @@ export const PaymentsPage = () => {
 
   return (
     <div className="p-4 max-w-lg mx-auto pb-24 space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center gap-2">
-        <button 
-          onClick={() => navigate('/admin')}
-          className="p-2 hover:bg-surface-hover rounded-xl text-secondary hover:text-primary transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <PageHeader 
-          title="Validar Pagos" 
-          subtitle="Comprobantes Pendientes"
-        />
-      </div>
+      <PageHeader 
+        title="Validar Pagos" 
+        subtitle="Comprobantes Pendientes"
+        onBack={() => navigate('/admin')}
+      />
 
       {loading && pendingTransactions.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 text-secondary space-y-2">

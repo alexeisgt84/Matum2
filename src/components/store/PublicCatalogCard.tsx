@@ -163,10 +163,7 @@ export const PublicCatalogCard: React.FC<PublicCatalogCardProps> = ({
           </div>
 
           {/* Nombre y eslogan */}
-          <h3
-            className="font-display text-base font-bold text-primary group-hover:text-accent transition-colors truncate"
-            style={{ color: catalog.title_color || undefined }}
-          >
+          <h3 className="font-display text-base font-bold text-primary group-hover:text-accent transition-colors truncate">
             {catalog.name}
           </h3>
 

@@ -8,7 +8,7 @@ export const AppHeader = () => {
   const { title: contextTitle, subtitle, rightAction, onBack } = useHeader();
 
   const getTitle = (path: string) => {
-    if (path === '/catalogs') return 'Tus Catálogos';
+    if (path === '/catalogs') return 'Mis Catálogos';
     if (path === '/followed-catalogs') return 'Catálogos Seguidos';
     if (path === '/profile') return 'Mi Perfil';
     if (path.includes('/settings')) return 'Configuración';

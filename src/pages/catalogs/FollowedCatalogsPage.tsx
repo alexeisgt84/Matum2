@@ -28,8 +28,7 @@ import {
   ExternalLink,
   Search,
   ArrowUpDown,
-  Sparkles,
-  UserPlus
+  Sparkles
 } from 'lucide-react';
 import { useCollaboration } from '../../hooks/useCollaboration';
 import { PublicCatalogPage } from './PublicCatalogPage';
@@ -591,13 +590,14 @@ export const FollowedCatalogsPage = () => {
             subtitle="Monitorea e Importa Tiendas"
             rightAction={
               <Button
-                variant="secondary"
                 size="sm"
                 icon={Plus}
                 onClick={() => setIsFollowModalOpen(true)}
-                className="!p-2 h-9 w-9 rounded-xl flex items-center justify-center border-border/80 text-primary hover:bg-surface-hover"
                 title="Seguir catálogo"
-              />
+                className="shadow-md shadow-accent/20"
+              >
+                Nuevo
+              </Button>
             }
           />
 
@@ -669,6 +669,8 @@ export const FollowedCatalogsPage = () => {
               icon={Bookmark}
               title="No sigues ningún catálogo"
               description="Ingresa el código de seguimiento de otro catálogo para poder seguirlo e importar sus productos."
+              actionLabel="Seguir catálogo"
+              onAction={() => setIsFollowModalOpen(true)}
             />
           ) : (
             <div className="space-y-4">
@@ -748,7 +750,9 @@ export const FollowedCatalogsPage = () => {
                         Productos encontrados ({filteredAndSortedGlobalProducts.length})
                       </h2>
                       {filteredAndSortedGlobalProducts.length > 0 && (
-                        <button 
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           onClick={() => {
                             const visibleIds = filteredAndSortedGlobalProducts.map(p => p.id);
                             const areAllVisibleSelected = visibleIds.every(id => selectedProductIds.includes(id));
@@ -766,10 +770,10 @@ export const FollowedCatalogsPage = () => {
                               });
                             }
                           }}
-                          className="text-[10px] bg-surface-hover hover:bg-surface text-secondary hover:text-primary px-3 py-1.5 rounded-xl border border-border transition-all font-bold uppercase tracking-wider"
+                          className="text-[10px] font-bold uppercase tracking-wider"
                         >
                           {filteredAndSortedGlobalProducts.every(p => selectedProductIds.includes(p.id)) ? 'Ninguno' : 'Todos'}
-                        </button>
+                        </Button>
                       )}
                     </div>
 
@@ -1109,16 +1113,18 @@ export const FollowedCatalogsPage = () => {
               
               {catalogProducts.length > 0 && (
                 <div className="flex gap-2">
-                  <button 
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={handleSelectAll}
-                    className="text-[10px] bg-surface-hover hover:bg-surface text-secondary hover:text-primary px-3 py-1.5 rounded-xl border border-border transition-all font-bold uppercase tracking-wider"
+                    className="text-[10px] font-bold uppercase tracking-wider"
                   >
                     {filteredAndSortedProducts.every(p => selectedProductIds.includes(p.id)) ? 'Ninguno' : 'Todos'}
-                  </button>
+                  </Button>
                   <Button 
                     size="sm" 
                     onClick={handleOpenImportModal}
-                    className="px-4 shadow-lg shadow-accent/15"
+                    className="px-4 shadow-md shadow-accent/20"
                     disabled={selectedProductIds.length === 0}
                   >
                     Importar ({selectedProductIds.length})

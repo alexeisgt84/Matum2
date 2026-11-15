@@ -70,7 +70,8 @@ export const PlansPage = () => {
             size="sm"
             icon={Plus}
             onClick={handleCreate}
-            className="rounded-xl px-4"
+            title="Nuevo plan"
+            className="shadow-md shadow-accent/20"
           >
             Nuevo
           </Button>

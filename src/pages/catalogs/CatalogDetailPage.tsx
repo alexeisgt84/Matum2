@@ -2041,7 +2041,7 @@ export const CatalogDetailPage = () => {
                     size="sm" 
                     icon={Plus}
                     onClick={() => setIsLinkGroupOpen(true)}
-                    className="bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 border-white/5"
+                    className="bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)]/20 border-[var(--accent)]/20"
                   >
                     Vincular más grupos
                   </Button>

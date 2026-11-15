@@ -12,7 +12,6 @@ import {
   Sparkles, 
   Clock, 
   UploadCloud, 
-  ArrowLeft, 
   AlertCircle,
   LayoutGrid,
   ShoppingBag,
@@ -156,18 +155,11 @@ export const SubscriptionPage: React.FC = () => {
 
   return (
     <div className="p-4 max-w-lg mx-auto pb-24 space-y-6 animate-in fade-in duration-500">
-      <div className="flex items-center gap-2">
-        <button 
-          onClick={() => navigate('/profile')}
-          className="p-2 hover:bg-surface-hover rounded-xl text-secondary hover:text-primary transition-colors"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <PageHeader 
-          title="Mi Suscripción" 
-          subtitle="Planes y Estado de Cuenta"
-        />
-      </div>
+      <PageHeader 
+        title="Mi Suscripción" 
+        subtitle="Planes y Estado de Cuenta"
+        onBack={() => navigate('/profile')}
+      />
 
       {/* 1. Plan actual del usuario */}
       <div className="card p-5 border-border bg-gradient-to-br from-surface to-surface-hover/30 space-y-4">

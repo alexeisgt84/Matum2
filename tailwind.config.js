@@ -54,6 +54,10 @@ export default {
         secondary: 'color-mix(in srgb, var(--text-secondary) calc(100% * <alpha-value>), transparent)',
         accent: 'var(--accent)',
         'accent-hover': 'var(--accent-hover)',
+        'accent-text': 'var(--accent-text)',
+        'accent-foreground': 'var(--accent-text)',
+        danger: 'color-mix(in srgb, var(--danger) calc(100% * <alpha-value>), transparent)',
+        'danger-hover': 'color-mix(in srgb, var(--danger-hover) calc(100% * <alpha-value>), transparent)',
       },
       screens: {
         'xs': '400px',

@@ -106,7 +106,7 @@ export const CatalogsPage = () => {
   ];
 
   return (
-    <div className="p-3 max-w-lg mx-auto pb-20 space-y-4">
+    <div className="p-4 max-w-lg mx-auto pb-24 space-y-5">
       {/* Encabezado */}
       <PageHeader
         title="Mis Catálogos"

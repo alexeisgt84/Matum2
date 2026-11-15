@@ -1849,17 +1849,13 @@ export const CatalogSettingsPage = () => {
                   ))}
                 </div>
               ) : linkedGroups.length === 0 ? (
-                <div className="p-8 text-center bg-surface-hover/10 rounded-2xl border border-dashed border-border/80">
-                  <Users size={32} className="text-secondary mx-auto mb-2 opacity-50" />
-                  <p className="text-xs text-primary font-bold">Sin grupos vinculados</p>
-                  <p className="text-[10px] text-secondary mt-1">Vincula los grupos de WhatsApp donde deseas enviar este catálogo.</p>
-                  <Button 
-                    className="mt-4 px-6 text-xs bg-[var(--accent)]/15 border-transparent text-[var(--accent)] hover:bg-[var(--accent)]/25" 
-                    onClick={() => setIsLinkGroupOpen(true)}
-                  >
-                    Vincular primer grupo
-                  </Button>
-                </div>
+                <EmptyState
+                  icon={Users}
+                  title="Sin grupos vinculados"
+                  description="Vincula los grupos de WhatsApp donde deseas enviar este catálogo."
+                  actionLabel="Vincular primer grupo"
+                  onAction={() => setIsLinkGroupOpen(true)}
+                />
               ) : (
                 <div className="grid grid-cols-1 gap-3 mt-4">
                   {linkedGroups.map(group => (
@@ -2282,8 +2278,10 @@ export const CatalogSettingsPage = () => {
                     />
                     <Button
                       type="button"
-                      size="sm"
-                      disabled={addingAffiliateLoading || !affiliatePhoneInput.trim()}
+                      size="md"
+                      icon={UserPlus}
+                      loading={addingAffiliateLoading}
+                      disabled={!affiliatePhoneInput.trim()}
                       onClick={async () => {
                         if (!catalogId || !affiliatePhoneInput.trim()) return;
                         setAddingAffiliateLoading(true);
@@ -2291,9 +2289,8 @@ export const CatalogSettingsPage = () => {
                         if (ok) setAffiliatePhoneInput('');
                         setAddingAffiliateLoading(false);
                       }}
-                      className="whitespace-nowrap text-xs font-bold bg-accent hover:bg-accent/90 text-accent-foreground px-3 h-9"
+                      className="whitespace-nowrap h-9 px-3"
                     >
-                      <UserPlus size={14} className="mr-1" />
                       Agregar
                     </Button>
                   </div>
@@ -2436,10 +2433,12 @@ export const CatalogSettingsPage = () => {
 
             <Button
               type="submit"
-              disabled={savingAffiliates}
-              className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-bold py-3 rounded-xl shadow-lg shadow-accent/20 transition-all flex items-center justify-center gap-2"
+              size="lg"
+              icon={Save}
+              loading={savingAffiliates}
+              className="w-full py-4 font-bold"
             >
-              {savingAffiliates ? 'Guardando...' : 'Guardar Configuración de Afiliados'}
+              Guardar Configuración de Afiliados
             </Button>
           </form>
         )}

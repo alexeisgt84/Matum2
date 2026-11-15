@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { toast } from 'react-hot-toast';
 import { 
   Server, 
@@ -17,7 +18,6 @@ import {
   EyeOff, 
   Save, 
   X, 
-  ArrowLeft, 
   Copy, 
   Check, 
   Loader2 
@@ -223,15 +223,16 @@ export const EvolutionServersPage = () => {
       <PageHeader
         title="Servidores"
         subtitle="Mantenimiento de Evolution API"
+        onBack={() => navigate('/admin')}
         rightAction={
           <Button
-            variant="ghost"
             size="sm"
-            icon={ArrowLeft}
-            onClick={() => navigate('/admin')}
-            className="rounded-xl px-3 border border-border"
+            icon={Plus}
+            onClick={openCreateModal}
+            title="Agregar servidor"
+            className="shadow-md shadow-accent/20"
           >
-            Volver
+            Nuevo
           </Button>
         }
       />
@@ -240,14 +241,6 @@ export const EvolutionServersPage = () => {
         <h3 className="text-[10px] font-bold text-secondary uppercase tracking-widest ml-1">
           Nodos de Conexión
         </h3>
-        <Button
-          size="sm"
-          icon={Plus}
-          onClick={openCreateModal}
-          className="rounded-xl py-2 px-3 text-xs"
-        >
-          Agregar Servidor
-        </Button>
       </div>
 
       {/* Lista de Servidores */}
@@ -258,12 +251,13 @@ export const EvolutionServersPage = () => {
             <span className="text-[10px] text-secondary font-bold uppercase tracking-widest">Cargando servidores...</span>
           </div>
         ) : servers.length === 0 ? (
-          <div className="py-20 text-center space-y-4 bg-surface/30 rounded-3xl border border-dashed border-border">
-            <div className="w-16 h-16 bg-surface-hover rounded-full flex items-center justify-center mx-auto text-secondary/30">
-               <Server size={32} />
-            </div>
-            <p className="text-secondary font-medium italic text-xs">No hay servidores configurados.</p>
-          </div>
+          <EmptyState
+            icon={Server}
+            title="Sin servidores configurados"
+            description="Agrega un nodo de Evolution API para habilitar la conexión con WhatsApp."
+            actionLabel="Agregar Servidor"
+            onAction={openCreateModal}
+          />
         ) : (
           servers.map((server) => {
             const isRevealed = !!revealedKeys[server.id];
