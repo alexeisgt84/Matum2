@@ -42,7 +42,7 @@ describe('usePublicCatalogs hook', () => {
         slug: 'tienda-electronica',
         logo_url: 'https://example.com/logo.jpg',
         cover_url: null,
-        primary_color: '#ff782e',
+        primary_color: '#6c38ff',
         background_color: '#000000',
         surface_color: '#1a1a1a',
         text_color: '#ffffff',

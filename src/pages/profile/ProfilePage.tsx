@@ -231,7 +231,7 @@ export const ProfilePage = () => {
 
           {/* Footer */}
           <div className="pt-8 text-center text-secondary text-[9px] uppercase tracking-widest font-medium opacity-60">
-            Nazzar v1.0.0
+            Nazaar v1.0.0
           </div>
         </div>
       )}

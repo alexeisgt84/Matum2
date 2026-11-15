@@ -19,9 +19,11 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { Switch } from '../../components/ui/Switch';
+import { Modal } from '../../components/ui/Modal';
+import { Button } from '../../components/ui/Button';
 import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { toast } from 'react-hot-toast';
-import type { AuthRole } from '../../types/auth';
+import type { AuthRole, AuthUser } from '../../types/auth';
 
 export const UsersPage = () => {
   const { users, loading, getUsers, updateUserRole, updateUserPlan, toggleUserCatalogCreation, deleteUser, changePassword } = useAdminUserStore();
@@ -36,6 +38,10 @@ export const UsersPage = () => {
   const [filterRole, setFilterRole] = useState<'all' | 'user' | 'admin'>('all');
   const [updatingGlobal, setUpdatingGlobal] = useState(false);
   const [updatingUsers, setUpdatingUsers] = useState<Record<string, boolean>>({});
+  const [passwordTargetUser, setPasswordTargetUser] = useState<AuthUser | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     getUsers();
@@ -85,20 +91,45 @@ export const UsersPage = () => {
     }
   };
 
-  const handleChangePassword = async (userId: string) => {
-    const newPassword = prompt('Ingresa la nueva contraseña para el usuario:');
-    if (newPassword) {
-      if (newPassword.length < 6) {
-        return toast.error('La contraseña debe tener al menos 6 caracteres');
-      }
-      
-      const toastId = toast.loading('Actualizando contraseña...');
-      try {
-        await changePassword(userId, newPassword);
-        toast.success('Contraseña actualizada correctamente', { id: toastId });
-      } catch (err: any) {
-        toast.error('Error al actualizar contraseña: ' + err.message, { id: toastId });
-      }
+  const openChangePasswordModal = (user: AuthUser) => {
+    setPasswordTargetUser(user);
+    setNewPassword('');
+    setConfirmNewPassword('');
+  };
+
+  const closeChangePasswordModal = () => {
+    if (changingPassword) return;
+    setPasswordTargetUser(null);
+    setNewPassword('');
+    setConfirmNewPassword('');
+  };
+
+  const handleChangePasswordSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!passwordTargetUser) return;
+
+    if (newPassword.length < 6) {
+      toast.error('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      toast.error('Las contraseñas no coinciden');
+      return;
+    }
+
+    setChangingPassword(true);
+    const toastId = toast.loading('Actualizando contraseña...');
+    try {
+      await changePassword(passwordTargetUser.id, newPassword);
+      toast.success('Contraseña actualizada correctamente', { id: toastId });
+      setPasswordTargetUser(null);
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (err: any) {
+      toast.error('Error al actualizar contraseña: ' + (err?.message || 'Intente de nuevo'), { id: toastId });
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -192,19 +223,19 @@ export const UsersPage = () => {
         <div className="flex gap-2 p-1 bg-surface/50 border border-border rounded-xl w-fit">
           <button
             onClick={() => setFilterRole('all')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filterRole === 'all' ? 'bg-accent text-black shadow-lg shadow-accent/20' : 'text-secondary hover:text-primary'}`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filterRole === 'all' ? 'bg-accent text-accent-text shadow-lg shadow-accent/20' : 'text-secondary hover:text-primary'}`}
           >
             Todos
           </button>
           <button
             onClick={() => setFilterRole('user')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filterRole === 'user' ? 'bg-accent text-black shadow-lg shadow-accent/20' : 'text-secondary hover:text-primary'}`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filterRole === 'user' ? 'bg-accent text-accent-text shadow-lg shadow-accent/20' : 'text-secondary hover:text-primary'}`}
           >
             Usuarios
           </button>
           <button
             onClick={() => setFilterRole('admin')}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filterRole === 'admin' ? 'bg-accent text-black shadow-lg shadow-accent/20' : 'text-secondary hover:text-primary'}`}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${filterRole === 'admin' ? 'bg-accent text-accent-text shadow-lg shadow-accent/20' : 'text-secondary hover:text-primary'}`}
           >
             Admins
           </button>
@@ -263,7 +294,7 @@ export const UsersPage = () => {
                    </button>
                    
                    <button 
-                    onClick={() => handleChangePassword(user.id)}
+                    onClick={() => openChangePasswordModal(user)}
                     className="p-2 rounded-xl bg-surface-hover text-secondary border border-transparent hover:border-border hover:text-accent transition-all"
                     title="Cambiar Contraseña"
                    >
@@ -348,6 +379,53 @@ export const UsersPage = () => {
           ))
         )}
       </div>
+
+      <Modal
+        isOpen={Boolean(passwordTargetUser)}
+        onClose={closeChangePasswordModal}
+        title="Cambiar Contraseña"
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeChangePasswordModal} disabled={changingPassword}>
+              Cancelar
+            </Button>
+            <Button onClick={() => handleChangePasswordSubmit()} loading={changingPassword} icon={Key}>
+              Actualizar
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleChangePasswordSubmit} className="space-y-4">
+          <p className="text-secondary text-sm">
+            Establece una nueva contraseña para{' '}
+            <span className="font-semibold text-primary">
+              {passwordTargetUser?.nombre || passwordTargetUser?.phone || 'este usuario'}
+            </span>
+            {passwordTargetUser?.nombre && passwordTargetUser?.phone ? ` (${passwordTargetUser.phone})` : ''}.
+          </p>
+
+          <Input
+            type="password"
+            label="Nueva Contraseña"
+            placeholder="Mínimo 6 caracteres"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            icon={Lock}
+            autoFocus
+            required
+          />
+
+          <Input
+            type="password"
+            label="Confirmar Contraseña"
+            placeholder="Repite la nueva contraseña"
+            value={confirmNewPassword}
+            onChange={(e) => setConfirmNewPassword(e.target.value)}
+            icon={Lock}
+            required
+          />
+        </form>
+      </Modal>
     </div>
   );
 };

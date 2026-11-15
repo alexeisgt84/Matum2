@@ -26,12 +26,23 @@ function App() {
   }, [initListener]);
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
+    const handleOnline = () => {
+      setIsOnline(true);
+      void useAuthStore.getState().refreshSessionIfNeeded();
+    };
     const handleOffline = () => setIsOnline(false);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void useAuthStore.getState().refreshSessionIfNeeded();
+      }
+    };
     const handleNetworkStatus = (e: Event) => {
       const custom = e as CustomEvent<{ online: boolean }>;
       if (custom.detail && typeof custom.detail.online === 'boolean') {
         setIsOnline(custom.detail.online);
+        if (custom.detail.online) {
+          void useAuthStore.getState().refreshSessionIfNeeded();
+        }
       } else {
         setIsOnline(!isOffline());
       }
@@ -40,10 +51,12 @@ function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     window.addEventListener('matum:network-status', handleNetworkStatus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('matum:network-status', handleNetworkStatus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

@@ -88,7 +88,7 @@ export const EditProfilePage = () => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 p-3 bg-accent text-black rounded-2xl shadow-lg hover:scale-110 transition-transform"
+                className="absolute bottom-0 right-0 p-3 bg-accent text-accent-text rounded-2xl shadow-lg hover:scale-110 transition-transform"
                 title="Cambiar avatar en el Studio de Imágenes"
               >
                 <Camera size={20} />

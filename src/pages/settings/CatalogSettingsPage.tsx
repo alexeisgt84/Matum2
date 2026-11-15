@@ -328,11 +328,11 @@ export const CatalogSettingsPage = () => {
     is_sequence_scheduled: false,
     is_individual_scheduled: false,
     sequence_start_time: '09:00',
-    primary_color: '#ff782e',
-    background_color: '#0a0a0a',
-    surface_color: '#1a1a1a',
-    text_color: '#ffffff',
-    title_color: '#ffffff',
+    primary_color: '#6c38ff',
+    background_color: '#090812',
+    surface_color: '#131122',
+    text_color: '#f8f7ff',
+    title_color: '#f8f7ff',
     footer_address: '',
     footer_phone: '',
     footer_email: '',
@@ -513,11 +513,11 @@ export const CatalogSettingsPage = () => {
           is_sequence_scheduled: data.is_sequence_scheduled ?? false,
           is_individual_scheduled: data.is_individual_scheduled ?? false,
           sequence_start_time: data.sequence_start_time || '09:00',
-          primary_color: data.primary_color || '#ff782e',
-          background_color: data.background_color || '#0a0a0a',
-          surface_color: data.surface_color || '#1a1a1a',
-          text_color: data.text_color || '#ffffff',
-          title_color: data.title_color || '#ffffff',
+          primary_color: data.primary_color || '#6c38ff',
+          background_color: data.background_color || '#090812',
+          surface_color: data.surface_color || '#131122',
+          text_color: data.text_color || '#f8f7ff',
+          title_color: data.title_color || '#f8f7ff',
           footer_address: data.footer_address || '',
           footer_phone: data.footer_phone || '',
           footer_email: data.footer_email || '',
@@ -1257,7 +1257,7 @@ export const CatalogSettingsPage = () => {
                   </Select>
                   <p className="text-[11px] text-secondary leading-relaxed">
                     {storeForm.catalog_type === 'marketplace'
-                      ? 'Este catálogo funciona como grupo tipo Nazaar: puedes vincularlo en NazzarListener a un grupo de WhatsApp para escuchar y publicar productos con contacto directo del vendedor.'
+                      ? 'Este catálogo funciona como grupo tipo Nazaar: puedes vincularlo en NazaarListener a un grupo de WhatsApp para escuchar y publicar productos con contacto directo del vendedor.'
                       : 'Catálogo estándar administrado por su propietario.'}
                   </p>
                 </div>
@@ -1360,11 +1360,11 @@ export const CatalogSettingsPage = () => {
                   onClick={() => {
                     setStoreForm(prev => ({
                       ...prev,
-                      primary_color: '#ff782e',
-                      background_color: '#0a0a0a',
-                      surface_color: '#1a1a1a',
-                      title_color: '#ffffff',
-                      text_color: '#ffffff'
+                      primary_color: '#6c38ff',
+                      background_color: '#090812',
+                      surface_color: '#131122',
+                      title_color: '#f8f7ff',
+                      text_color: '#f8f7ff'
                     }));
                     toast.success('Colores restablecidos a los predeterminados');
                   }}
@@ -1386,7 +1386,7 @@ export const CatalogSettingsPage = () => {
                   <div className="flex items-center gap-2 bg-surface-hover/50 p-2 rounded-xl border border-border focus-within:border-[var(--accent)] transition-colors">
                     <input
                       type="color"
-                      value={/^#[0-9A-Fa-f]{6}$/i.test(storeForm.primary_color) ? storeForm.primary_color : '#ff782e'}
+                      value={/^#[0-9A-Fa-f]{6}$/i.test(storeForm.primary_color) ? storeForm.primary_color : '#6c38ff'}
                       onChange={(e) => setStoreForm(prev => ({ ...prev, primary_color: e.target.value }))}
                       className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0 p-0 flex-shrink-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-lg"
                     />
@@ -1398,7 +1398,7 @@ export const CatalogSettingsPage = () => {
                         if (val.length > 0 && !val.startsWith('#')) val = '#' + val;
                         setStoreForm(prev => ({ ...prev, primary_color: val }));
                       }}
-                      placeholder="#FF782E"
+                      placeholder="#6C38FF"
                       maxLength={7}
                       className="w-full bg-transparent font-mono text-[11px] font-bold uppercase text-primary border-none p-0 focus:outline-none focus:ring-0 placeholder:text-secondary/40"
                     />

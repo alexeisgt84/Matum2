@@ -419,16 +419,27 @@ export const CatalogDetailPage = () => {
 
 
   const [isEnsuringCatalog, setIsEnsuringCatalog] = useState(false);
+  const ensuredCatalogRef = useRef<string | null>(null);
 
-  // Asegurar que existe el item de catálogo en la secuencia
+  // Asegurar que existe el item de catálogo en la secuencia (solo una vez por catálogo y si es propietario)
   useEffect(() => {
-    if (catalogId && !msgLoading && !isEnsuringCatalog && !isOffline()) {
+    if (
+      catalogId &&
+      catalog &&
+      user &&
+      catalog.user_id === user.id &&
+      !msgLoading &&
+      !isEnsuringCatalog &&
+      ensuredCatalogRef.current !== catalogId &&
+      !isOffline()
+    ) {
       const hasCatalogItem = messages.some(m => m.type === 'catalog_products');
       if (!hasCatalogItem) {
+        ensuredCatalogRef.current = catalogId;
         const createCatalogItem = async () => {
           setIsEnsuringCatalog(true);
           try {
-            await supabase.from('whatsapp_messages').insert([{
+            const { error } = await supabase.from('whatsapp_messages').insert([{
               catalog_id: catalogId,
               name: 'Catálogo',
               content: 'Productos del catálogo',
@@ -437,15 +448,19 @@ export const CatalogDetailPage = () => {
               is_individual: false,
               sequence_order: messages.length
             }]);
-            await getMessages();
+            if (!error) {
+              await getMessages();
+            }
           } finally {
             setIsEnsuringCatalog(false);
           }
         };
         createCatalogItem();
+      } else {
+        ensuredCatalogRef.current = catalogId;
       }
     }
-  }, [catalogId, messages, msgLoading, getMessages, isEnsuringCatalog]);
+  }, [catalogId, catalog, user, messages, msgLoading, getMessages, isEnsuringCatalog]);
 
   // Configurar el Header
   useEffect(() => {
@@ -1375,7 +1390,7 @@ export const CatalogDetailPage = () => {
           <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-300">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-7 h-7 rounded-full bg-accent text-black flex items-center justify-center font-bold text-xs shadow-lg shadow-accent/20 tabular-nums">
+                <div className="w-7 h-7 rounded-full bg-accent text-accent-text flex items-center justify-center font-bold text-xs shadow-lg shadow-accent/20 tabular-nums">
                   {selectedProductIds.length + selectedMessageIds.length}
                 </div>
                 <div>
@@ -1877,7 +1892,7 @@ export const CatalogDetailPage = () => {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)] hover:text-black border-[var(--accent)]/30 px-4 py-5 rounded-xl text-[10px] font-bold uppercase tracking-widest"
+                className="bg-[var(--accent)]/10 text-[var(--accent)] hover:bg-[var(--accent)] hover:text-accent-text border-[var(--accent)]/30 px-4 py-5 rounded-xl text-[10px] font-bold uppercase tracking-widest"
                 icon={Send} 
                 loading={sendingIds.has(`catalog_${catalogId}`)}
                 onClick={() => catalogId && sendCatalogToGroups(catalogId)}

@@ -75,9 +75,9 @@ export const ThemePreviewCard: React.FC<ThemePreviewCardProps> = ({
   onFixField,
 }) => {
   const warnings = checkThemeContrast(theme);
-  const bg = theme.background_color || '#0a0a0a';
-  const surface = theme.surface_color || '#1a1a1a';
-  const accent = theme.primary_color || '#ff782e';
+  const bg = theme.background_color || '#090812';
+  const surface = theme.surface_color || '#131122';
+  const accent = theme.primary_color || '#6c38ff';
   const text = theme.text_color || getContrastColor(bg);
   const title = theme.title_color || text;
 

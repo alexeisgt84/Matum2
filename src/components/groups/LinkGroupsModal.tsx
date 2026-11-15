@@ -105,7 +105,7 @@ export const LinkGroupsModal: React.FC<LinkGroupsModalProps> = ({
                 </div>
                 <button
                   onClick={() => onLink(group)}
-                  className="p-2 bg-[var(--accent)]/10 text-[var(--accent)] rounded-lg hover:bg-[var(--accent)] hover:text-black transition-all flex-shrink-0"
+                  className="p-2 bg-[var(--accent)]/10 text-[var(--accent)] rounded-lg hover:bg-[var(--accent)] hover:text-accent-text transition-all flex-shrink-0"
                 >
                   <Plus size={18} />
                 </button>

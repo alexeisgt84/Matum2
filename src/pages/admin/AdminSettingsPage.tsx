@@ -106,10 +106,10 @@ export const AdminSettingsPage = () => {
               type="text"
               value={appUrl}
               onChange={(e) => setAppUrl(e.target.value)}
-              placeholder="nazzar.shop"
+              placeholder="nazaar.shop"
               icon={Globe}
               disabled={loading || saving}
-              helperText="El dominio que se utilizará para generar y compartir los enlaces de las tiendas públicas (ej. nazzar.shop)."
+              helperText="El dominio que se utilizará para generar y compartir los enlaces de las tiendas públicas (ej. nazaar.shop)."
               required
             />
 

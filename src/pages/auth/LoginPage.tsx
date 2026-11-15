@@ -14,7 +14,8 @@ export const LoginPage = () => {
   const { login, loading, error } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirect = searchParams.get('redirect');
+  const rawRedirect = searchParams.get('redirect');
+  const redirect = rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +114,9 @@ export const LoginPage = () => {
                 Regístrate ahora
               </Link>
             </p>
+            <Link to="/" className="mt-3 inline-block text-xs text-secondary hover:text-primary transition-colors">
+              ← Explorar tiendas sin iniciar sesión
+            </Link>
           </div>
         </div>
       </div>

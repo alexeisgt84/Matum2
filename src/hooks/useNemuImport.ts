@@ -112,7 +112,7 @@ export const useNemuImport = (catalogId?: string) => {
                 }
             }
 
-            // 2. Insertar o actualizar en Nazzar
+            // 2. Insertar o actualizar en Nazaar
             if (existingProduct) {
                 const { error: updateError } = await supabase
                     .from('products')

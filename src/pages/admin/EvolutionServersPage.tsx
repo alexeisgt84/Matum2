@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { LoadingScreen } from '../../components/ui/AnimatedLogo';
 import { toast } from 'react-hot-toast';
 import { 
   Server, 
@@ -246,10 +247,7 @@ export const EvolutionServersPage = () => {
       {/* Lista de Servidores */}
       <div className="space-y-4">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <Loader2 className="w-8 h-8 text-accent animate-spin" />
-            <span className="text-[10px] text-secondary font-bold uppercase tracking-widest">Cargando servidores...</span>
-          </div>
+          <LoadingScreen fullScreen={false} size="sm" label="Cargando servidores..." className="py-20" />
         ) : servers.length === 0 ? (
           <EmptyState
             icon={Server}
@@ -449,7 +447,7 @@ export const EvolutionServersPage = () => {
                 placeholder="https://evolution.dominio.com"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                helperText="URL base del servidor de Evolution API (ej: https://api.nazzar.shop)."
+                helperText="URL base del servidor de Evolution API (ej: https://api.nazaar.shop)."
                 required
                 disabled={saving}
                 type="url"

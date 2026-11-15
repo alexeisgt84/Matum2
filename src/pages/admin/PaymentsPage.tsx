@@ -4,6 +4,7 @@ import { usePlanStore } from '../../store/planStore';
 import { useSubscriptionStore } from '../../store/subscriptionStore';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
+import { LoadingScreen } from '../../components/ui/AnimatedLogo';
 import { 
   Check, 
   X, 
@@ -95,10 +96,7 @@ export const PaymentsPage = () => {
       />
 
       {loading && pendingTransactions.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-12 text-secondary space-y-2">
-          <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs">Cargando pagos pendientes...</span>
-        </div>
+        <LoadingScreen fullScreen={false} size="sm" label="Cargando pagos pendientes..." className="p-12" />
       ) : (
         <div className="space-y-4">
           {pendingTransactions.length === 0 ? (

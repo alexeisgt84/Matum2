@@ -330,7 +330,7 @@ export const CatalogFormPage = () => {
               </Select>
               <p className="text-[11px] text-secondary leading-relaxed">
                 {form.catalog_type === 'marketplace'
-                  ? 'Los catálogos tipo Nazaar permiten recibir productos desde un grupo de WhatsApp en NazzarListener, manteniendo el contacto de cada vendedor y permitiéndoles gestionar su propio stock.'
+                  ? 'Los catálogos tipo Nazaar permiten recibir productos desde un grupo de WhatsApp en NazaarListener, manteniendo el contacto de cada vendedor y permitiéndoles gestionar su propio stock.'
                   : 'Catálogo estándar administrado por su propietario.'}
               </p>
             </div>

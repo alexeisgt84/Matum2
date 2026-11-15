@@ -16,34 +16,34 @@
 
   :root {
     color-scheme: dark;
-    --background: #0a0a0a;
-    --surface: #1a1a1a;
-    --surface-hover: #242424;
-    --border: #262626;
-    --text-primary: #ffffff;
-    --text-secondary: #a0a0a0;
-    --accent: #ff782e;
-    --accent-hover: #e66420;
-    --accent-text: #000000;
+    --background: #090812;
+    --surface: #131122;
+    --surface-hover: #1d1a33;
+    --border: #2a2547;
+    --text-primary: #f8f7ff;
+    --text-secondary: #a49ec4;
+    --accent: #6c38ff;
+    --accent-hover: #5419fd;
+    --accent-text: #ffffff;
     --danger: #ef4444;
     --danger-hover: #dc2626;
-    --card-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.25);
+    --card-shadow: 0 4px 12px -2px rgba(9, 8, 18, 0.45);
   }
 
   :root.light {
     color-scheme: light;
-    --background: #f8f9fa;
+    --background: #f7f6fc;
     --surface: #ffffff;
-    --surface-hover: #e9ecef;
-    --border: #dee2e6;
-    --text-primary: #212529;
-    --text-secondary: #495057;
-    --accent: #ff782e;
-    --accent-hover: #e66420;
-    --accent-text: #000000;
+    --surface-hover: #efecfa;
+    --border: #e2dcf5;
+    --text-primary: #16122b;
+    --text-secondary: #5f5980;
+    --accent: #5419fd;
+    --accent-hover: #4312d6;
+    --accent-text: #ffffff;
     --danger: #ef4444;
     --danger-hover: #dc2626;
-    --card-shadow: 0 2px 5px -1px rgba(0, 0, 0, 0.08);
+    --card-shadow: 0 2px 6px -1px rgba(22, 18, 43, 0.07);
   }
 
   body {
@@ -66,7 +66,7 @@
   }
 
   .btn-whatsapp {
-    @apply bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-black font-bold py-2 px-4 text-xs rounded-lg transition-colors disabled:opacity-50;
+    @apply bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-accent-text font-bold py-2 px-4 text-xs rounded-lg transition-colors disabled:opacity-50;
   }
 }
 
@@ -92,6 +92,53 @@
     animation: none !important;
     transition: none !important;
   }
+
+  .nazaar-logo-float,
+  .nazaar-logo-halo,
+  .nazaar-logo-ring {
+    animation: none !important;
+  }
+}
+
+@keyframes nazaarLogoFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-4px) scale(1.04);
+  }
+}
+
+@keyframes nazaarLogoHalo {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.12);
+  }
+}
+
+@keyframes nazaarLogoRing {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.nazaar-logo-float {
+  animation: nazaarLogoFloat 2.2s ease-in-out infinite;
+}
+
+.nazaar-logo-halo {
+  animation: nazaarLogoHalo 2.2s ease-in-out infinite;
+}
+
+.nazaar-logo-ring {
+  animation: nazaarLogoRing 1.4s linear infinite;
 }
 
 /* Custom Scrollbar */

@@ -1,9 +1,18 @@
 import { create } from 'zustand';
 
+export type ThemeMode = 'dark' | 'light';
+
+/** Resuelve el tema inicial desde localStorage, usando 'light' por defecto. */
+export const getInitialTheme = (): ThemeMode => {
+  if (typeof localStorage === 'undefined') return 'light';
+  const saved = localStorage.getItem('theme');
+  return saved === 'dark' || saved === 'light' ? saved : 'light';
+};
+
 interface AppState {
   user: any | null;
   loading: boolean;
-  theme: 'dark' | 'light';
+  theme: ThemeMode;
   setUser: (user: any) => void;
   setLoading: (loading: boolean) => void;
   toggleTheme: () => void;
@@ -12,12 +21,14 @@ interface AppState {
 export const useStore = create<AppState>((set) => ({
   user: null,
   loading: false,
-  theme: (localStorage.getItem('theme') as 'dark' | 'light') || 'dark',
+  theme: getInitialTheme(),
   setUser: (user) => set({ user }),
   setLoading: (loading) => set({ loading }),
   toggleTheme: () => set((state) => {
-    const newTheme = state.theme === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('theme', newTheme);
+    const newTheme: ThemeMode = state.theme === 'dark' ? 'light' : 'dark';
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('theme', newTheme);
+    }
     return { theme: newTheme };
   }),
 }));

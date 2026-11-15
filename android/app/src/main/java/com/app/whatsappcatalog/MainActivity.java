@@ -36,7 +36,7 @@ public class MainActivity extends BridgeActivity {
         String action = intent.getAction();
         String type = intent.getType();
 
-        Log.d("NazzarShare", "handleIntent action: " + action + ", type: " + type);
+        Log.d("NazaarShare", "handleIntent action: " + action + ", type: " + type);
 
         if (Intent.ACTION_SEND.equals(action)) {
             JSObject data = new JSObject();
@@ -101,7 +101,7 @@ public class MainActivity extends BridgeActivity {
 
             return tempFile.getAbsolutePath();
         } catch (Exception e) {
-            Log.e("NazzarShare", "Error saving shared image", e);
+            Log.e("NazaarShare", "Error saving shared image", e);
             return null;
         }
     }
@@ -122,7 +122,7 @@ public class MainActivity extends BridgeActivity {
                     plugin.triggerShareEvent(sharedData);
                 }
             } catch (Exception e) {
-                Log.e("NazzarShare", "Error notifying share event", e);
+                Log.e("NazaarShare", "Error notifying share event", e);
             }
         }
     }

@@ -93,7 +93,7 @@ export const ScheduleSequenceModal: React.FC<ScheduleSequenceModalProps> = ({
               }`}
             >
               <div className="flex items-center gap-4">
-                <div className={`p-2 rounded-xl ${schedule.enabled ? 'bg-accent text-black' : 'bg-surface text-secondary'}`}>
+                <div className={`p-2 rounded-xl ${schedule.enabled ? 'bg-accent text-accent-text' : 'bg-surface text-secondary'}`}>
                   <Clock size={20} />
                 </div>
                 <div className="flex flex-col">

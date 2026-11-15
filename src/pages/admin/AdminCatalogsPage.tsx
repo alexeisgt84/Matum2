@@ -511,7 +511,7 @@ export const AdminCatalogsPage: React.FC = () => {
                             <Phone size={12} className="text-secondary/70 flex-shrink-0" />
                             <a
                               href={`https://wa.me/${ownerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                                `Hola ${ownerName}, te contacto desde la administración de Matum con relación a tu catálogo "${catalog.name}".`
+                                `Hola ${ownerName}, te contacto desde la administración de Nazaar con relación a tu catálogo "${catalog.name}".`
                               )}`}
                               target="_blank"
                               rel="noreferrer"

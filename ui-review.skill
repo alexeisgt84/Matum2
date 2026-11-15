@@ -1,6 +1,6 @@
 # Web Interface Guidelines Skill
 
-Este archivo contiene las directrices de diseño y accesibilidad para revisar las interfaces del proyecto Nazzar.
+Este archivo contiene las directrices de diseño y accesibilidad para revisar las interfaces del proyecto Nazaar.
 
 ## Accesibilidad
 - Los botones que solo tienen iconos necesitan un `aria-label`.

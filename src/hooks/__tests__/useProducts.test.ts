@@ -17,6 +17,11 @@ vi.mock('../../lib/supabase', () => {
   return {
     supabase: {
       from: vi.fn().mockReturnValue(queryBuilder),
+      auth: {
+        onAuthStateChange: vi.fn().mockReturnValue({
+          data: { subscription: { unsubscribe: vi.fn() } },
+        }),
+      },
       _queryBuilder: queryBuilder,
     },
   };

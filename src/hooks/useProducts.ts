@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/authStore';
 import type { Product, ProductForm } from '../types/product';
 import { toast } from 'react-hot-toast';
 import { optimizeImage, blobToFile } from '../lib/imageOptimizer';
@@ -229,10 +230,32 @@ export const useProducts = (
     }
   }, [getProducts, hasMore]);
 
+  const ensureActiveSession = async (): Promise<void> => {
+    if (typeof supabase.auth?.getSession !== 'function') return;
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    let session = sessionData?.session ?? null;
+
+    const expiresSoon =
+      typeof session?.expires_at === 'number' &&
+      session.expires_at * 1000 - Date.now() < 60_000;
+
+    if ((!session?.access_token || expiresSoon || sessionError) && typeof supabase.auth?.refreshSession === 'function') {
+      const refreshed = await supabase.auth.refreshSession();
+      session = refreshed?.data?.session ?? null;
+    }
+
+    if (!session?.access_token) {
+      await useAuthStore.getState().logout();
+      throw new Error('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+    }
+  };
+
   const saveProduct = async (form: ProductForm, id?: string, file?: File): Promise<Product | null> => {
     if (!catalogId) return null;
     setLoading(true);
     try {
+      await ensureActiveSession();
+
       let imagen_url = form.imagen_url;
 
       if (file) {
@@ -245,12 +268,32 @@ export const useProducts = (
         const fileName = `${catalogId}/${Date.now()}.jpg`;
         const optimizedFile = blobToFile(optimizedBlob, fileName);
 
-        const { error: uploadError } = await supabase.storage
+        let { error: uploadError } = await supabase.storage
           .from('products')
           .upload(fileName, optimizedFile, {
             contentType: 'image/jpeg',
             upsert: true,
           });
+
+        if (
+          uploadError &&
+          /row-level security|unauthorized|jwt/i.test(uploadError.message || '') &&
+          typeof supabase.auth?.refreshSession === 'function'
+        ) {
+          const refreshed = await supabase.auth.refreshSession();
+          if (refreshed?.data?.session?.access_token) {
+            const retryRes = await supabase.storage
+              .from('products')
+              .upload(fileName, optimizedFile, {
+                contentType: 'image/jpeg',
+                upsert: true,
+              });
+            uploadError = retryRes.error;
+          } else {
+            await useAuthStore.getState().logout();
+            throw new Error('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+          }
+        }
 
         if (uploadError) {
           console.error('Upload Error:', uploadError);

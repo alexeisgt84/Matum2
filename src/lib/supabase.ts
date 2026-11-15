@@ -108,11 +108,80 @@ const customFetch: typeof fetch = async (input, init) => {
   }
 };
 
+const authLocks = new Map<string, Promise<unknown>>();
+
+/**
+ * Lock en memoria por nombre para serializar operaciones concurrentes de Auth
+ * dentro de la misma pestaña o WebView.
+ */
+const inMemoryAuthLock = async <R>(
+  name: string,
+  fn: () => Promise<R>
+): Promise<R> => {
+  const prev = authLocks.get(name) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const chained = prev.then(() => current, () => current);
+  authLocks.set(name, chained);
+  await prev.catch(() => {});
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (authLocks.get(name) === chained) {
+      authLocks.delete(name);
+    }
+  }
+};
+
+/**
+ * Lock híbrido multi-pestaña: usa navigator.locks con timeout seguro para coordinar
+ * refresh_token entre pestañas del mismo navegador y evitar revocaciones por doble uso,
+ * con fallback a inMemoryAuthLock en entornos sin LockManager o si el navegador lo bloquea.
+ */
+const crossTabAuthLock = async <R>(
+  name: string,
+  acquireTimeout: number,
+  fn: () => Promise<R>
+): Promise<R> => {
+  return inMemoryAuthLock(name, async () => {
+    if (typeof navigator === 'undefined' || !navigator.locks?.request) {
+      return fn();
+    }
+
+    const timeoutMs =
+      typeof acquireTimeout === 'number' && acquireTimeout > 0
+        ? Math.min(acquireTimeout, 5000)
+        : 5000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      return await navigator.locks.request(
+        `matum-auth:${name}`,
+        { signal: controller.signal },
+        async () => {
+          clearTimeout(timer);
+          return fn();
+        }
+      );
+    } catch (err: any) {
+      clearTimeout(timer);
+      if (err?.name === 'AbortError' || err?.name === 'NotSupportedError' || err?.name === 'SecurityError') {
+        return fn();
+      }
+      throw err;
+    }
+  });
+};
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    lock: async (_name, _acquireTimeout, fn) => fn(),
+    lock: crossTabAuthLock,
   },
   global: {
     fetch: customFetch,

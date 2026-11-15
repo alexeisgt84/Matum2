@@ -33,6 +33,7 @@ import {
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
+import { LoadingScreen } from '../../components/ui/AnimatedLogo';
 import { Switch } from '../../components/ui/Switch';
 import { CategoryIcon } from '../../components/ui/CategoryIcon';
 import { StoreHero } from '../../components/store/StoreHero';
@@ -88,6 +89,8 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   const [productsLoading, setProductsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingProduct, setEditingProduct] = useState<PublicProduct | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   const isMarketplace = Boolean(
     catalog?.catalog_type === 'marketplace' ||
@@ -241,6 +244,90 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       checkAffiliateStatus(catalog.id, user.id);
     }
   }, [catalog?.id, user?.id, checkAffiliateStatus]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkFollowing = async () => {
+      if (!catalog?.id || !user?.id || catalog.user_id === user.id || isOffline()) {
+        setIsFollowing(false);
+        return;
+      }
+      try {
+        const { data } = await supabase
+          .from('followed_catalogs')
+          .select('id, status')
+          .eq('catalog_id', catalog.id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (!cancelled) {
+          setIsFollowing(data?.status === 'accepted');
+        }
+      } catch {
+        // Ignorar errores silenciosamente al verificar seguimiento inicial
+      }
+    };
+    checkFollowing();
+    return () => {
+      cancelled = true;
+    };
+  }, [catalog?.id, catalog?.user_id, user?.id]);
+
+  const handleToggleFollow = async () => {
+    if (!user || !catalog?.id || isCatalogOwner || followLoading) return;
+    if (isOffline()) {
+      toast.error('Necesitas conexión a internet para actualizar tu seguimiento');
+      return;
+    }
+
+    setFollowLoading(true);
+    try {
+      if (isFollowing) {
+        const { error: deleteError } = await supabase
+          .from('followed_catalogs')
+          .delete()
+          .eq('catalog_id', catalog.id)
+          .eq('user_id', user.id);
+
+        if (deleteError) throw deleteError;
+        setIsFollowing(false);
+        toast.success(`Dejaste de seguir "${catalog.name}"`);
+      } else {
+        const { data: existing } = await supabase
+          .from('followed_catalogs')
+          .select('id, status')
+          .eq('catalog_id', catalog.id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (existing?.id) {
+          if (existing.status !== 'accepted') {
+            const { error: updateError } = await supabase
+              .from('followed_catalogs')
+              .update({ status: 'accepted' })
+              .eq('id', existing.id);
+            if (updateError) throw updateError;
+          }
+        } else {
+          const { error: insertError } = await supabase
+            .from('followed_catalogs')
+            .insert({
+              user_id: user.id,
+              catalog_id: catalog.id,
+              status: 'accepted',
+            });
+          if (insertError) throw insertError;
+        }
+
+        setIsFollowing(true);
+        toast.success(`Ahora sigues a "${catalog.name}"`);
+      }
+    } catch (err: any) {
+      toast.error('Error al actualizar seguimiento: ' + (err?.message || 'Inténtalo de nuevo'));
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
   // Registrar vista de la tienda en analytics
   useEffect(() => {
@@ -423,7 +510,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         }
 
         let vPhone = catData.footer_phone || '';
-        let vName = 'Vendedor Nazzar';
+        let vName = 'Vendedor Nazaar';
         let vPlan = 'free';
         if (!userResult.error && userResult.data) {
           vPhone = userResult.data.phone || vPhone;
@@ -662,11 +749,11 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   ) => {
     if (cart.length === 0 || !catalog) return;
 
-    let messageText = `🛒 *Nuevo Pedido - Nazzar*\n`;
+    let messageText = `🛒 *Nuevo Pedido - Nazaar*\n`;
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
     messageText += `*Tienda:* ${catalog.name}\n`;
     if (slug) {
-      const currentHost = typeof window !== 'undefined' ? window.location.host : 'nazzar.shop';
+      const currentHost = typeof window !== 'undefined' ? window.location.host : 'nazaar.shop';
       messageText += `*Enlace:* ${currentHost}/${slug}\n`;
     }
     messageText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -834,7 +921,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       const baseUrl =
         typeof window !== 'undefined'
           ? `${window.location.protocol}//${window.location.host}`
-          : 'https://nazzar.shop';
+          : 'https://nazaar.shop';
       const refParam = activeRef ? `?ref=${activeRef}` : '';
       messageText += `🔗 *Enlace del producto:* ${baseUrl}/${slug}/p/${product.id}${refParam}\n`;
     }
@@ -884,12 +971,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 font-store">
-        <div className="w-7 h-7 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-secondary text-xs font-medium animate-pulse">Cargando tienda…</p>
-      </div>
-    );
+    return <LoadingScreen label="Cargando tienda…" className="font-store" />;
   }
 
   if (error || !catalog) {
@@ -906,7 +988,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         </p>
         <Link to="/login">
           <Button variant="secondary" size="sm" icon={ArrowLeft}>
-            Volver a Nazzar
+            Volver a Nazaar
           </Button>
         </Link>
       </div>
@@ -945,6 +1027,12 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
               }
             }
           },
+        }}
+        follow={{
+          canFollow: !!user && !isCatalogOwner,
+          isFollowing,
+          loading: followLoading,
+          onToggle: handleToggleFollow,
         }}
       />
 

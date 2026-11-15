@@ -15,6 +15,9 @@ import {
   Coins,
   ChevronRight,
   Package,
+  LogIn,
+  Plus,
+  Bookmark,
 } from 'lucide-react';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { Button } from '../../components/ui/Button';
@@ -95,13 +98,13 @@ export const DashboardPage = () => {
             )}
           </div>
           <div className="absolute -bottom-1 -right-1 w-4.5 h-4.5 bg-accent rounded-md border-2 border-background flex items-center justify-center">
-            <Rocket size={9} className="text-black" />
+            <Rocket size={9} className="text-accent-text" />
           </div>
         </div>
 
         <div className="flex-1 min-w-0 space-y-0.5">
           <h1 className="text-xl font-black text-primary tracking-tight leading-none truncate">
-            Hola, {user?.nombre?.split(' ')[0] || 'Capi'}
+            {user ? `Hola, ${user.nombre?.split(' ')[0] || 'Capi'}` : 'Bienvenido a Nazaar'}
           </h1>
           <p className="text-secondary text-[10px] font-bold uppercase tracking-[0.1em]">
             Explora tiendas y catálogos
@@ -109,6 +112,17 @@ export const DashboardPage = () => {
         </div>
 
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          {!user && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={LogIn}
+              onClick={() => navigate('/login?redirect=/')}
+              className="h-9 px-3 rounded-xl text-xs font-bold"
+            >
+              Entrar
+            </Button>
+          )}
           {user?.role === 'admin' && (
             <Button
               variant="ghost"
@@ -132,8 +146,45 @@ export const DashboardPage = () => {
         </div>
       </header>
 
+      {/* Invitación compacta para visitantes sin cuenta */}
+      {!user && (
+        <section className="p-3.5 rounded-2xl bg-surface border border-border space-y-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-primary">
+              Explora libremente. Inicia sesión solo si quieres:
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/catalogs/new')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-accent/10 text-accent hover:bg-accent/15 text-[11px] font-semibold transition-colors"
+            >
+              <Plus size={13} />
+              <span>Crear catálogo</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/followed-catalogs')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-surface-hover text-primary hover:border-accent/40 border border-border text-[11px] font-semibold transition-colors"
+            >
+              <Bookmark size={13} />
+              <span>Ser miembro</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/profile/affiliates')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/15 text-[11px] font-semibold transition-colors"
+            >
+              <Coins size={13} />
+              <span>Plan de afiliación</span>
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Aviso compacto de productos compartidos en espera */}
-      {sharedContentList.length > 0 && (
+      {user && sharedContentList.length > 0 && (
         <button
           type="button"
           onClick={() => navigate('/catalogs')}

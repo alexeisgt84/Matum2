@@ -17,7 +17,7 @@ export interface CatalogCreationPermissionResult {
 }
 
 const DEFAULT_SETTINGS: Record<string, string> = {
-  app_url: 'nazzar.shop',
+  app_url: 'nazaar.shop',
   allow_user_catalog_creation: 'true',
   disabled_catalog_creation_users: '[]',
 };

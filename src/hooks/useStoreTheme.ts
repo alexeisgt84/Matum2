@@ -43,13 +43,13 @@ export const STORE_THEME_PRESETS: StoreThemePreset[] = [
   {
     id: 'noir',
     name: 'Noir',
-    subtitle: 'Oscuro Nazzar',
+    subtitle: 'Oscuro Nazaar',
     colors: {
-      primary_color: '#ff782e',
-      background_color: '#0a0a0a',
-      surface_color: '#1a1a1a',
-      title_color: '#ffffff',
-      text_color: '#ffffff',
+      primary_color: '#6c38ff',
+      background_color: '#090812',
+      surface_color: '#131122',
+      title_color: '#f8f7ff',
+      text_color: '#f8f7ff',
     },
   },
   {
@@ -103,9 +103,9 @@ export const STORE_THEME_PRESETS: StoreThemePreset[] = [
 ];
 
 export const DEFAULT_STORE_COLORS = {
-  primary: '#ff782e',
-  background: '#0a0a0a',
-  surface: '#1a1a1a',
+  primary: '#6c38ff',
+  background: '#090812',
+  surface: '#131122',
 } as const;
 
 const HEX6 = /^#[0-9A-F]{6}$/i;

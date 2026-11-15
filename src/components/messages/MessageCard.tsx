@@ -57,11 +57,11 @@ export const MessageCard: React.FC<MessageCardProps> = ({
         onClick={() => onSelect?.(message.id)}
         className={`absolute -top-1.5 -left-1.5 z-20 w-5 h-5 rounded-full border flex items-center justify-center transition-all shadow ${
           isSelected 
-            ? 'bg-accent border-accent text-black scale-105' 
+            ? 'bg-accent border-accent text-accent-text scale-105' 
             : 'bg-surface border-border text-transparent opacity-0 group-hover:opacity-100 hover:border-accent'
         }`}
       >
-        <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-black' : 'bg-transparent'}`} />
+        <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-accent-text' : 'bg-transparent'}`} />
       </button>
 
       {/* Línea Superior: Botones de Acción */}
@@ -127,7 +127,7 @@ export const MessageCard: React.FC<MessageCardProps> = ({
           </div>
         ) : (
           <div className={`p-2 rounded-lg flex-shrink-0 ${
-            isCatalog ? 'bg-accent text-black' :
+            isCatalog ? 'bg-accent text-accent-text' :
             message.type === 'text' ? 'bg-blue-500/10 text-blue-500' :
             message.type === 'image' ? 'bg-purple-500/10 text-purple-500' :
             message.type === 'button' ? 'bg-amber-500/10 text-amber-500' :

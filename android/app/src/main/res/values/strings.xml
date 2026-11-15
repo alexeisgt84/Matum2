@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Nazzar</string>
-    <string name="title_activity_main">Nazzar</string>
+    <string name="app_name">Nazaar</string>
+    <string name="title_activity_main">Nazaar</string>
     <string name="package_name">com.app.whatsappcatalog</string>
     <string name="custom_url_scheme">com.app.whatsappcatalog</string>
 </resources>

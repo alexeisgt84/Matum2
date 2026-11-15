@@ -177,11 +177,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         onClick={() => onSelect?.(product.id)}
         className={`absolute -top-1.5 -left-1.5 z-20 w-5 h-5 rounded-full border flex items-center justify-center transition-all shadow ${
           isSelected 
-            ? 'bg-accent border-accent text-black scale-105' 
+            ? 'bg-accent border-accent text-accent-text scale-105' 
             : 'bg-surface border-border text-transparent opacity-0 group-hover:opacity-100 hover:border-accent'
         }`}
       >
-        <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-black' : 'bg-transparent'}`} />
+        <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-accent-text' : 'bg-transparent'}`} />
       </button>
 
       {/* Línea Superior: Botones de Acción */}

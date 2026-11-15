@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom';
 import App from '../App';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { RegisterPage } from '../pages/auth/RegisterPage';
@@ -28,23 +28,23 @@ import { useAuthStore } from '../store/authStore';
 import { ErrorPage } from '../pages/ErrorPage';
 import { PublicCatalogPage } from '../pages/catalogs/PublicCatalogPage';
 import { PublicProductPage } from '../pages/catalogs/PublicProductPage';
+import { LoadingScreen } from '../components/ui/AnimatedLogo';
 
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loadUser, isInitialized } = useAuthStore();
-  
+  const location = useLocation();
+
   useEffect(() => {
     if (!isInitialized) loadUser();
   }, [isInitialized, loadUser]);
 
-  if (!isInitialized) return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="w-8 h-8 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-    </div>
-  );
+  if (!isInitialized) return <LoadingScreen />;
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    const target = `${location.pathname}${location.search}${location.hash}`;
+    const loginPath = target && target !== '/' ? `/login?redirect=${encodeURIComponent(target)}` : '/login';
+    return <Navigate to={loginPath} replace />;
   }
   return <>{children}</>;
 };
@@ -52,7 +52,7 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isInitialized } = useAuthStore();
   
-  if (!isInitialized) return null;
+  if (!isInitialized) return <LoadingScreen />;
   if (!user || user.role !== 'admin') {
     return <Navigate to="/" replace />;
   }
@@ -70,7 +70,7 @@ export const router = createBrowserRouter([
       { path: 'forgot-password', element: <ForgotPasswordPage /> },
       {
         path: '',
-        element: <PrivateRoute><DashboardPage /></PrivateRoute>,
+        element: <DashboardPage />,
       },
       {
         path: 'catalogs',

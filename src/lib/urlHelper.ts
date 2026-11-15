@@ -26,5 +26,5 @@ export function getAppBaseUrl(appUrlSetting?: string): string {
   }
 
   // 3. Fallback predeterminado
-  return 'https://nazzar.shop';
+  return 'https://nazaar.shop';
 }

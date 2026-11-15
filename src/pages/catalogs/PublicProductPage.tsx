@@ -32,6 +32,7 @@ import { buildWhatsAppUrl, isSamePhone } from '../../lib/whatsapp';
 import { toggleMarketplaceStock } from '../../lib/marketplace';
 import { MarketplaceProductEditModal } from '../../components/store/MarketplaceProductEditModal';
 import { applyStoreSeo } from '../../lib/seo';
+import { LoadingScreen } from '../../components/ui/AnimatedLogo';
 import {
   isOffline,
   isNetworkError,
@@ -459,14 +460,14 @@ export const PublicProductPage: React.FC = () => {
       localStorage.getItem('matum_active_ref');
     const orderRef = 'ORD-' + Math.random().toString(36).substring(2, 7).toUpperCase();
 
-    let messageText = `🛍️ *Nuevo Pedido - Nazzar*\n`;
+    let messageText = `🛍️ *Nuevo Pedido - Nazaar*\n`;
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
     messageText += `*Tienda:* ${catalog.name}\n`;
     if (slug) {
       const baseUrl =
         typeof window !== 'undefined'
           ? `${window.location.protocol}//${window.location.host}`
-          : 'https://nazzar.shop';
+          : 'https://nazaar.shop';
       const refParam = activeRef ? `?ref=${activeRef}` : '';
       messageText += `*Enlace del producto:* ${baseUrl}/${slug}/p/${product.id}${refParam}\n`;
     }
@@ -541,12 +542,7 @@ export const PublicProductPage: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 font-store">
-        <div className="w-10 h-10 border-3 border-[var(--accent)] border-t-transparent rounded-full animate-spin mb-3.5" />
-        <p className="text-secondary text-xs font-semibold animate-pulse tracking-wide">Cargando producto…</p>
-      </div>
-    );
+    return <LoadingScreen label="Cargando producto…" className="font-store" />;
   }
 
   if (error || !product || !catalog) {

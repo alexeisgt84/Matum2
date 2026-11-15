@@ -253,7 +253,7 @@ export const StoreFooter: React.FC<StoreFooterProps> = ({
         <span>
           © {new Date().getFullYear()} {catalog.name}
         </span>
-        <span className="opacity-75">Tienda creada con Nazzar</span>
+        <span className="opacity-75">Tienda creada con Nazaar</span>
       </div>
     </footer>
   );

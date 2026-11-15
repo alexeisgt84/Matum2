@@ -1,11 +1,22 @@
 import { create } from 'zustand';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import type { AuthUser, LoginForm, RegisterForm } from '../types/auth';
 import { phoneToEmail } from '../lib/authHelpers';
-import { isOffline, cacheImageUrls } from '../lib/offlineCache';
+import { isOffline, isNetworkError, cacheImageUrls } from '../lib/offlineCache';
 
 const CACHED_USER_KEY = 'matum_cached_user';
 let isExplicitLogout = false;
+let lastProactiveRefreshAt = 0;
+
+const notifySessionExpired = () => {
+  if (typeof window !== 'undefined') {
+    toast.error('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.', {
+      id: 'session-expired',
+      duration: 5000,
+    });
+  }
+};
 
 const saveCachedUser = (user: AuthUser | null) => {
   try {
@@ -74,6 +85,7 @@ interface AuthState {
   register: (data: RegisterForm) => Promise<void>;
   logout: () => Promise<void>;
   loadUser: () => Promise<void>;
+  refreshSessionIfNeeded: () => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
   setError: (error: string | null) => void;
   isInitialized: boolean;
@@ -226,11 +238,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } = sessionResult;
 
       if (error) {
-        if (cachedUser) {
-          // Nunca cerrar la sesión local del usuario por fallos de token o de red
+        if (cachedUser && (isOffline() || isNetworkError(error))) {
+          // Mantener la sesión local solo si el fallo se debe a falta de red o modo offline
           set({ user: cachedUser, loading: false, isInitialized: true });
           return;
         }
+        if (cachedUser) {
+          notifySessionExpired();
+        }
+        saveCachedUser(null);
         set({ user: null, loading: false, isInitialized: true });
         return;
       }
@@ -265,10 +281,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         saveCachedUser(authUser);
         set({ user: authUser, loading: false, isInitialized: true });
-      } else if (cachedUser) {
-        // Mantener la sesión guardada en el dispositivo aunque el token de Supabase haya expirado estando sin conexión
+      } else if (cachedUser && isOffline()) {
+        // Mantener la sesión guardada en el dispositivo únicamente si está sin conexión
         set({ user: cachedUser, loading: false, isInitialized: true });
       } else {
+        if (cachedUser) {
+          notifySessionExpired();
+        }
+        saveCachedUser(null);
         set({ user: null, loading: false, isInitialized: true });
       }
     } catch (err) {
@@ -280,6 +300,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: null, loading: false, isInitialized: true });
     } finally {
       set({ loading: false, isInitialized: true });
+    }
+  },
+
+  refreshSessionIfNeeded: async () => {
+    const currentUser = get().user;
+    if (!currentUser || isOffline()) return;
+
+    const now = Date.now();
+    if (now - lastProactiveRefreshAt < 30_000) return;
+    lastProactiveRefreshAt = now;
+
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        if (isNetworkError(error)) return;
+        notifySessionExpired();
+        saveCachedUser(null);
+        set({ user: null, loading: false, isInitialized: true });
+        return;
+      }
+
+      if (!session) {
+        if (typeof supabase.auth.refreshSession === 'function') {
+          const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+          if (refreshed?.session) return;
+          if (refreshErr && isNetworkError(refreshErr)) return;
+        }
+        notifySessionExpired();
+        saveCachedUser(null);
+        set({ user: null, loading: false, isInitialized: true });
+        return;
+      }
+
+      const expiresAtMs = typeof session.expires_at === 'number' ? session.expires_at * 1000 : 0;
+      const shouldRefresh = expiresAtMs > 0 && expiresAtMs - now < 10 * 60_000;
+      if (shouldRefresh && typeof supabase.auth.refreshSession === 'function') {
+        await supabase.auth.refreshSession();
+      }
+    } catch (err) {
+      if (!isNetworkError(err)) {
+        console.warn('[AuthStore] Error al verificar sesión activa:', err);
+      }
     }
   },
 
@@ -300,15 +362,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 }));
 
 // Suscribirse a cambios de estado de autenticación de Supabase de forma global
-supabase.auth.onAuthStateChange(async (event, session) => {
+if (typeof supabase.auth?.onAuthStateChange === 'function') {
+  supabase.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_OUT') {
-    // Solo cerrar sesión si el usuario pulsó explícitamente "Cerrar Sesión" (logout)
-    if (!isExplicitLogout) {
+    const hadUser = Boolean(getCachedUser() || useAuthStore.getState().user);
+    // En modo offline se conserva la caché de lectura, pero con conexión un SIGNED_OUT indica sesión revocada o expirada
+    if (!isExplicitLogout && isOffline()) {
       const preservedUser = getCachedUser() || useAuthStore.getState().user;
       if (preservedUser) {
         useAuthStore.setState({ user: preservedUser, loading: false, isInitialized: true });
         return;
       }
+    }
+    if (!isExplicitLogout && hadUser) {
+      notifySessionExpired();
     }
     saveCachedUser(null);
     useAuthStore.setState({ user: null, loading: false, isInitialized: true });
@@ -362,4 +429,5 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       }, 0);
     }
   }
-});
+  });
+}

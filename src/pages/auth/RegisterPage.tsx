@@ -13,7 +13,8 @@ export const RegisterPage = () => {
   const { register, loading, error, setError } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const redirect = searchParams.get('redirect');
+  const rawRedirect = searchParams.get('redirect');
+  const redirect = rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : null;
 
   React.useEffect(() => {
     // Limpiar errores previos al montar el componente
@@ -115,6 +116,9 @@ export const RegisterPage = () => {
               Inicia sesión
             </Link>
           </p>
+          <Link to="/" className="mt-3 inline-block text-xs text-secondary hover:text-primary transition-colors">
+            ← Explorar tiendas sin iniciar sesión
+          </Link>
         </div>
       </div>
     </div>

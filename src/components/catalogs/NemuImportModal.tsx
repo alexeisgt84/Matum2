@@ -128,7 +128,7 @@ export const NemuImportModal: React.FC<NemuImportModalProps> = ({ isOpen, onClos
                 Se vincularán {productsToImport.length} productos
               </h3>
               <p className="text-sm text-secondary leading-relaxed">
-                Se sincronizarán los textos (nombre, descripción), precios, monedas e imágenes principales con tu catálogo de Nazzar.
+                Se sincronizarán los textos (nombre, descripción), precios, monedas e imágenes principales con tu catálogo de Nazaar.
               </p>
             </div>
 

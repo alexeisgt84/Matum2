@@ -28,8 +28,8 @@ dist-ssr
 *.aab
 Matum-signed.apk
 Matum-signed.apk.idsig
-Nazzar-signed.apk
-Nazzar-signed.apk.idsig
+Nazaar-signed.apk
+Nazaar-signed.apk.idsig
 
 # Gemini/Agent configurations
 .agents/

@@ -19,6 +19,7 @@ vi.mock('../../lib/supabase', () => {
         signUp: vi.fn(),
         signOut: vi.fn(),
         getSession: vi.fn(),
+        refreshSession: vi.fn(),
         updateUser: vi.fn(),
         onAuthStateChange: vi.fn().mockReturnValue({
           data: { subscription: { unsubscribe: vi.fn() } },
@@ -48,7 +49,7 @@ describe('authStore', () => {
   });
 
   it('debe iniciar sesión correctamente y guardar los datos del usuario en el store', async () => {
-    const mockUser = { id: 'user-123', email: '5351234567@nazzar.shop' };
+    const mockUser = { id: 'user-123', email: '5351234567@nazaar.shop' };
     const mockProfile = {
       full_name: 'Juan Pérez',
       avatar_url: 'https://example.com/avatar.jpg',
@@ -118,5 +119,62 @@ describe('authStore', () => {
     await useAuthStore.getState().logout();
 
     expect(useAuthStore.getState().user).toBeNull();
+  });
+
+  it('limpia el usuario cacheado si loadUser verifica online que ya no hay sesión en Supabase', async () => {
+    localStorage.setItem(
+      'matum_cached_user',
+      JSON.stringify({
+        id: 'admin-1',
+        phone: '5359991976',
+        nombre: 'Admin',
+        avatar_url: null,
+        plan: 'premium',
+        role: 'admin',
+      })
+    );
+
+    (supabase.auth.getSession as any).mockResolvedValueOnce({
+      data: { session: null },
+      error: null,
+    });
+
+    await useAuthStore.getState().loadUser();
+
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(localStorage.getItem('matum_cached_user')).toBeNull();
+  });
+
+  it('refresca el token proactivamente si está por expirar en refreshSessionIfNeeded', async () => {
+    useAuthStore.setState({
+      user: {
+        id: 'admin-1',
+        phone: '5359991976',
+        nombre: 'Admin',
+        avatar_url: null,
+        plan: 'premium',
+        role: 'admin',
+      },
+      isInitialized: true,
+    });
+
+    (supabase.auth.getSession as any).mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: 'eyJ.old.sig',
+          expires_at: Math.floor(Date.now() / 1000) + 120,
+        },
+      },
+      error: null,
+    });
+    (supabase.auth.refreshSession as any).mockResolvedValueOnce({
+      data: { session: { access_token: 'eyJ.new.sig' } },
+      error: null,
+    });
+
+    await useAuthStore.getState().refreshSessionIfNeeded();
+
+    expect(supabase.auth.refreshSession).toHaveBeenCalledTimes(1);
+    expect(useAuthStore.getState().user?.id).toBe('admin-1');
   });
 });

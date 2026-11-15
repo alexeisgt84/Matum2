@@ -10,6 +10,151 @@ interface ShareOptions {
   url?: string;
   imageUrl?: string;
   imageUrls?: string[];
+  watermark?: boolean;
+}
+
+const WATERMARK_LOGO_PATH = '/icon.png';
+const WATERMARK_BRAND_TEXT = 'Nazaar';
+let cachedLogoPromise: Promise<HTMLImageElement> | null = null;
+
+function loadImageFromSrc(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`No se pudo cargar la imagen: ${src}`));
+    img.src = src;
+  });
+}
+
+function getWatermarkLogo(): Promise<HTMLImageElement> {
+  if (!cachedLogoPromise) {
+    cachedLogoPromise = loadImageFromSrc(WATERMARK_LOGO_PATH).catch((err) => {
+      cachedLogoPromise = null;
+      throw err;
+    });
+  }
+  return cachedLogoPromise;
+}
+
+function drawRoundedRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + width, y, x + width, y + height, radius);
+  ctx.arcTo(x + width, y + height, x, y + height, radius);
+  ctx.arcTo(x, y + height, x, y, radius);
+  ctx.arcTo(x, y, x + width, y, radius);
+  ctx.closePath();
+}
+
+/**
+ * Estampa una marca de agua discreta con el logo de Nazaar en la esquina inferior derecha.
+ * Si el entorno o el canvas fallan, devuelve el Blob original como fallback seguro.
+ */
+export async function applyLogoWatermark(imageBlob: Blob): Promise<Blob> {
+  if (
+    typeof document === 'undefined' ||
+    typeof URL === 'undefined' ||
+    typeof URL.createObjectURL !== 'function'
+  ) {
+    return imageBlob;
+  }
+
+  let objectUrl: string | null = null;
+  try {
+    objectUrl = URL.createObjectURL(imageBlob);
+    const [mainImg, logoImg] = await Promise.all([
+      loadImageFromSrc(objectUrl),
+      getWatermarkLogo(),
+    ]);
+
+    const width = mainImg.naturalWidth || mainImg.width;
+    const height = mainImg.naturalHeight || mainImg.height;
+    if (!width || !height) {
+      return imageBlob;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return imageBlob;
+    }
+
+    ctx.drawImage(mainImg, 0, 0, width, height);
+
+    const minSide = Math.min(width, height);
+    const logoSize = Math.max(24, Math.min(120, Math.round(minSide * 0.085)));
+    const fontSize = Math.max(13, Math.round(logoSize * 0.48));
+    const paddingX = Math.max(10, Math.round(logoSize * 0.32));
+    const paddingY = Math.max(6, Math.round(logoSize * 0.22));
+    const gap = Math.max(6, Math.round(logoSize * 0.22));
+    const margin = Math.max(12, Math.round(minSide * 0.028));
+
+    ctx.font = `700 ${fontSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    const textWidth = ctx.measureText(WATERMARK_BRAND_TEXT).width;
+
+    const badgeWidth = paddingX * 2 + logoSize + gap + textWidth;
+    const badgeHeight = logoSize + paddingY * 2;
+    const badgeX = Math.max(margin, width - badgeWidth - margin);
+    const badgeY = Math.max(margin, height - badgeHeight - margin);
+    const radius = badgeHeight / 2;
+
+    drawRoundedRectPath(ctx, badgeX, badgeY, badgeWidth, badgeHeight, radius);
+    ctx.fillStyle = 'rgba(12, 10, 24, 0.68)';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+    ctx.shadowBlur = Math.max(4, Math.round(logoSize * 0.15));
+    ctx.shadowOffsetY = 2;
+    ctx.fill();
+
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = Math.max(1, Math.round(minSide * 0.002));
+    ctx.stroke();
+
+    ctx.drawImage(logoImg, badgeX + paddingX, badgeY + paddingY, logoSize, logoSize);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(
+      WATERMARK_BRAND_TEXT,
+      badgeX + paddingX + logoSize + gap,
+      badgeY + badgeHeight / 2
+    );
+
+    const outputType = imageBlob.type === 'image/png' ? 'image/png' : 'image/jpeg';
+    const watermarkedBlob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((result) => resolve(result), outputType, 0.92);
+    });
+
+    return watermarkedBlob || imageBlob;
+  } catch (error) {
+    console.warn('Error applying logo watermark, using original image:', error);
+    return imageBlob;
+  } finally {
+    if (objectUrl && typeof URL.revokeObjectURL === 'function') {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+}
+
+async function prepareShareImageBlob(imgUrl: string, watermark: boolean): Promise<Blob | null> {
+  const rawBlob = await fetchImageBlobWithOfflineFallback(imgUrl);
+  if (!rawBlob || !rawBlob.type.startsWith('image/')) {
+    return null;
+  }
+  return watermark ? await applyLogoWatermark(rawBlob) : rawBlob;
 }
 
 async function fetchImageBlobWithOfflineFallback(imgUrl: string): Promise<Blob | null> {
@@ -36,7 +181,7 @@ async function fetchImageBlobWithOfflineFallback(imgUrl: string): Promise<Blob |
  * Fallbacks to clipboard if neither is available.
  */
 export const shareContent = async (options: ShareOptions) => {
-  const { title, text, url, imageUrl, imageUrls = [] } = options;
+  const { title, text, url, imageUrl, imageUrls = [], watermark = true } = options;
 
   // Combine single imageUrl and imageUrls array
   const allImageUrls = [...(imageUrl ? [imageUrl] : []), ...imageUrls];
@@ -69,12 +214,8 @@ export const shareContent = async (options: ShareOptions) => {
         await Promise.all(
           allImageUrls.map(async (imgUrl) => {
             try {
-              const blob = await fetchImageBlobWithOfflineFallback(imgUrl);
-              if (!blob) throw new Error('No se pudo obtener la imagen');
-
-              if (!blob.type.startsWith('image/')) {
-                throw new Error('Fetched file is not an image');
-              }
+              const blob = await prepareShareImageBlob(imgUrl, watermark);
+              if (!blob) throw new Error('No se pudo obtener una imagen válida');
 
               const base64Data = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
@@ -108,7 +249,7 @@ export const shareContent = async (options: ShareOptions) => {
       }
 
       const nativeShareOptions: any = {
-        title: title || 'Nazzar',
+        title: title || 'Nazaar',
         text: text || '',
       };
 
@@ -128,7 +269,7 @@ export const shareContent = async (options: ShareOptions) => {
     } else {
       // Browser logic (Web Share API)
       const shareData: any = {
-        title: title || 'Nazzar',
+        title: title || 'Nazaar',
         text: text || '',
       };
 
@@ -143,7 +284,7 @@ export const shareContent = async (options: ShareOptions) => {
           await Promise.all(
             allImageUrls.map(async (imgUrl) => {
               try {
-                const blob = await fetchImageBlobWithOfflineFallback(imgUrl);
+                const blob = await prepareShareImageBlob(imgUrl, watermark);
                 if (blob) {
                   const extension = blob.type.split('/')[1]?.split(';')[0] || 'jpg';
                   const file = new File(

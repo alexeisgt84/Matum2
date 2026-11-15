@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LoadingScreen } from '../../components/ui/AnimatedLogo';
 import { 
   Eye, 
   Store, 
@@ -356,9 +357,8 @@ export const ViewsAnalyticsPage: React.FC = () => {
 
         {/* Contenido según pestaña */}
         {loading ? (
-          <div className="card p-8 flex flex-col items-center justify-center gap-3">
-            <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
-            <p className="text-xs text-secondary font-medium">Calculando métricas y agrupaciones...</p>
+          <div className="card">
+            <LoadingScreen fullScreen={false} size="sm" label="Calculando métricas y agrupaciones..." />
           </div>
         ) : (
           <div>

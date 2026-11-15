@@ -231,8 +231,8 @@ export const useCollaboration = () => {
     if (!user || isOffline()) return;
     setLoading(true);
     try {
-      const cleanPhone = user.phone.replace(/\D/g, '');
-      const { data, error } = await supabase
+      const cleanPhone = (user.phone || '').replace(/\D/g, '');
+      let query = supabase
         .from('followed_catalogs')
         .select(`
           id,
@@ -243,8 +243,15 @@ export const useCollaboration = () => {
           created_at,
           catalog:catalogs(*)
         `)
-        .or(`user_id.eq.${user.id},invited_phone.eq.${cleanPhone}`)
         .eq('status', 'pending');
+
+      if (cleanPhone) {
+        query = query.or(`user_id.eq.${user.id},invited_phone.eq.${cleanPhone}`);
+      } else {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       

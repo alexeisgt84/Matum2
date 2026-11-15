@@ -1,4 +1,4 @@
-# build-apk.ps1 (Adaptado para Nazzar)
+# build-apk.ps1 (Adaptado para Nazaar)
 # Automatizacion: Build (Vite) + Sync (Capacitor) + Gradlew (Android) + Firma (apksigner)
 
 $BuildToolsPath = "C:\Users\Alexeis\AppData\Local\Android\Sdk\build-tools\36.0.0"
@@ -15,7 +15,7 @@ if ($env:JAVA_HOME -and (Test-Path "$env:JAVA_HOME\bin")) {
     $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 }
 
-Write-Host "--- Iniciando proceso integral de construccion y firma para Nazzar ---" -ForegroundColor Cyan
+Write-Host "--- Iniciando proceso integral de construccion y firma para Nazaar ---" -ForegroundColor Cyan
 
 # Cargar variables de entorno si existe .env
 if (Test-Path ".env") {
@@ -59,7 +59,7 @@ if ($LASTEXITCODE -ne 0) { Write-Error "Fallo gradle build"; exit $LASTEXITCODE 
 
 $UnsignedAPK = "android/app/build/outputs/apk/release/app-release-unsigned.apk"
 $AlignedAPK = "android/app/build/outputs/apk/release/app-release-aligned.apk"
-$SignedAPK = "Nazzar-signed.apk"
+$SignedAPK = "Nazaar-signed.apk"
 
 # 4. Alinear y Firmar
 Write-Host "[4/4] Alineando y Firmando APK..." -ForegroundColor Yellow
@@ -88,4 +88,4 @@ if (Test-Path $ApksignerTool) {
 # Limpiar APK alineado temporal
 if (Test-Path $AlignedAPK) { Remove-Item $AlignedAPK }
 
-Write-Host "EXITO! Tu app Nazzar actualizada y firmada esta lista como: $SignedAPK" -ForegroundColor Green
+Write-Host "EXITO! Tu app Nazaar actualizada y firmada esta lista como: $SignedAPK" -ForegroundColor Green

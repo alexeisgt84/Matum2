@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Coins, LogIn, MapPin, Share2, UserPlus } from 'lucide-react';
+import { ArrowLeft, Bookmark, BookmarkCheck, Clock, Coins, LogIn, MapPin, Share2, UserPlus } from 'lucide-react';
 import type { PublicCatalog } from '../../types/store';
 import { useAuthStore } from '../../store/authStore';
 import { buildWhatsAppUrl } from '../../lib/whatsapp';
@@ -21,6 +21,12 @@ interface StoreHeroProps {
     loading?: boolean;
     onApply: () => Promise<void>;
   };
+  follow?: {
+    canFollow: boolean;
+    isFollowing: boolean;
+    loading?: boolean;
+    onToggle: () => void | Promise<void>;
+  };
 }
 
 /** Cabecera principal de la tienda: portada compacta, identidad, comprador/afiliación y acciones. */
@@ -33,6 +39,7 @@ export const StoreHero: React.FC<StoreHeroProps> = ({
   onBack,
   onShare,
   affiliate,
+  follow,
 }) => {
   const { user } = useAuthStore();
   const glassButton =
@@ -176,23 +183,40 @@ export const StoreHero: React.FC<StoreHeroProps> = ({
             )}
           </div>
 
-          {/* Acciones de contacto y compartir */}
-          <div className="flex items-center gap-2 md:pb-1">
+          {/* Acciones de contacto, seguimiento y compartir */}
+          <div className="flex flex-wrap items-center gap-2 md:pb-1">
             {vendorPhone && (
               <a
                 href={buildWhatsAppUrl(vendorPhone)}
                 target="_blank"
                 rel="noreferrer"
-                className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-3.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] shadow-sm"
+                className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-3 sm:px-3.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-semibold whitespace-nowrap transition-all active:scale-[0.98] shadow-sm"
               >
                 <WhatsAppIcon size={14} />
                 Escríbenos
               </a>
             )}
+            {user && follow?.canFollow && (
+              <button
+                type="button"
+                disabled={follow.loading}
+                onClick={follow.onToggle}
+                aria-pressed={follow.isFollowing}
+                aria-label={follow.isFollowing ? `Dejar de seguir ${catalog.name}` : `Seguir ${catalog.name}`}
+                className={`flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-3 sm:px-3.5 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap transition-all active:scale-[0.98] disabled:opacity-60 ${
+                  follow.isFollowing
+                    ? 'bg-surface hover:bg-surface-hover border border-border text-primary'
+                    : 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-[var(--accent-text)] shadow-sm'
+                }`}
+              >
+                {follow.isFollowing ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+                <span>{follow.isFollowing ? 'Siguiendo' : 'Seguir'}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={onShare}
-              className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-3.5 rounded-lg bg-surface hover:bg-surface-hover border border-border text-primary text-xs sm:text-sm font-semibold transition-all active:scale-[0.98]"
+              className="flex-1 md:flex-none inline-flex items-center justify-center gap-1.5 h-8 sm:h-9 px-3 sm:px-3.5 rounded-lg bg-surface hover:bg-surface-hover border border-border text-primary text-xs sm:text-sm font-semibold whitespace-nowrap transition-all active:scale-[0.98]"
             >
               <Share2 size={13} />
               Compartir

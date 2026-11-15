@@ -61,7 +61,7 @@ export const ErrorPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center justify-center gap-2 px-8 py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-black font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-lg shadow-orange-500/20"
+            className="flex items-center justify-center gap-2 px-8 py-3 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-accent-text font-bold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-lg shadow-accent/25"
           >
             <Home className="w-5 h-5" />
             Ir al Inicio

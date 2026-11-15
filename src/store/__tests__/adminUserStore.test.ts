@@ -11,9 +11,13 @@ vi.mock('../../lib/supabase', () => {
       from: vi.fn(),
       auth: {
         getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
+        refreshSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
         onAuthStateChange: vi.fn().mockReturnValue({
           data: { subscription: { unsubscribe: vi.fn() } },
         }),
+      },
+      functions: {
+        invoke: vi.fn(),
       },
     },
   };
@@ -352,7 +356,7 @@ describe('useSystemSettings - admin_update_system_setting y fallback', () => {
         return {
           select: vi.fn().mockResolvedValue({
             data: [
-              { key: 'app_url', value: 'nazzar.shop' },
+              { key: 'app_url', value: 'nazaar.shop' },
               { key: 'allow_user_catalog_creation', value: 'true' },
             ],
             error: null,
@@ -383,5 +387,97 @@ describe('useSystemSettings - admin_update_system_setting y fallback', () => {
       p_admin_id: 'admin-1',
     });
     expect(result.current.isGlobalCatalogCreationEnabled).toBe(false);
+  });
+});
+
+describe('adminUserStore - changePassword y validación de sesión', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    useAdminUserStore.setState({ users: [], loading: false, error: null });
+    useAuthStore.setState({
+      user: {
+        id: 'admin-1',
+        phone: '5359991976',
+        nombre: 'Admin',
+        avatar_url: null,
+        plan: 'premium',
+        role: 'admin',
+      },
+      loading: false,
+      isInitialized: true,
+      error: null,
+    });
+  });
+
+  it('envía el JWT válido en Authorization al invocar admin-user-management para cambiar contraseña', async () => {
+    const validJwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbi0xIn0.signature';
+    (supabase.auth.getSession as any).mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: validJwt,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+        },
+      },
+      error: null,
+    });
+    (supabase.functions.invoke as any).mockResolvedValueOnce({
+      data: { message: 'Contraseña actualizada correctamente' },
+      error: null,
+    });
+
+    await useAdminUserStore.getState().changePassword('user-1', 'nueva123');
+
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('admin-user-management', {
+      body: { action: 'change_password', userId: 'user-1', password: 'nueva123' },
+      headers: { Authorization: `Bearer ${validJwt}` },
+    });
+  });
+
+  it('rechaza con mensaje claro y limpia la sesión zombie si no existe un JWT válido (evita enviar sb_publishable)', async () => {
+    localStorage.setItem('matum_cached_user', JSON.stringify({ id: 'admin-1', role: 'admin' }));
+    (supabase.auth.getSession as any).mockResolvedValueOnce({
+      data: { session: null },
+      error: null,
+    });
+    (supabase.auth.refreshSession as any).mockResolvedValueOnce({
+      data: { session: null },
+      error: new Error('Invalid Refresh Token'),
+    });
+
+    await expect(
+      useAdminUserStore.getState().changePassword('user-1', 'nueva123')
+    ).rejects.toThrow('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+
+    expect(supabase.functions.invoke).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().user).toBeNull();
+    expect(localStorage.getItem('matum_cached_user')).toBeNull();
+  });
+
+  it('extrae el mensaje real devuelto por la Edge Function en error.context', async () => {
+    const validJwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZG1pbi0xIn0.signature';
+    (supabase.auth.getSession as any).mockResolvedValueOnce({
+      data: {
+        session: {
+          access_token: validJwt,
+          expires_at: Math.floor(Date.now() / 1000) + 3600,
+        },
+      },
+      error: null,
+    });
+    (supabase.functions.invoke as any).mockResolvedValueOnce({
+      data: null,
+      error: {
+        message: 'Edge Function returned a non-2xx status code',
+        context: new Response(JSON.stringify({ error: 'La contraseña debe tener al menos 6 caracteres.' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      },
+    });
+
+    await expect(
+      useAdminUserStore.getState().changePassword('user-1', '123')
+    ).rejects.toThrow('La contraseña debe tener al menos 6 caracteres.');
   });
 });

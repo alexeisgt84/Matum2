@@ -402,7 +402,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                         onClick={() => setForm({ ...form, schedule_type: 'fixed' })}
                         className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                           form.schedule_type === 'fixed'
-                            ? 'bg-accent text-black shadow-md'
+                            ? 'bg-accent text-accent-text shadow-md'
                             : 'text-secondary hover:text-primary'
                         }`}
                       >
@@ -413,7 +413,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                         onClick={() => setForm({ ...form, schedule_type: 'interval' })}
                         className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                           form.schedule_type === 'interval'
-                            ? 'bg-accent text-black shadow-md'
+                            ? 'bg-accent text-accent-text shadow-md'
                             : 'text-secondary hover:text-primary'
                         }`}
                       >
@@ -477,7 +477,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                               setForm({ ...form, fixed_schedules: updated });
                               setNewTime('');
                             }}
-                            className="h-[52px] px-4 rounded-xl bg-surface-hover hover:bg-accent hover:text-black font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 border border-border cursor-pointer active:scale-95 shrink-0"
+                            className="h-[52px] px-4 rounded-xl bg-surface-hover hover:bg-accent hover:text-accent-text font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 border border-border cursor-pointer active:scale-95 shrink-0"
                           >
                             <Plus size={15} />
                             <span>Agregar</span>
@@ -497,7 +497,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                               onClick={() => setForm({ ...form, schedule_interval: mins })}
                               className={`py-2 rounded-xl text-[11px] font-bold tracking-wider transition-all border ${
                                 form.schedule_interval === mins
-                                  ? 'bg-accent text-black border-accent shadow-md'
+                                  ? 'bg-accent text-accent-text border-accent shadow-md'
                                   : 'bg-surface text-secondary border border-border hover:bg-surface-hover hover:text-primary'
                               }`}
                             >
@@ -519,7 +519,7 @@ export const MessageFormModal: React.FC<MessageFormModalProps> = ({
                             }}
                             className={`py-2 rounded-xl text-[11px] font-bold tracking-wider transition-all border ${
                               ![15, 30, 60, 120, 240].includes(form.schedule_interval || 0) && form.schedule_interval
-                                ? 'bg-accent text-black border-accent shadow-md'
+                                ? 'bg-accent text-accent-text border-accent shadow-md'
                                 : 'bg-surface text-secondary border border-border hover:bg-surface-hover hover:text-primary'
                             }`}
                           >

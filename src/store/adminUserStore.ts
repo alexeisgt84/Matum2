@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from './authStore';
+import { isOffline } from '../lib/offlineCache';
 import type { AuthRole, AuthUser } from '../types/auth';
 
 interface AdminUserState {
@@ -24,6 +25,107 @@ const parseDisabledUserIds = (raw?: string | null): string[] => {
     return [];
   }
 };
+
+const isValidJwt = (token?: string | null): token is string =>
+  typeof token === 'string' && token.split('.').length === 3;
+
+const expireLocalSessionIfOnline = () => {
+  if (!isOffline()) {
+    try {
+      localStorage.removeItem('matum_cached_user');
+    } catch {
+      // ignore storage errors
+    }
+    useAuthStore.setState({ user: null, loading: false, isInitialized: true });
+  }
+};
+
+/**
+ * Obtiene un JWT vigente del usuario actual para invocar Edge Functions protegidas.
+ * Evita que supabase-js envíe la publishable key como fallback cuando no hay sesión.
+ */
+async function getValidAdminAccessToken(): Promise<string> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  let session = sessionData?.session ?? null;
+
+  const expiresSoon =
+    typeof session?.expires_at === 'number' &&
+    session.expires_at * 1000 - Date.now() < 60_000;
+
+  if ((!session?.access_token || expiresSoon) && typeof supabase.auth.refreshSession === 'function') {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed?.session) {
+      session = refreshed.session;
+    }
+  }
+
+  const accessToken = session?.access_token;
+  if (!isValidJwt(accessToken)) {
+    expireLocalSessionIfOnline();
+    throw new Error('Tu sesión ha expirado. Por favor, inicia sesión nuevamente.');
+  }
+
+  return accessToken;
+}
+
+async function extractEdgeFunctionErrorMessage(error: any): Promise<{ message: string; status?: number }> {
+  const status: number | undefined = error?.context?.status;
+  if (error?.context && typeof error.context.clone === 'function') {
+    try {
+      const payload = await error.context.clone().json();
+      if (payload?.error) {
+        return { message: String(payload.error), status };
+      }
+      if (payload?.message) {
+        return { message: String(payload.message), status };
+      }
+    } catch {
+      // ignore non-json error body
+    }
+  } else if (error?.context && typeof error.context.json === 'function') {
+    try {
+      const payload = await error.context.json();
+      if (payload?.error) {
+        return { message: String(payload.error), status };
+      }
+      if (payload?.message) {
+        return { message: String(payload.message), status };
+      }
+    } catch {
+      // ignore non-json error body
+    }
+  }
+
+  return {
+    message: error?.message || 'Error al comunicarse con el servidor.',
+    status,
+  };
+}
+
+async function invokeAdminManagement(body: Record<string, unknown>) {
+  const accessToken = await getValidAdminAccessToken();
+
+  const { data, error } = await supabase.functions.invoke('admin-user-management', {
+    body,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (error) {
+    const parsed = await extractEdgeFunctionErrorMessage(error);
+    if (parsed.status === 401) {
+      expireLocalSessionIfOnline();
+    }
+    throw new Error(parsed.message);
+  }
+
+  if (data?.error) {
+    throw new Error(String(data.error));
+  }
+
+  return data;
+}
 
 export const useAdminUserStore = create<AdminUserState>((set, get) => ({
   users: [],
@@ -217,11 +319,7 @@ export const useAdminUserStore = create<AdminUserState>((set, get) => ({
 
   deleteUser: async (userId) => {
     try {
-      const { error } = await supabase.functions.invoke('admin-user-management', {
-        body: { action: 'delete_user', userId }
-      });
-
-      if (error) throw error;
+      await invokeAdminManagement({ action: 'delete_user', userId });
 
       set((state) => ({
         users: state.users.filter(u => u.id !== userId)
@@ -234,11 +332,7 @@ export const useAdminUserStore = create<AdminUserState>((set, get) => ({
 
   changePassword: async (userId, password) => {
     try {
-      const { error } = await supabase.functions.invoke('admin-user-management', {
-        body: { action: 'change_password', userId, password }
-      });
-
-      if (error) throw error;
+      await invokeAdminManagement({ action: 'change_password', userId, password });
     } catch (err: any) {
       set({ error: err.message });
       throw err;

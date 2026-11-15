@@ -14,8 +14,8 @@ import { Modal } from '../../components/ui/Modal';
 import { toast } from 'react-hot-toast';
 import { 
   Bookmark, 
+  BookmarkX,
   Plus, 
-  Trash2, 
   ChevronRight, 
   ArrowLeft, 
   ShoppingBag, 
@@ -108,6 +108,17 @@ export const FollowedCatalogsPage = () => {
     getPendingFollowRequests();
   }, []);
 
+  const deduplicateFollowed = (items: FollowedCatalogItem[]) => {
+    const seenCatalogIds = new Set<string>();
+    return items.filter((item) => {
+      if (!item?.catalog_id || !item?.catalogs || seenCatalogIds.has(item.catalog_id)) {
+        return false;
+      }
+      seenCatalogIds.add(item.catalog_id);
+      return true;
+    });
+  };
+
   // Cargar catálogos seguidos
   const fetchFollowedCatalogs = async () => {
     if (!user) return;
@@ -119,8 +130,10 @@ export const FollowedCatalogsPage = () => {
       getCachedList<EnrichedProduct[]>(allProdsCacheKey),
     ]);
 
-    if (cachedFollowed && cachedFollowed.length > 0) {
-      setFollowed(cachedFollowed);
+    const cleanCachedFollowed = cachedFollowed ? deduplicateFollowed(cachedFollowed) : null;
+
+    if (cleanCachedFollowed && cleanCachedFollowed.length > 0) {
+      setFollowed(cleanCachedFollowed);
     }
     if (cachedAllProducts && cachedAllProducts.length > 0) {
       setAllProducts(cachedAllProducts);
@@ -131,9 +144,9 @@ export const FollowedCatalogsPage = () => {
       return;
     }
 
-    setLoading(!cachedFollowed || cachedFollowed.length === 0);
+    setLoading(!cleanCachedFollowed || cleanCachedFollowed.length === 0);
     try {
-      // 1. Obtener catálogos seguidos
+      // 1. Obtener catálogos seguidos por el usuario actual
       const { data, error } = await supabase
         .from('followed_catalogs')
         .select(`
@@ -142,17 +155,20 @@ export const FollowedCatalogsPage = () => {
           created_at,
           catalogs:catalogs(*)
         `)
+        .eq('user_id', user.id)
         .eq('status', 'accepted')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       const formattedData: FollowedCatalogItem[] = [];
+      const seenCatalogIds = new Set<string>();
 
       // 2. Cargar recuento de productos para cada uno
       if (data && data.length > 0) {
         for (const item of data) {
-          if (item.catalogs) {
+          if (item.catalogs && !seenCatalogIds.has(item.catalog_id)) {
+            seenCatalogIds.add(item.catalog_id);
             const { count } = await supabase
               .from('products')
               .select('*', { count: 'exact', head: true })
@@ -160,13 +176,13 @@ export const FollowedCatalogsPage = () => {
               .eq('is_active', true);
             
             const catWithCount = {
-              ...item.catalogs,
+              ...(item.catalogs as unknown as Catalog),
               productCount: count || 0
             };
             formattedData.push({
               ...item,
               catalogs: catWithCount
-            } as any);
+            });
             saveCatalogToCache(catWithCount);
           }
         }
@@ -176,8 +192,8 @@ export const FollowedCatalogsPage = () => {
       await saveCachedList(followedCacheKey, formattedData);
 
       // 3. Cargar productos de todos los catálogos seguidos para búsqueda global
-      if (data && data.length > 0) {
-        const catalogIds = data.map(item => item.catalog_id);
+      if (formattedData.length > 0) {
+        const catalogIds = formattedData.map(item => item.catalog_id);
         const { data: productsData, error: productsError } = await supabase
           .from('products')
           .select('*')
@@ -290,20 +306,33 @@ export const FollowedCatalogsPage = () => {
     if (!catalogToUnfollow || !user) return;
     setIsUnfollowing(true);
     try {
-      const { error } = await supabase
+      const { data: deletedRows, error } = await supabase
         .from('followed_catalogs')
         .delete()
         .eq('catalog_id', catalogToUnfollow)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('id');
 
       if (error) throw error;
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error('No se encontró la relación de seguimiento para este usuario.');
+      }
+
+      const updatedFollowed = followed.filter(item => item.catalog_id !== catalogToUnfollow);
+      const updatedAllProducts = allProducts.filter(prod => prod.catalog_id !== catalogToUnfollow);
+      setFollowed(updatedFollowed);
+      setAllProducts(updatedAllProducts);
+      await Promise.all([
+        saveCachedList(`followed_catalogs_${user.id}`, updatedFollowed),
+        saveCachedList(`followed_all_products_${user.id}`, updatedAllProducts),
+      ]);
 
       toast.success('Dejaste de seguir el catálogo');
       setCatalogToUnfollow(null);
-      fetchFollowedCatalogs();
       if (activeCatalog?.id === catalogToUnfollow) {
         setActiveCatalog(null);
       }
+      fetchFollowedCatalogs();
     } catch (err: any) {
       toast.error('Error al dejar de seguir: ' + err.message);
     } finally {
@@ -792,7 +821,7 @@ export const FollowedCatalogsPage = () => {
                           >
                             <div className="flex items-center justify-center z-10">
                               <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${
-                                isSelected ? 'border-accent bg-accent text-black' : 'border-border bg-transparent'
+                                isSelected ? 'border-accent bg-accent text-accent-text' : 'border-border bg-transparent'
                               }`}>
                                 {isSelected && <CheckCircle size={14} strokeWidth={3} />}
                               </div>
@@ -882,32 +911,36 @@ export const FollowedCatalogsPage = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-bold text-primary truncate group-hover:text-accent transition-colors">{item.catalogs.name}</h3>
-                              <p className="text-secondary text-xs truncate mb-1.5">{item.catalogs.description || 'Sin descripción'}</p>
-                              
-                              <div className="flex items-center gap-3 text-[10px] text-secondary font-bold uppercase tracking-wider">
-                                <span className="bg-surface border border-border px-2 py-0.5 rounded-lg text-primary tabular-nums">
-                                  {item.catalogs.productCount || 0} Productos
-                                </span>
-                                <span className="font-mono text-accent">
-                                  {item.catalogs.follow_code}
-                                </span>
-                              </div>
+                              <p className="text-secondary text-xs truncate">{item.catalogs.description || 'Sin descripción'}</p>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-1 z-10 ml-3">
-                            <button 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setCatalogToUnfollow(item.catalog_id);
-                              }}
-                              className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                              title="Dejar de seguir"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                            <ChevronRight size={18} className="text-secondary group-hover:text-primary transition-colors" />
+                          <ChevronRight size={18} className="text-secondary group-hover:text-primary transition-colors flex-shrink-0 z-10 ml-2" />
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 flex-wrap z-10">
+                          <div className="flex items-center gap-2.5 text-[10px] text-secondary font-bold uppercase tracking-wider">
+                            <span className="bg-surface border border-border px-2 py-0.5 rounded-lg text-primary tabular-nums">
+                              {item.catalogs.productCount || 0} Productos
+                            </span>
+                            <span className="font-mono text-accent">
+                              {item.catalogs.follow_code}
+                            </span>
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCatalogToUnfollow(item.catalog_id);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold text-secondary hover:text-red-500 bg-surface hover:bg-red-500/10 border border-border hover:border-red-500/25 transition-colors active:scale-95"
+                            title="Dejar de seguir"
+                            aria-label={`Dejar de seguir ${item.catalogs.name}`}
+                          >
+                            <BookmarkX size={13} />
+                            <span>Dejar de seguir</span>
+                          </button>
                         </div>
 
                         {/* Accesos rápidos: Como está / Como tienda */}
@@ -1005,7 +1038,7 @@ export const FollowedCatalogsPage = () => {
               onClick={() => setCatalogViewMode('as_is')}
               className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
                 catalogViewMode === 'as_is'
-                  ? 'bg-accent text-black shadow-md'
+                  ? 'bg-accent text-accent-text shadow-md'
                   : 'text-secondary hover:text-primary hover:bg-surface-hover'
               }`}
             >
@@ -1017,7 +1050,7 @@ export const FollowedCatalogsPage = () => {
               onClick={() => setCatalogViewMode('store')}
               className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
                 catalogViewMode === 'store'
-                  ? 'bg-accent text-black shadow-md'
+                  ? 'bg-accent text-accent-text shadow-md'
                   : 'text-secondary hover:text-primary hover:bg-surface-hover'
               }`}
             >
@@ -1167,7 +1200,7 @@ export const FollowedCatalogsPage = () => {
                     >
                       <div className="flex items-center justify-center">
                         <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${
-                          isSelected ? 'border-accent bg-accent text-black' : 'border-border bg-transparent'
+                          isSelected ? 'border-accent bg-accent text-accent-text' : 'border-border bg-transparent'
                         }`}>
                           {isSelected && <CheckCircle size={14} strokeWidth={3} />}
                         </div>
