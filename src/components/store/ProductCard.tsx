@@ -1,5 +1,5 @@
 import React from 'react';
-import { Coins, Minus, Plus, Share2, ShoppingBag, MessageCircle, Edit2, Ban, CheckCircle2, Truck, Star } from 'lucide-react';
+import { Minus, Plus, Share2, ShoppingBag, MessageCircle, Edit2, Ban, CheckCircle2, Star } from 'lucide-react';
 import type { PublicProduct } from '../../types/store';
 import type { PriceParts } from '../../lib/pricing';
 import { PriceTag } from './PriceTag';
@@ -112,34 +112,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <h3 className="text-xs font-medium text-primary leading-snug line-clamp-2">
             {product.name}
           </h3>
-          {product.delivery_cost !== null && product.delivery_cost !== undefined && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-secondary">
-              <Truck size={10} className="text-accent" />
-              {Number(product.delivery_cost) === 0 ? 'Envío gratis' : `Envío: ${product.delivery_cost} ${product.delivery_currency || 'CUP'}`}
-            </span>
-          )}
-          {showCommission && (product.commission_amount ?? 0) > 0 && (
-            <span className="mt-0.5 inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold">
-              <Coins size={10} />
-              +{product.commission_amount} {product.commission_currency || 'CUP'}
-            </span>
-          )}
         </div>
       </div>
 
-      {/* Pie de tarjeta: Precio a la izquierda, Botón agregar al carrito a la derecha */}
-      <div className="pt-2 px-0.5 mt-auto flex items-end justify-between gap-1.5">
-        <div className="min-w-0 flex-1">
-          <PriceTag
-            parts={price}
-            stacked
-            className="text-xs sm:text-sm font-bold text-primary tracking-tight"
-            secondaryClassName="text-[10px] font-medium text-secondary"
-          />
-        </div>
+      {/* Pie de tarjeta: Precio + botón, y debajo domicilio y comisión */}
+      <div className="pt-2 px-0.5 mt-auto flex flex-col gap-1">
+        <div className="flex items-end justify-between gap-1.5">
+          <div className="min-w-0 flex-1">
+            <PriceTag
+              parts={price}
+              stacked
+              className="text-sm sm:text-base font-bold text-primary tracking-tight"
+              secondaryClassName="text-[10px] font-medium text-secondary"
+            />
+          </div>
 
-        {/* Agregar / cantidad o acciones de Marketplace */}
-        <div className="shrink-0" onClick={e => e.stopPropagation()}>
+          {/* Agregar / cantidad o acciones de Marketplace */}
+          <div className="shrink-0" onClick={e => e.stopPropagation()}>
           {isMarketplace ? (
             isOwner ? (
               <div className="flex items-center gap-1 bg-surface/95 backdrop-blur-md p-0.5 rounded-full border border-border shadow-sm">
@@ -209,7 +198,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <Plus size={14} strokeWidth={2.5} />
             </button>
           )}
+          </div>
         </div>
+
+        {((product.delivery_cost !== null && product.delivery_cost !== undefined) ||
+          (showCommission && (product.commission_amount ?? 0) > 0)) && (
+          <div className="flex flex-col gap-0.5 text-[9px] leading-tight">
+            {product.delivery_cost !== null && product.delivery_cost !== undefined && (
+              <span className="text-secondary truncate">
+                {Number(product.delivery_cost) === 0
+                  ? 'Domicilio: Gratis'
+                  : `Domicilio: ${product.delivery_cost} ${product.delivery_currency || 'CUP'}`}
+              </span>
+            )}
+            {showCommission && (product.commission_amount ?? 0) > 0 && (
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium truncate">
+                Comisión: +{product.commission_amount} {product.commission_currency || 'CUP'}
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </article>
   );
