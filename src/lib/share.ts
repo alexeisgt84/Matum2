@@ -15,6 +15,9 @@ interface ShareOptions {
 
 const WATERMARK_LOGO_PATH = '/icon.png';
 const WATERMARK_BRAND_TEXT = 'Nazaar';
+const WATERMARK_DOMAIN_TEXT = 'nazaar.shop';
+const WATERMARK_FONT_FAMILY =
+  'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 let cachedLogoPromise: Promise<HTMLImageElement> | null = null;
 
 function loadImageFromSrc(src: string): Promise<HTMLImageElement> {
@@ -95,16 +98,26 @@ export async function applyLogoWatermark(imageBlob: Blob): Promise<Blob> {
     const minSide = Math.min(width, height);
     const logoSize = Math.max(24, Math.min(120, Math.round(minSide * 0.085)));
     const fontSize = Math.max(13, Math.round(logoSize * 0.48));
+    const subFontSize = Math.max(9, Math.round(fontSize * 0.62));
+    const lineGap = Math.max(2, Math.round(logoSize * 0.06));
     const paddingX = Math.max(10, Math.round(logoSize * 0.32));
     const paddingY = Math.max(6, Math.round(logoSize * 0.22));
     const gap = Math.max(6, Math.round(logoSize * 0.22));
     const margin = Math.max(12, Math.round(minSide * 0.028));
 
-    ctx.font = `700 ${fontSize}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-    const textWidth = ctx.measureText(WATERMARK_BRAND_TEXT).width;
+    const brandFont = `700 ${fontSize}px ${WATERMARK_FONT_FAMILY}`;
+    const domainFont = `500 ${subFontSize}px ${WATERMARK_FONT_FAMILY}`;
 
+    ctx.font = brandFont;
+    const brandWidth = ctx.measureText(WATERMARK_BRAND_TEXT).width;
+    ctx.font = domainFont;
+    const domainWidth = ctx.measureText(WATERMARK_DOMAIN_TEXT).width;
+    const textWidth = Math.max(brandWidth, domainWidth);
+
+    const textBlockHeight = fontSize + lineGap + subFontSize;
+    const contentHeight = Math.max(logoSize, textBlockHeight);
     const badgeWidth = paddingX * 2 + logoSize + gap + textWidth;
-    const badgeHeight = logoSize + paddingY * 2;
+    const badgeHeight = contentHeight + paddingY * 2;
     const badgeX = Math.max(margin, width - badgeWidth - margin);
     const badgeY = Math.max(margin, height - badgeHeight - margin);
     const radius = badgeHeight / 2;
@@ -123,14 +136,23 @@ export async function applyLogoWatermark(imageBlob: Blob): Promise<Blob> {
     ctx.lineWidth = Math.max(1, Math.round(minSide * 0.002));
     ctx.stroke();
 
-    ctx.drawImage(logoImg, badgeX + paddingX, badgeY + paddingY, logoSize, logoSize);
+    const logoY = badgeY + (badgeHeight - logoSize) / 2;
+    ctx.drawImage(logoImg, badgeX + paddingX, logoY, logoSize, logoSize);
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    const textX = badgeX + paddingX + logoSize + gap;
+    const textBlockTop = badgeY + (badgeHeight - textBlockHeight) / 2;
+
     ctx.textBaseline = 'middle';
+    ctx.font = brandFont;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.fillText(WATERMARK_BRAND_TEXT, textX, textBlockTop + fontSize / 2);
+
+    ctx.font = domainFont;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
     ctx.fillText(
-      WATERMARK_BRAND_TEXT,
-      badgeX + paddingX + logoSize + gap,
-      badgeY + badgeHeight / 2
+      WATERMARK_DOMAIN_TEXT,
+      textX,
+      textBlockTop + fontSize + lineGap + subFontSize / 2
     );
 
     const outputType = imageBlob.type === 'image/png' ? 'image/png' : 'image/jpeg';

@@ -162,6 +162,12 @@ describe('share.ts - marca de agua y shareContent', () => {
     expect(result).toBe(watermarkedBlob);
     expect(drawImageSpy).toHaveBeenCalledTimes(2);
     expect(fillTextSpy).toHaveBeenCalledWith('Nazaar', expect.any(Number), expect.any(Number));
+    expect(fillTextSpy).toHaveBeenCalledWith('nazaar.shop', expect.any(Number), expect.any(Number));
+
+    const brandCall = fillTextSpy.mock.calls.find((call) => call[0] === 'Nazaar');
+    const domainCall = fillTextSpy.mock.calls.find((call) => call[0] === 'nazaar.shop');
+    expect(brandCall?.[1]).toBe(domainCall?.[1]);
+    expect(domainCall?.[2]).toBeGreaterThan(brandCall?.[2]);
   });
 
   it('shareContent en modo web procesa la imagen con marca de agua y llama a navigator.share con files', async () => {
