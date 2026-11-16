@@ -29,9 +29,40 @@ export interface PublicCatalogItem {
   enable_affiliates?: boolean;
   is_blocked?: boolean;
   catalog_type?: 'store' | 'marketplace' | string;
+  views_count?: number;
+  owner_plan?: string | null;
   created_at: string;
   productCount: number;
 }
+
+const PLAN_PRIORITY: Record<string, number> = {
+  premium: 4,
+  pro: 3,
+  basic: 2,
+  free: 1,
+};
+
+export const getPlanPriority = (plan?: string | null): number => {
+  const normalized = (plan || 'free').toLowerCase().trim();
+  return PLAN_PRIORITY[normalized] ?? 1;
+};
+
+export const comparePublicCatalogs = (
+  a: Pick<PublicCatalogItem, 'owner_plan' | 'views_count' | 'created_at'>,
+  b: Pick<PublicCatalogItem, 'owner_plan' | 'views_count' | 'created_at'>
+): number => {
+  const planDiff = getPlanPriority(b.owner_plan) - getPlanPriority(a.owner_plan);
+  if (planDiff !== 0) return planDiff;
+
+  const viewsDiff = (Number(b.views_count) || 0) - (Number(a.views_count) || 0);
+  if (viewsDiff !== 0) return viewsDiff;
+
+  return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+};
+
+export const sortPublicCatalogs = <T extends Pick<PublicCatalogItem, 'owner_plan' | 'views_count' | 'created_at'>>(
+  items: T[]
+): T[] => [...items].sort(comparePublicCatalogs);
 
 const PUBLIC_CATALOGS_CACHE_KEY = 'public_catalogs';
 
@@ -44,7 +75,7 @@ export const usePublicCatalogs = () => {
     const cached = await getCachedList<PublicCatalogItem[]>(PUBLIC_CATALOGS_CACHE_KEY);
 
     if (cached && cached.length > 0) {
-      setPublicCatalogs(cached);
+      setPublicCatalogs(sortPublicCatalogs(cached));
     }
 
     if (isOffline()) {
@@ -54,45 +85,64 @@ export const usePublicCatalogs = () => {
 
     setLoading(!cached || cached.length === 0);
     try {
-      const { data, error } = await supabase
-        .from('catalogs')
-        .select(`
-          id,
-          user_id,
-          name,
-          slogan,
-          description,
-          slug,
-          logo_url,
-          cover_url,
-          primary_color,
-          background_color,
-          surface_color,
-          text_color,
-          title_color,
-          is_active,
-          is_public,
-          enable_affiliates,
-          is_blocked,
-          catalog_type,
-          created_at,
-          products:products(count)
-        `)
-        .eq('is_public', true)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
+      let formatted: PublicCatalogItem[] = [];
 
-      if (error) throw error;
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_public_catalogs');
 
-      const formatted: PublicCatalogItem[] = (data || []).map((cat: any) => ({
-        ...cat,
-        productCount: cat.products?.[0]?.count || 0,
-      }));
+      if (!rpcError && Array.isArray(rpcData)) {
+        formatted = rpcData.map((cat: any) => ({
+          ...cat,
+          views_count: Number(cat.views_count) || 0,
+          owner_plan: cat.owner_plan || 'free',
+          productCount: Number(cat.product_count ?? cat.productCount) || 0,
+        }));
+      } else {
+        const { data, error } = await supabase
+          .from('catalogs')
+          .select(`
+            id,
+            user_id,
+            name,
+            slogan,
+            description,
+            slug,
+            logo_url,
+            cover_url,
+            primary_color,
+            background_color,
+            surface_color,
+            text_color,
+            title_color,
+            is_active,
+            is_public,
+            enable_affiliates,
+            is_blocked,
+            catalog_type,
+            views_count,
+            created_at,
+            products:products(count)
+          `)
+          .eq('is_public', true)
+          .eq('is_active', true)
+          .order('views_count', { ascending: false })
+          .order('created_at', { ascending: false });
 
-      setPublicCatalogs(formatted);
-      await saveCachedList(PUBLIC_CATALOGS_CACHE_KEY, formatted);
+        if (error) throw error;
+
+        formatted = (data || []).map((cat: any) => ({
+          ...cat,
+          views_count: Number(cat.views_count) || 0,
+          owner_plan: cat.owner_plan || 'free',
+          productCount: cat.products?.[0]?.count || 0,
+        }));
+      }
+
+      const sorted = sortPublicCatalogs(formatted);
+
+      setPublicCatalogs(sorted);
+      await saveCachedList(PUBLIC_CATALOGS_CACHE_KEY, sorted);
       // Guardar metadatos en caché local; limitar precarga profunda a los 4 primeros catálogos para no saturar conexiones lentas
-      formatted.forEach((cat, idx) => {
+      sorted.forEach((cat, idx) => {
         saveCatalogToCache(cat);
         if (idx < 4) {
           syncCatalogForOffline(cat.id);

@@ -1,7 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCatalogs } from '../../hooks/useCatalogs';
-import { usePublicCatalogs, type PublicCatalogItem } from '../../hooks/usePublicCatalogs';
+import {
+  usePublicCatalogs,
+  comparePublicCatalogs,
+  type PublicCatalogItem,
+} from '../../hooks/usePublicCatalogs';
 import { useAuthStore } from '../../store/authStore';
 import {
   Users,
@@ -79,7 +83,7 @@ export const DashboardPage = () => {
       const aMarket = isMarketplaceCatalog(a) ? 1 : 0;
       const bMarket = isMarketplaceCatalog(b) ? 1 : 0;
       if (aMarket !== bMarket) return bMarket - aMarket;
-      return 0;
+      return comparePublicCatalogs(a, b);
     });
   }, [filteredCatalogs, filterMode]);
 

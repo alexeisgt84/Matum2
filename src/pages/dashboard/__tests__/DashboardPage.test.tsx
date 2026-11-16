@@ -14,9 +14,13 @@ vi.mock('../../../store/authStore', () => ({
 vi.mock('../../../hooks/useCatalogs', () => ({
   useCatalogs: vi.fn(),
 }));
-vi.mock('../../../hooks/usePublicCatalogs', () => ({
-  usePublicCatalogs: vi.fn(),
-}));
+vi.mock('../../../hooks/usePublicCatalogs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../hooks/usePublicCatalogs')>();
+  return {
+    ...actual,
+    usePublicCatalogs: vi.fn(),
+  };
+});
 vi.mock('../../../store/useStore', () => ({
   useStore: vi.fn(),
 }));
@@ -127,5 +131,48 @@ describe('DashboardPage (Explorar)', () => {
     expect(screen.queryByText(/Explora libremente/i)).not.toBeInTheDocument();
     expect(mockGetCatalogs).toHaveBeenCalledTimes(1);
     expect(mockGetSharedCatalogs).toHaveBeenCalledTimes(1);
+  });
+
+  it('ordena los catálogos por plan (premium, pro, basic, free) y luego por mayor cantidad de vistas', () => {
+    (useAuthStore as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      user: null,
+    });
+
+    const catalogsList = [
+      { ...sampleCatalog, id: 'c-free', name: 'Tienda Free', owner_plan: 'free', views_count: 999 },
+      { ...sampleCatalog, id: 'c-basic', name: 'Tienda Basic', owner_plan: 'basic', views_count: 500 },
+      { ...sampleCatalog, id: 'c-pro-low', name: 'Tienda Pro Menos Vistas', owner_plan: 'pro', views_count: 10 },
+      { ...sampleCatalog, id: 'c-pro-high', name: 'Tienda Pro Más Vistas', owner_plan: 'pro', views_count: 120 },
+      { ...sampleCatalog, id: 'c-prem-low', name: 'Tienda Premium Menos Vistas', owner_plan: 'premium', views_count: 50 },
+      { ...sampleCatalog, id: 'c-prem-high', name: 'Tienda Premium Más Vistas', owner_plan: 'premium', views_count: 300 },
+    ];
+
+    (usePublicCatalogs as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      publicCatalogs: catalogsList,
+      filteredCatalogs: catalogsList,
+      loading: false,
+      searchQuery: '',
+      setSearchQuery: mockSetSearchQuery,
+      getPublicCatalogs: mockGetPublicCatalogs,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+
+    const titles = screen
+      .getAllByRole('heading', { level: 3 })
+      .map((el) => el.textContent);
+
+    expect(titles).toEqual([
+      'Tienda Premium Más Vistas',
+      'Tienda Premium Menos Vistas',
+      'Tienda Pro Más Vistas',
+      'Tienda Pro Menos Vistas',
+      'Tienda Basic',
+      'Tienda Free',
+    ]);
   });
 });
