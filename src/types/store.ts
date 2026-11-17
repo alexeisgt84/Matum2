@@ -45,6 +45,7 @@ export interface PublicProduct {
   imagen_url: string | null;
   is_out_of_stock: boolean;
   is_featured?: boolean;
+  badges?: string[] | null;
   stock_status: string;
   price_cup?: number | null;
   price_usd?: number | null;

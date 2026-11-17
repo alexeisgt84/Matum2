@@ -15,7 +15,6 @@ import {
   Truck,
   Clock,
   Sparkles,
-  Star,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -47,6 +46,7 @@ import { Modal } from '../../components/ui/Modal';
 import { PriceTag } from '../../components/store/PriceTag';
 import { recordStoreView } from '../../lib/analytics';
 import { ProductCard } from '../../components/store/ProductCard';
+import { ProductBadgesOverlay, ProductBadgesInline } from '../../components/products/ProductBadges';
 import { WhatsAppIcon } from '../../components/store/SocialIcons';
 import type { CartItem, PublicCatalog, PublicProduct } from '../../types/store';
 
@@ -235,7 +235,7 @@ export const PublicProductPage: React.FC = () => {
           supabase
             .from('products')
             .select(
-              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, contact_phone, sender_name, is_featured'
+              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, contact_phone, sender_name, is_featured, badges'
             )
             .eq('id', productId)
             .eq('catalog_id', catData.id)
@@ -243,7 +243,7 @@ export const PublicProductPage: React.FC = () => {
           supabase
             .from('products')
             .select(
-              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name, is_featured'
+              'id, catalog_id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name, is_featured, badges'
             )
             .eq('catalog_id', catData.id)
             .eq('is_active', true)
@@ -679,11 +679,19 @@ export const PublicProductPage: React.FC = () => {
                 </span>
               )}
 
+              {/* Etiquetas comerciales en esquina superior derecha */}
+              <ProductBadgesOverlay
+                badges={product.badges}
+                isFeatured={product.is_featured}
+                size="md"
+                className="top-3.5 right-3.5"
+              />
+
               {/* Botón flotante para compartir foto */}
               <button
                 type="button"
                 onClick={handleShareProduct}
-                className="absolute top-3.5 right-3.5 w-9 h-9 rounded-full bg-black/45 hover:bg-black/65 backdrop-blur-md text-white flex items-center justify-center transition-all opacity-90 hover:opacity-100 shadow-md active:scale-95"
+                className="absolute bottom-3.5 right-3.5 w-9 h-9 rounded-full bg-black/45 hover:bg-black/65 backdrop-blur-md text-white flex items-center justify-center transition-all opacity-90 hover:opacity-100 shadow-md active:scale-95 z-10"
                 aria-label="Compartir este producto"
               >
                 <Share2 size={14} />
@@ -703,12 +711,10 @@ export const PublicProductPage: React.FC = () => {
                     <Store size={12} />
                     <span>{catalog.name}</span>
                   </Link>
-                  {product.is_featured && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 text-[11px] font-bold">
-                      <Star size={11} className="fill-amber-500" />
-                      Producto Destacado
-                    </span>
-                  )}
+                  <ProductBadgesInline
+                    badges={product.badges}
+                    isFeatured={product.is_featured}
+                  />
                 </div>
                 <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-primary tracking-tight leading-tight">
                   {product.name}

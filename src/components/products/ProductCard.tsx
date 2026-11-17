@@ -4,6 +4,7 @@ import { Edit3, Trash2, Tag, Coins, Send, PackageX, PackageCheck, GripVertical, 
 
 import { shareContent } from '../../lib/share';
 import { getAppBaseUrl } from '../../lib/urlHelper';
+import { ProductBadgesOverlay, ProductBadgesInline } from './ProductBadges';
 
 interface ProductCardProps {
   product: Product;
@@ -299,6 +300,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <Tag size={18} />
             </div>
           )}
+          <ProductBadgesOverlay
+            badges={product.badges}
+            isFeatured={product.is_featured}
+            size="xs"
+            compact
+          />
           {product.is_out_of_stock && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
               <span className="text-[7px] font-bold text-white uppercase tracking-widest border border-white/20 px-1 py-0.5 rounded-full bg-black/40">Agotado</span>
@@ -343,12 +350,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 {product.delivery_time_value} {product.delivery_time_unit === 'days' ? 'd' : 'h'}
               </span>
             ) : null}
-            {product.is_featured && (
-              <span className="text-[9px] bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-md font-bold flex items-center gap-1 select-none" title="Producto destacado">
-                <Star size={10} className="fill-amber-400 text-amber-400" />
-                Destacado
-              </span>
-            )}
+            <ProductBadgesInline
+              badges={product.badges}
+              isFeatured={product.is_featured}
+            />
             {product.is_discontinued && (
               <span className="text-[8px] bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider animate-pulse">
                 Descontinuado

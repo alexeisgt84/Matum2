@@ -77,6 +77,7 @@ import { DropdownMenu, type DropdownItem } from '../../components/ui/DropdownMen
 import { toast } from 'react-hot-toast';
 import { useEvolution } from '../../hooks/useEvolution';
 import type { Product } from '../../types/product';
+import { normalizeProductBadges, syncBadgesWithFeatured } from '../../constants/productBadges';
 import type { WhatsAppMessage } from '../../types/message';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { CatalogStatusBar } from '../../components/catalogs/CatalogStatusBar';
@@ -156,7 +157,7 @@ export const CatalogDetailPage = () => {
   const { categories, getCategories } = useCategories(catalogId);
 
   // Hooks de Producto
-  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, deleteProducts, updateProductsOrder, toggleProductFeatured } = useProducts(catalogId, debouncedSearch, sortField, sortOrder, selectedCategoryId);
+  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, deleteProducts, updateProductsOrder, toggleProductFeatured, updateProductBadges } = useProducts(catalogId, debouncedSearch, sortField, sortOrder, selectedCategoryId);
   
   // Hooks de Mensaje
   const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, deleteMessages, updateMessagesOrder, toggleMessageSequence } = useMessages(catalogId);
@@ -1093,12 +1094,22 @@ export const CatalogDetailPage = () => {
     if (selectedProductIds.length === 0) return;
     const toastId = toast.loading(`${isFeatured ? 'Marcando como destacados' : 'Quitando de destacados'} ${selectedProductIds.length} productos…`);
     try {
-      const { error } = await supabase
-        .from('products')
-        .update({ is_featured: isFeatured })
-        .in('id', selectedProductIds);
+      const selectedSet = new Set(selectedProductIds);
+      const targetProducts = products.filter(p => selectedSet.has(p.id));
+      const results = await Promise.all(
+        targetProducts.map(p =>
+          supabase
+            .from('products')
+            .update({
+              is_featured: isFeatured,
+              badges: syncBadgesWithFeatured(p.badges, isFeatured),
+            })
+            .eq('id', p.id)
+        )
+      );
 
-      if (error) throw error;
+      const firstError = results.find(r => r.error)?.error;
+      if (firstError) throw firstError;
       toast.success(`${selectedProductIds.length} productos actualizados`, { id: toastId });
       clearSelection();
       getProducts(true);
@@ -2123,6 +2134,18 @@ export const CatalogDetailPage = () => {
           getCategories();
         }}
         onUnlink={handleUnlinkProduct}
+        onSaveBadges={async (prod, badges) => {
+          const ok = await updateProductBadges(prod, badges);
+          if (ok) {
+            const normalized = normalizeProductBadges(badges);
+            setEditingProduct(prev =>
+              prev && prev.id === prod.id
+                ? { ...prev, badges: normalized, is_featured: normalized.includes('featured') }
+                : prev
+            );
+          }
+          return ok;
+        }}
         onSave={async (form, id, file, shouldSend) => {
           try {
             const product = await saveProduct(form, id, file);

@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { useCollaboration } from '../../hooks/useCollaboration';
 import { PublicCatalogPage } from './PublicCatalogPage';
+import { ProductBadgesOverlay, ProductBadgesInline } from '../../components/products/ProductBadges';
 import type { Catalog } from '../../types/catalog';
 import type { Product } from '../../types/product';
 import {
@@ -500,6 +501,8 @@ export const FollowedCatalogsPage = () => {
           parent_product_id: sourceProd.id,
           base_price: sourceProd.price,
           is_active: sourceProd.is_active,
+          is_featured: Boolean(sourceProd.is_featured),
+          badges: Array.isArray(sourceProd.badges) ? sourceProd.badges : [],
           is_out_of_stock: sourceProd.is_out_of_stock,
           stock_status: sourceProd.stock_status,
           position: index + 1000 // Colocarlos al final provisionalmente
@@ -827,17 +830,28 @@ export const FollowedCatalogsPage = () => {
                               </div>
                             </div>
 
-                            <div className="w-16 h-16 rounded-xl bg-surface border border-border flex items-center justify-center overflow-hidden flex-shrink-0 z-10">
+                            <div className="relative w-16 h-16 rounded-xl bg-surface border border-border flex items-center justify-center overflow-hidden flex-shrink-0 z-10">
                               {product.imagen_url ? (
                                 <img src={product.imagen_url} alt={product.name} className="w-full h-full object-cover" />
                               ) : (
                                 <Package size={22} className="text-secondary" />
                               )}
+                              <ProductBadgesOverlay
+                                badges={product.badges}
+                                isFeatured={product.is_featured}
+                                size="xs"
+                                compact
+                              />
                             </div>
 
                             <div className="flex-1 min-w-0 z-10">
                               <h4 className="font-bold text-primary truncate leading-tight group-hover:text-accent transition-colors">{product.name}</h4>
                               <p className="text-secondary text-[11px] truncate mt-1">{product.description || 'Sin descripción'}</p>
+                              <ProductBadgesInline
+                                badges={product.badges}
+                                isFeatured={product.is_featured}
+                                className="mt-1.5"
+                              />
                               
                               <div className="flex items-center gap-2 mt-2">
                                 <span className="text-accent text-xs font-bold font-mono tabular-nums">
@@ -1206,17 +1220,28 @@ export const FollowedCatalogsPage = () => {
                         </div>
                       </div>
 
-                      <div className="w-16 h-16 rounded-xl bg-surface border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <div className="relative w-16 h-16 rounded-xl bg-surface border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
                         {product.imagen_url ? (
                           <img src={product.imagen_url} alt={product.name} className="w-full h-full object-cover" />
                         ) : (
                           <Package size={22} className="text-secondary" />
                         )}
+                        <ProductBadgesOverlay
+                          badges={product.badges}
+                          isFeatured={product.is_featured}
+                          size="xs"
+                          compact
+                        />
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <h4 className="font-bold text-primary truncate leading-tight group-hover:text-accent">{product.name}</h4>
                         <p className="text-secondary text-[11px] truncate mt-1">{product.description || 'Sin descripción'}</p>
+                        <ProductBadgesInline
+                          badges={product.badges}
+                          isFeatured={product.is_featured}
+                          className="mt-1.5"
+                        />
                         <span className="text-accent text-xs font-bold font-mono block mt-2 tabular-nums">
                           {product.price} {product.currency}
                         </span>

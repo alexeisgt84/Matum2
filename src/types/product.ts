@@ -9,6 +9,7 @@ export interface Product {
   position: number;
   is_active: boolean;
   is_featured?: boolean;
+  badges?: string[] | null;
   is_out_of_stock: boolean;
   stock_status: 'available' | 'out_of_stock';
   created_at: string;
@@ -38,6 +39,7 @@ export interface ProductForm {
   category_id?: number | null;
   is_active?: boolean;
   is_featured?: boolean;
+  badges?: string[];
   commission_amount?: number | string;
   commission_currency?: 'CUP' | 'USD';
   delivery_cost?: number | string;

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Minus, Plus, Share2, ShoppingBag, MessageCircle, Edit2, Ban, CheckCircle2, Star } from 'lucide-react';
+import { Minus, Plus, Share2, ShoppingBag, MessageCircle, Edit2, Ban, CheckCircle2 } from 'lucide-react';
 import type { PublicProduct } from '../../types/store';
 import type { PriceParts } from '../../lib/pricing';
 import { PriceTag } from './PriceTag';
+import { ProductBadgesOverlay } from '../products/ProductBadges';
 
 interface ProductCardProps {
   product: PublicProduct;
@@ -74,17 +75,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </div>
           )}
 
-          {/* Badges superiores: Tu publicación, Destacado o Agotado */}
-          {isMarketplace && isOwner ? (
+          {/* Badge superior izquierdo: Tu publicación */}
+          {isMarketplace && isOwner && (
             <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent text-accent-text text-[9px] font-bold shadow-md z-10">
               Tu producto
             </span>
-          ) : product.is_featured && !isOutOfStock ? (
-            <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500 text-black text-[9px] font-black uppercase tracking-wider shadow-md z-10">
-              <Star size={10} className="fill-black" />
-              Destacado
-            </span>
-          ) : null}
+          )}
+
+          {/* Etiquetas comerciales en la esquina superior derecha */}
+          <ProductBadgesOverlay
+            badges={product.badges}
+            isFeatured={product.is_featured}
+            size="sm"
+          />
+
           {isOutOfStock && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center z-10 pointer-events-none">
               <span className="px-2.5 py-1 rounded-md bg-red-600/90 text-white text-[10px] font-bold uppercase tracking-wider shadow-md">
@@ -93,14 +97,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             </div>
           )}
 
-          {/* Compartir */}
+          {/* Compartir (en esquina inferior derecha para no interferir con las etiquetas) */}
           <button
             type="button"
             onClick={e => {
               e.stopPropagation();
               onShare(e);
             }}
-            className="inline-flex absolute top-1.5 right-1.5 w-7 h-7 items-center justify-center rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white transition-all active:scale-90 shadow-sm z-10"
+            className="inline-flex absolute bottom-1.5 right-1.5 w-7 h-7 items-center justify-center rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white transition-all active:scale-90 shadow-sm z-10"
             aria-label={`Compartir ${product.name}`}
           >
             <Share2 size={13} />

@@ -5,7 +5,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import type { Product, ProductForm } from '../../types/product';
 import type { Category } from '../../types/category';
-import { Save, Tag, Send, Coins, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings, Package, Truck, Clock, Star } from 'lucide-react';
+import { Save, Tag, Send, Coins, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings, Package, Truck, Clock, Star, ShoppingBag, X } from 'lucide-react';
 import { CalculatorModal } from '../ui/CalculatorModal';
 import { ImageUpload } from '../ui/ImageUpload';
 import { toast } from 'react-hot-toast';
@@ -15,11 +15,19 @@ import { supabase } from '../../lib/supabase';
 import { CategoryIcon } from '../ui/CategoryIcon';
 import { ManageCategoriesModal } from './ManageCategoriesModal';
 import { parseProductText, type DetectedPrice } from '../../lib/priceParser';
+import {
+  PRODUCT_BADGES,
+  normalizeProductBadges,
+  syncBadgesWithFeatured,
+  type ProductBadgeId,
+} from '../../constants/productBadges';
+import { ProductBadgesOverlay } from './ProductBadges';
 
 interface ProductFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (form: ProductForm, id?: string, file?: File, shouldSend?: boolean) => Promise<boolean>;
+  onSaveBadges?: (product: Product, badges: string[]) => Promise<boolean>;
   product?: Product | null;
   loading?: boolean;
   prefilledData?: { description?: string; file?: File; preview?: string } | null;
@@ -29,14 +37,17 @@ interface ProductFormModalProps {
   onCategoryCreated?: (category: Category) => void;
 }
 
+const EMPTY_CATEGORIES: Category[] = [];
+
 export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   isOpen,
   onClose,
   onSave,
+  onSaveBadges,
   product,
   loading,
   prefilledData,
-  categories = [],
+  categories = EMPTY_CATEGORIES,
   catalogId,
   onUnlink,
   onCategoryCreated,
@@ -51,6 +62,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     category_id: null,
     is_active: true,
     is_featured: false,
+    badges: [],
     commission_amount: '',
     commission_currency: 'CUP',
     delivery_cost: '',
@@ -58,6 +70,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     delivery_time_value: '',
     delivery_time_unit: 'hours',
   });
+  const [savedBadges, setSavedBadges] = useState<ProductBadgeId[]>([]);
+  const [isSavingBadges, setIsSavingBadges] = useState(false);
   const [localCategories, setLocalCategories] = useState<Category[]>(categories);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
@@ -213,6 +227,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   useEffect(() => {
     if (product) {
+      const initialBadges = normalizeProductBadges(product.badges, product.is_featured);
       setForm({
         name: product.name,
         description: product.description || '',
@@ -221,7 +236,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         imagen_url: product.imagen_url,
         category_id: product.category_id || null,
         is_active: product.is_active ?? true,
-        is_featured: Boolean(product.is_featured),
+        is_featured: Boolean(product.is_featured || initialBadges.includes('featured')),
+        badges: initialBadges,
         commission_amount: product.commission_amount !== null && product.commission_amount !== undefined ? product.commission_amount.toString() : '',
         commission_currency: (product.commission_currency as 'CUP' | 'USD') || 'CUP',
         delivery_cost: product.delivery_cost !== null && product.delivery_cost !== undefined ? product.delivery_cost.toString() : '',
@@ -229,6 +245,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         delivery_time_value: product.delivery_time_value !== null && product.delivery_time_value !== undefined ? product.delivery_time_value.toString() : '',
         delivery_time_unit: (product.delivery_time_unit as 'hours' | 'days') || 'hours',
       });
+      setSavedBadges(initialBadges);
       setDetectedPrices([]);
       setPreview(product.imagen_url);
       setParentProductId(product.parent_product_id || null);
@@ -243,6 +260,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         category_id: null,
         is_active: true,
         is_featured: false,
+        badges: [],
         commission_amount: '',
         commission_currency: 'CUP',
         delivery_cost: parsed.delivery && parsed.delivery.cost !== null ? parsed.delivery.cost.toString() : '',
@@ -250,6 +268,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         delivery_time_value: parsed.deliveryTime ? parsed.deliveryTime.value.toString() : '',
         delivery_time_unit: parsed.deliveryTime ? parsed.deliveryTime.unit : 'hours',
       });
+      setSavedBadges([]);
       setDetectedPrices(parsed.allPrices);
       setPreview(prefilledData.preview || null);
       setFile(prefilledData.file);
@@ -264,6 +283,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         category_id: null,
         is_active: true,
         is_featured: false,
+        badges: [],
         commission_amount: '',
         commission_currency: 'CUP',
         delivery_cost: '',
@@ -271,11 +291,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         delivery_time_value: '',
         delivery_time_unit: 'hours',
       });
+      setSavedBadges([]);
       setDetectedPrices([]);
       setPreview(null);
       setFile(undefined);
       setParentProductId(null);
     }
+    setIsSavingBadges(false);
     setIsCategoryDropdownOpen(false);
     setIsManageCategoriesOpen(false);
   }, [product, prefilledData, isOpen]);
@@ -293,6 +315,47 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     const base = isNaN(currentVal) || currentVal < 0 ? 0 : currentVal;
     const newVal = Math.round((base + amount) * 100) / 100;
     setForm((prev) => ({ ...prev, price: newVal.toString() }));
+  };
+
+  const currentBadges = normalizeProductBadges(form.badges, form.is_featured);
+  const hasBadgesChanged =
+    currentBadges.length !== savedBadges.length ||
+    currentBadges.some((b, idx) => b !== savedBadges[idx]);
+
+  const handleToggleBadge = (badgeId: ProductBadgeId) => {
+    setForm((prev) => {
+      const existing = normalizeProductBadges(prev.badges, prev.is_featured);
+      const nextRaw = existing.includes(badgeId)
+        ? existing.filter((b) => b !== badgeId)
+        : [...existing, badgeId];
+      const next = normalizeProductBadges(nextRaw);
+      return {
+        ...prev,
+        badges: next,
+        is_featured: next.includes('featured'),
+      };
+    });
+  };
+
+  const handleClearBadges = () => {
+    setForm((prev) => ({
+      ...prev,
+      badges: [],
+      is_featured: false,
+    }));
+  };
+
+  const handleQuickSaveBadges = async () => {
+    if (!product || !onSaveBadges || isSavingBadges) return;
+    setIsSavingBadges(true);
+    try {
+      const success = await onSaveBadges(product, currentBadges);
+      if (success) {
+        setSavedBadges(currentBadges);
+      }
+    } finally {
+      setIsSavingBadges(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent, shouldSend = false) => {
@@ -868,6 +931,152 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               disabled={isAnalyzing}
             />
 
+            {/* Etiquetas del producto */}
+            <section
+              aria-labelledby="product-badges-section-title"
+              className="p-3.5 rounded-2xl bg-surface-hover/40 border border-border space-y-3"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h4
+                    id="product-badges-section-title"
+                    className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5"
+                  >
+                    <Sparkles size={13} className="text-accent" />
+                    <span>Etiquetas del producto</span>
+                    {currentBadges.length > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-accent/15 text-accent text-[10px] font-extrabold tabular-nums">
+                        {currentBadges.length}
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-[11px] text-secondary mt-0.5">
+                    Activa una o varias etiquetas comerciales para destacar este producto sobre su fotografía.
+                  </p>
+                </div>
+
+                {currentBadges.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearBadges}
+                    disabled={isAnalyzing || isSavingBadges}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold text-secondary hover:text-red-400 px-2 py-1 rounded-lg hover:bg-red-500/10 transition-colors shrink-0"
+                  >
+                    <X size={11} />
+                    <span>Limpiar</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {PRODUCT_BADGES.map((badge) => {
+                  const isActive = currentBadges.includes(badge.id);
+                  return (
+                    <button
+                      key={badge.id}
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => handleToggleBadge(badge.id)}
+                      disabled={isAnalyzing || isSavingBadges}
+                      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-left transition-all active:scale-[0.98] ${
+                        isActive
+                          ? `${badge.chipActiveClass} shadow-sm`
+                          : 'bg-surface hover:bg-surface-hover border-border text-secondary hover:text-primary'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span aria-hidden="true" className="text-sm leading-none shrink-0">
+                          {badge.emoji}
+                        </span>
+                        <div className="min-w-0">
+                          <span className="block text-[11px] font-extrabold uppercase tracking-wider truncate">
+                            {badge.label}
+                          </span>
+                          <span className="block text-[10px] opacity-75 truncate">
+                            {badge.description}
+                          </span>
+                        </div>
+                      </div>
+                      <span
+                        className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
+                          isActive
+                            ? 'bg-accent border-accent text-accent-text'
+                            : 'border-border bg-background/50 text-transparent'
+                        }`}
+                      >
+                        <Check size={11} strokeWidth={3} />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Vista previa de tarjeta de producto */}
+              <div className="pt-2 border-t border-border/70 flex flex-col sm:flex-row items-center gap-3">
+                <div
+                  data-testid="product-badges-preview-card"
+                  className="w-36 shrink-0 rounded-card bg-surface border border-border/80 p-1.5 shadow-sm"
+                >
+                  <div className="relative aspect-square rounded-card bg-surface-hover border border-border overflow-hidden flex items-center justify-center">
+                    {preview ? (
+                      <img
+                        src={preview}
+                        alt={form.name || 'Vista previa del producto'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <ShoppingBag size={22} className="text-secondary/50" />
+                    )}
+                    <ProductBadgesOverlay
+                      badges={currentBadges}
+                      isFeatured={form.is_featured}
+                      size="xs"
+                    />
+                  </div>
+                  <div className="pt-1.5 px-0.5 space-y-0.5">
+                    <p className="text-[10px] font-semibold text-primary truncate">
+                      {form.name.trim() || 'Nombre del producto'}
+                    </p>
+                    <p className="text-[11px] font-bold text-accent tabular-nums truncate">
+                      {form.price !== '' && form.price !== null && form.price !== undefined && !Number.isNaN(Number(form.price))
+                        ? `${Number(form.price).toLocaleString()} ${form.currency}`
+                        : 'Consultar'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex-1 text-center sm:text-left space-y-2 min-w-0">
+                  <div>
+                    <p className="text-[11px] font-bold text-primary">
+                      Vista previa en tarjeta del producto
+                    </p>
+                    <p className="text-[10px] text-secondary leading-relaxed mt-0.5">
+                      {currentBadges.length > 0
+                        ? 'Así se mostrarán las etiquetas en la esquina superior derecha de la imagen en tu catálogo.'
+                        : 'Sin etiquetas activas. Cuando selecciones una o más, aparecerán aquí sobre la foto.'}
+                    </p>
+                  </div>
+
+                  {product && onSaveBadges && (
+                    <div className="flex items-center justify-center sm:justify-start gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={hasBadgesChanged ? 'primary' : 'secondary'}
+                        icon={Save}
+                        loading={isSavingBadges}
+                        disabled={!hasBadgesChanged || loading}
+                        onClick={handleQuickSaveBadges}
+                        className="text-xs font-bold"
+                      >
+                        {hasBadgesChanged ? 'Guardar etiquetas' : 'Etiquetas al día'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+
             {/* Switch de Producto Destacado */}
             <div className="flex items-center justify-between p-3.5 rounded-2xl bg-surface-hover/50 border border-border">
               <div className="flex flex-col gap-0.5">
@@ -883,7 +1092,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setForm(prev => ({ ...prev, is_featured: !prev.is_featured }))}
+                onClick={() =>
+                  setForm((prev) => {
+                    const nextFeatured = !prev.is_featured;
+                    return {
+                      ...prev,
+                      is_featured: nextFeatured,
+                      badges: syncBadgesWithFeatured(prev.badges, nextFeatured),
+                    };
+                  })
+                }
                 className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${form.is_featured ? 'bg-amber-500' : 'bg-secondary/40'}`}
                 aria-label={form.is_featured ? 'Quitar de destacados' : 'Marcar como destacado'}
               >

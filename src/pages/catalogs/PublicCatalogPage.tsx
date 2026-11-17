@@ -477,7 +477,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           supabase
             .from('products')
             .select(
-              'id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name, is_featured'
+              'id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name, is_featured, badges'
             )
             .eq('catalog_id', catData.id)
             .eq('is_active', true)

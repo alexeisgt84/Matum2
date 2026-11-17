@@ -13,6 +13,7 @@ import {
   syncCatalogForOffline,
 } from '../lib/offlineCache';
 import { matchesSearchTerms, buildSupabaseSearchFilter } from '../lib/searchTerms';
+import { normalizeProductBadges, syncBadgesWithFeatured } from '../constants/productBadges';
 
 function filterAndSortCachedProducts(
   allProducts: Product[],
@@ -304,6 +305,9 @@ export const useProducts = (
         imagen_url = publicUrl;
       }
 
+      const normalizedBadges = normalizeProductBadges(form.badges, form.is_featured);
+      const isFeatured = normalizedBadges.includes('featured');
+
       const productData = {
         name: form.name.trim(),
         description: form.description?.trim() || null,
@@ -312,7 +316,8 @@ export const useProducts = (
         imagen_url,
         category_id: form.category_id || null,
         is_active: form.is_active !== undefined ? form.is_active : true,
-        is_featured: form.is_featured !== undefined ? Boolean(form.is_featured) : false,
+        is_featured: isFeatured,
+        badges: normalizedBadges,
         commission_amount:
           form.commission_amount === '' || form.commission_amount === null || form.commission_amount === undefined
             ? 0
@@ -408,6 +413,7 @@ export const useProducts = (
         position: index,
         is_active: p.is_active,
         is_featured: Boolean(p.is_featured),
+        badges: Array.isArray(p.badges) ? p.badges : [],
         is_out_of_stock: p.is_out_of_stock,
         category_id: p.category_id || null,
       }));
@@ -458,15 +464,17 @@ export const useProducts = (
 
   const toggleProductFeatured = async (product: Product): Promise<boolean> => {
     const nextFeatured = !product.is_featured;
+    const nextBadges = syncBadgesWithFeatured(product.badges, nextFeatured);
     try {
+      await ensureActiveSession();
       const { error } = await supabase
         .from('products')
-        .update({ is_featured: nextFeatured })
+        .update({ is_featured: nextFeatured, badges: nextBadges })
         .eq('id', product.id);
 
       if (error) throw error;
 
-      const updated = { ...product, is_featured: nextFeatured };
+      const updated = { ...product, is_featured: nextFeatured, badges: nextBadges };
       setProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
       if (catalogId) {
         await upsertCatalogProductsInCache(catalogId, [updated]);
@@ -476,6 +484,32 @@ export const useProducts = (
     } catch (err: any) {
       console.error('Error toggling featured product:', err);
       toast.error('Error al actualizar producto: ' + (err.message || 'Error desconocido'));
+      return false;
+    }
+  };
+
+  const updateProductBadges = async (product: Product, badges: string[]): Promise<boolean> => {
+    const normalizedBadges = normalizeProductBadges(badges);
+    const nextFeatured = normalizedBadges.includes('featured');
+    try {
+      await ensureActiveSession();
+      const { error } = await supabase
+        .from('products')
+        .update({ badges: normalizedBadges, is_featured: nextFeatured })
+        .eq('id', product.id);
+
+      if (error) throw error;
+
+      const updated = { ...product, badges: normalizedBadges, is_featured: nextFeatured };
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
+      if (catalogId) {
+        await upsertCatalogProductsInCache(catalogId, [updated]);
+      }
+      toast.success('Etiquetas del producto actualizadas');
+      return true;
+    } catch (err: any) {
+      console.error('Error updating product badges:', err);
+      toast.error('Error al guardar etiquetas: ' + (err.message || 'Error desconocido'));
       return false;
     }
   };
@@ -491,5 +525,6 @@ export const useProducts = (
     deleteProducts,
     updateProductsOrder,
     toggleProductFeatured,
+    updateProductBadges,
   };
 };

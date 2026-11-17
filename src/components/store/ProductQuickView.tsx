@@ -4,6 +4,7 @@ import type { PublicProduct } from '../../types/store';
 import type { PriceParts } from '../../lib/pricing';
 import { PriceTag } from './PriceTag';
 import { WhatsAppIcon } from './SocialIcons';
+import { ProductBadgesOverlay, ProductBadgesInline } from '../products/ProductBadges';
 
 interface ProductQuickViewProps {
   product: PublicProduct | null;
@@ -176,11 +177,22 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
                   <span className="text-[11px] font-medium text-secondary">Sin imagen</span>
                 </div>
               )}
+              <ProductBadgesOverlay
+                badges={product.badges}
+                isFeatured={product.is_featured}
+                size="sm"
+                className="top-11 right-2.5"
+              />
             </div>
           </div>
 
           <div className="p-4 space-y-3.5">
             <div className="space-y-1">
+              <ProductBadgesInline
+                badges={product.badges}
+                isFeatured={product.is_featured}
+                className="mb-1"
+              />
               <h2 className="font-display text-lg sm:text-xl font-extrabold text-primary leading-snug">{product.name}</h2>
               <PriceTag
                 parts={price}
