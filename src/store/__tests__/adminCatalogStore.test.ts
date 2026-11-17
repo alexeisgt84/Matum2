@@ -67,6 +67,58 @@ describe('adminCatalogStore', () => {
     expect(updated?.is_active).toBe(false);
   });
 
+  it('debe restaurar is_active a true al desbloquear un catálogo', async () => {
+    const mockCatalog = {
+      id: 'cat-123',
+      name: 'Tienda Test',
+      user_id: 'user-1',
+      is_active: false,
+      is_public: true,
+      is_blocked: true,
+      blocked_reason: 'Bloqueado',
+      slug: 'tienda-test',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as any;
+
+    useAdminCatalogStore.setState({ catalogs: [mockCatalog] });
+
+    (supabase.rpc as any).mockResolvedValue({
+      data: { success: true },
+      error: null,
+    });
+
+    const success = await useAdminCatalogStore.getState().toggleBlockCatalog('cat-123', false);
+
+    expect(success).toBe(true);
+    const updated = useAdminCatalogStore.getState().catalogs.find((c) => c.id === 'cat-123');
+    expect(updated?.is_blocked).toBe(false);
+    expect(updated?.blocked_reason).toBeNull();
+    expect(updated?.is_active).toBe(true);
+  });
+
+  it('debe activar o desactivar un catálogo directamente con toggleActiveCatalog', async () => {
+    const mockCatalog = {
+      id: 'cat-456',
+      name: 'La Bodega',
+      user_id: 'user-1',
+      is_active: false,
+      is_public: true,
+      is_blocked: false,
+      slug: 'bodega',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as any;
+
+    useAdminCatalogStore.setState({ catalogs: [mockCatalog] });
+
+    const success = await useAdminCatalogStore.getState().toggleActiveCatalog('cat-456', true);
+
+    expect(success).toBe(true);
+    const updated = useAdminCatalogStore.getState().catalogs.find((c) => c.id === 'cat-456');
+    expect(updated?.is_active).toBe(true);
+  });
+
   it('debe eliminar un catálogo y removerlo del estado local', async () => {
     const mockCatalog = {
       id: 'cat-delete-me',

@@ -8,6 +8,7 @@ interface AdminCatalogState {
   error: string | null;
   getAdminCatalogs: () => Promise<void>;
   toggleBlockCatalog: (catalogId: string, isBlocked: boolean, reason?: string) => Promise<boolean>;
+  toggleActiveCatalog: (catalogId: string, isActive: boolean) => Promise<boolean>;
   deleteCatalogWithAllData: (catalogId: string) => Promise<{ success: boolean; message?: string }>;
 }
 
@@ -78,7 +79,7 @@ export const useAdminCatalogStore = create<AdminCatalogState>((set, get) => ({
             is_blocked: isBlocked,
             blocked_reason: isBlocked ? (reason || 'Bloqueado por administración') : null,
             blocked_at: isBlocked ? new Date().toISOString() : null,
-            is_active: isBlocked ? false : undefined,
+            is_active: !isBlocked,
           })
           .eq('id', catalogId);
 
@@ -94,7 +95,7 @@ export const useAdminCatalogStore = create<AdminCatalogState>((set, get) => ({
                 is_blocked: isBlocked,
                 blocked_reason: isBlocked ? (reason || 'Bloqueado por administración') : null,
                 blocked_at: isBlocked ? new Date().toISOString() : null,
-                is_active: isBlocked ? false : c.is_active,
+                is_active: !isBlocked,
               }
             : c
         ),
@@ -105,6 +106,23 @@ export const useAdminCatalogStore = create<AdminCatalogState>((set, get) => ({
       console.error('Error in toggleBlockCatalog:', err);
       throw err;
     }
+  },
+
+  toggleActiveCatalog: async (catalogId: string, isActive: boolean) => {
+    const { error } = await supabase
+      .from('catalogs')
+      .update({ is_active: isActive, updated_at: new Date().toISOString() })
+      .eq('id', catalogId);
+
+    if (error) throw error;
+
+    set((state) => ({
+      catalogs: state.catalogs.map((c) =>
+        c.id === catalogId ? { ...c, is_active: isActive } : c
+      ),
+    }));
+
+    return true;
   },
 
   deleteCatalogWithAllData: async (catalogId: string) => {

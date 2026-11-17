@@ -40,7 +40,7 @@ import { toast } from 'react-hot-toast';
 
 export const AdminCatalogsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { catalogs, loading, getAdminCatalogs, toggleBlockCatalog, deleteCatalogWithAllData } = useAdminCatalogStore();
+  const { catalogs, loading, getAdminCatalogs, toggleBlockCatalog, toggleActiveCatalog, deleteCatalogWithAllData } = useAdminCatalogStore();
   const {
     isGlobalCatalogCreationEnabled,
     setGlobalCatalogCreation,
@@ -55,6 +55,7 @@ export const AdminCatalogsPage: React.FC = () => {
   const [blockingCatalog, setBlockingCatalog] = useState<AdminCatalog | null>(null);
   const [blockReason, setBlockReason] = useState('');
   const [isBlockingAction, setIsBlockingAction] = useState(false);
+  const [activatingCatalogId, setActivatingCatalogId] = useState<string | null>(null);
 
   // Estado para modal de eliminación
   const [deletingCatalog, setDeletingCatalog] = useState<AdminCatalog | null>(null);
@@ -121,6 +122,20 @@ export const AdminCatalogsPage: React.FC = () => {
       toast.error(`Error: ${err.message || 'No se pudo completar la operación'}`, { id: toastId });
     } finally {
       setIsBlockingAction(false);
+    }
+  };
+
+  const handleActivateCatalog = async (cat: AdminCatalog) => {
+    setActivatingCatalogId(cat.id);
+    const toastId = toast.loading(`Activando "${cat.name}"...`);
+
+    try {
+      await toggleActiveCatalog(cat.id, true);
+      toast.success(`Catálogo "${cat.name}" activado correctamente`, { id: toastId });
+    } catch (err: any) {
+      toast.error(`Error: ${err.message || 'No se pudo activar el catálogo'}`, { id: toastId });
+    } finally {
+      setActivatingCatalogId(null);
     }
   };
 
@@ -545,6 +560,19 @@ export const AdminCatalogsPage: React.FC = () => {
 
                   {/* Acciones Administrativas */}
                   <div className="flex sm:flex-col gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-border justify-end flex-shrink-0">
+                    {!isBlocked && !catalog.is_active && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleActivateCatalog(catalog)}
+                        disabled={activatingCatalogId === catalog.id}
+                        className="text-xs h-8 px-3 gap-1.5 justify-center flex-1 sm:flex-initial bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/20"
+                      >
+                        <ShieldCheck size={13} />
+                        <span>{activatingCatalogId === catalog.id ? 'Activando...' : 'Activar'}</span>
+                      </Button>
+                    )}
+
                     {/* Botón Bloquear / Desbloquear */}
                     <Button
                       size="sm"

@@ -1627,6 +1627,13 @@ export const CatalogSettingsPage = () => {
 
               <div className="space-y-4 border-t border-border/40 pt-4">
                 <Switch
+                  label="Catálogo activo"
+                  subtitle="Cuando está inactivo, la tienda y el envío de secuencias quedan pausados"
+                  checked={storeForm.is_active}
+                  onChange={(checked) => setStoreForm(prev => ({ ...prev, is_active: checked }))}
+                />
+
+                <Switch
                   label="Hacer público en la web"
                   subtitle="Permite que cualquier persona acceda al catálogo con el enlace"
                   checked={storeForm.is_public}
