@@ -33,6 +33,10 @@ export interface PublicCatalog {
   catalog_type?: 'store' | 'marketplace' | string;
   is_blocked?: boolean;
   blocked_reason?: string | null;
+  is_active?: boolean;
+  is_public?: boolean;
+  inactive_reason?: string | null;
+  reopen_at?: string | null;
 }
 
 export interface PublicProduct {

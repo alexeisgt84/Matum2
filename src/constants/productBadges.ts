@@ -3,9 +3,10 @@ export type ProductBadgeId = 'on_sale' | 'discount' | 'new' | 'featured' | 'low_
 export interface ProductBadgeDefinition {
   id: ProductBadgeId;
   label: string;
-  emoji: string;
   description: string;
   badgeClass: string;
+  foldClass: string;
+  dotClass: string;
   inlineClass: string;
   chipActiveClass: string;
 }
@@ -14,45 +15,50 @@ export const PRODUCT_BADGES: readonly ProductBadgeDefinition[] = [
   {
     id: 'on_sale',
     label: 'EN OFERTA',
-    emoji: '🔥',
     description: 'Para productos que forman parte de una promoción especial.',
-    badgeClass: 'bg-gradient-to-r from-red-600/95 to-orange-500/95 text-white border-red-400/40',
+    badgeClass: 'bg-gradient-to-r from-red-600 to-orange-500 text-white border-red-300/40',
+    foldClass: 'border-t-red-950',
+    dotClass: 'bg-gradient-to-r from-red-600 to-orange-500',
     inlineClass: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/30',
     chipActiveClass: 'bg-gradient-to-r from-red-600/20 to-orange-500/20 border-red-500/50 text-red-500 dark:text-red-400',
   },
   {
     id: 'discount',
     label: 'EN REBAJA',
-    emoji: '🏷️',
     description: 'Para productos cuyo precio ha sido reducido.',
-    badgeClass: 'bg-gradient-to-r from-emerald-600/95 to-teal-500/95 text-white border-emerald-400/40',
+    badgeClass: 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white border-emerald-300/40',
+    foldClass: 'border-t-emerald-950',
+    dotClass: 'bg-gradient-to-r from-emerald-600 to-teal-500',
     inlineClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
     chipActiveClass: 'bg-gradient-to-r from-emerald-600/20 to-teal-500/20 border-emerald-500/50 text-emerald-600 dark:text-emerald-400',
   },
   {
     id: 'new',
     label: 'NUEVO',
-    emoji: '✨',
     description: 'Para productos recién incorporados al catálogo.',
-    badgeClass: 'bg-gradient-to-r from-blue-600/95 to-indigo-500/95 text-white border-blue-400/40',
+    badgeClass: 'bg-gradient-to-r from-blue-600 to-indigo-500 text-white border-blue-300/40',
+    foldClass: 'border-t-blue-950',
+    dotClass: 'bg-gradient-to-r from-blue-600 to-indigo-500',
     inlineClass: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30',
     chipActiveClass: 'bg-gradient-to-r from-blue-600/20 to-indigo-500/20 border-blue-500/50 text-blue-600 dark:text-blue-400',
   },
   {
     id: 'featured',
     label: 'DESTACADO',
-    emoji: '⭐',
     description: 'Para productos que deseas resaltar en el catálogo.',
-    badgeClass: 'bg-gradient-to-r from-amber-500/95 to-yellow-500/95 text-slate-950 border-amber-300/60',
+    badgeClass: 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 border-amber-200/70',
+    foldClass: 'border-t-amber-900',
+    dotClass: 'bg-gradient-to-r from-amber-500 to-yellow-400',
     inlineClass: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
     chipActiveClass: 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border-amber-500/50 text-amber-600 dark:text-amber-400',
   },
   {
     id: 'low_stock',
     label: 'ÚLTIMAS UNIDADES',
-    emoji: '⏳',
     description: 'Para productos con pocas existencias disponibles.',
-    badgeClass: 'bg-gradient-to-r from-purple-600/95 to-fuchsia-600/95 text-white border-purple-400/40',
+    badgeClass: 'bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white border-purple-300/40',
+    foldClass: 'border-t-purple-950',
+    dotClass: 'bg-gradient-to-r from-purple-600 to-fuchsia-600',
     inlineClass: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30',
     chipActiveClass: 'bg-gradient-to-r from-purple-600/20 to-fuchsia-600/20 border-purple-500/50 text-purple-600 dark:text-purple-400',
   },

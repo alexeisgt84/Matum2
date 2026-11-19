@@ -830,12 +830,14 @@ export const FollowedCatalogsPage = () => {
                               </div>
                             </div>
 
-                            <div className="relative w-16 h-16 rounded-xl bg-surface border border-border flex items-center justify-center overflow-hidden flex-shrink-0 z-10">
-                              {product.imagen_url ? (
-                                <img src={product.imagen_url} alt={product.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <Package size={22} className="text-secondary" />
-                              )}
+                            <div className="relative w-16 h-16 flex-shrink-0 z-10">
+                              <div className="w-full h-full rounded-xl bg-surface border border-border flex items-center justify-center overflow-hidden">
+                                {product.imagen_url ? (
+                                  <img src={product.imagen_url} alt={product.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <Package size={22} className="text-secondary" />
+                                )}
+                              </div>
                               <ProductBadgesOverlay
                                 badges={product.badges}
                                 isFeatured={product.is_featured}
@@ -1220,12 +1222,14 @@ export const FollowedCatalogsPage = () => {
                         </div>
                       </div>
 
-                      <div className="relative w-16 h-16 rounded-xl bg-surface border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {product.imagen_url ? (
-                          <img src={product.imagen_url} alt={product.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <Package size={22} className="text-secondary" />
-                        )}
+                      <div className="relative w-16 h-16 flex-shrink-0">
+                        <div className="w-full h-full rounded-xl bg-surface border border-border flex items-center justify-center overflow-hidden">
+                          {product.imagen_url ? (
+                            <img src={product.imagen_url} alt={product.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Package size={22} className="text-secondary" />
+                          )}
+                        </div>
                         <ProductBadgesOverlay
                           badges={product.badges}
                           isFeatured={product.is_featured}

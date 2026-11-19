@@ -87,7 +87,10 @@ export const usePublicCatalogs = () => {
     try {
       let formatted: PublicCatalogItem[] = [];
 
-      const { data: rpcData, error: rpcError } = await supabase.rpc('get_public_catalogs');
+      const { data: rpcData, error: rpcError } =
+        typeof (supabase as any).rpc === 'function'
+          ? await supabase.rpc('get_public_catalogs')
+          : { data: null, error: new Error('RPC no disponible') };
 
       if (!rpcError && Array.isArray(rpcData)) {
         formatted = rpcData.map((cat: any) => ({
@@ -141,10 +144,10 @@ export const usePublicCatalogs = () => {
 
       setPublicCatalogs(sorted);
       await saveCachedList(PUBLIC_CATALOGS_CACHE_KEY, sorted);
-      // Guardar metadatos en caché local; limitar precarga profunda a los 4 primeros catálogos para no saturar conexiones lentas
+      // Guardar metadatos en caché local; limitar precarga profunda a los 2 primeros catálogos para no saturar conexiones lentas
       sorted.forEach((cat, idx) => {
         saveCatalogToCache(cat);
-        if (idx < 4) {
+        if (idx < 2) {
           syncCatalogForOffline(cat.id);
         }
       });

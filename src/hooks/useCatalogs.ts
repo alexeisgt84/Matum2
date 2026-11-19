@@ -16,13 +16,14 @@ import {
 
 export const useCatalogs = () => {
   const { user } = useAuthStore();
+  const userId = user?.id;
   const [catalogs, setCatalogs] = useState<Catalog[]>([]);
   const [sharedCatalogs, setSharedCatalogs] = useState<Catalog[]>([]);
   const [loading, setLoading] = useState(false);
 
   const getCatalogs = useCallback(async () => {
-    if (!user) return;
-    const cacheKey = `my_catalogs_${user.id}`;
+    if (!userId) return;
+    const cacheKey = `my_catalogs_${userId}`;
     const cached = await getCachedList<Catalog[]>(cacheKey);
 
     if (cached && cached.length > 0) {
@@ -42,7 +43,7 @@ export const useCatalogs = () => {
           *,
           products:products(count)
         `)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -69,11 +70,11 @@ export const useCatalogs = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   const getSharedCatalogs = useCallback(async () => {
-    if (!user) return;
-    const cacheKey = `shared_catalogs_${user.id}`;
+    if (!userId) return;
+    const cacheKey = `shared_catalogs_${userId}`;
     const cached = await getCachedList<Catalog[]>(cacheKey);
 
     if (cached && cached.length > 0) {
@@ -95,7 +96,7 @@ export const useCatalogs = () => {
             products:products(count)
           )
         `)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('status', 'accepted');
 
       if (error) throw error;
@@ -125,7 +126,7 @@ export const useCatalogs = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [userId]);
 
   const createCatalog = async (form: CatalogForm, logoFile?: File, coverFile?: File) => {
     if (!user) return;
@@ -242,6 +243,8 @@ export const useCatalogs = () => {
               '🎉 *¡DE VUELTA EN STOCK!* 🎉\n\nLo estabas esperando y ya está disponible nuevamente:\n🛍️ *{product_name}*\n💵 *Precio:* {product_price} {product_currency}\n\n📝 *Detalles:* {product_description}\n\n⚡ Las unidades son muy limitadas. ¡Escríbenos para asegurar el tuyo ahora mismo!',
             is_active: form.is_active,
             is_public: form.is_public || false,
+            inactive_reason: form.inactive_reason || null,
+            reopen_at: form.reopen_at || null,
             slug: form.slug || null,
             logo_url,
             cover_url,
@@ -351,6 +354,8 @@ export const useCatalogs = () => {
       if (form.available_template !== undefined) updateData.available_template = form.available_template;
       if (form.is_active !== undefined) updateData.is_active = form.is_active;
       if (form.is_public !== undefined) updateData.is_public = form.is_public;
+      if (form.inactive_reason !== undefined) updateData.inactive_reason = form.inactive_reason;
+      if (form.reopen_at !== undefined) updateData.reopen_at = form.reopen_at;
       if (form.slug !== undefined) updateData.slug = form.slug;
       if (logo_url !== undefined) updateData.logo_url = logo_url;
       if (cover_url !== undefined) updateData.cover_url = cover_url;

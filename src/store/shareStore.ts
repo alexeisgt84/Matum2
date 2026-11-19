@@ -92,40 +92,43 @@ export const useShareStore = create<ShareStore>((set, get) => ({
   },
   
   initListener: () => {
-    // 1. Cargar e inicializar la cola persistida
-    loadPersistedShares().then((persisted) => {
-      set({ sharedContentList: persisted });
+    // Diferir lectura de archivos nativos compartidos para no bloquear el primer renderizado
+    setTimeout(() => {
+      // 1. Cargar e inicializar la cola persistida
+      loadPersistedShares().then((persisted) => {
+        set({ sharedContentList: persisted });
 
-      if (!Capacitor.isNativePlatform()) return;
+        if (!Capacitor.isNativePlatform()) return;
 
-      // 2. Chequear si hay un compartido inicial al iniciar
-      ShareReceiver.getSharedData().then(async (data) => {
-        if (data.text || data.imagePath) {
-          const processed = await processSharedData(data);
-          const processedWithSource = { ...processed, imagePath: data.imagePath };
-          
-          // Evitar duplicados basados en descripción e imagen nativa
-          const exists = get().sharedContentList.some(item => 
-            item.description === processedWithSource.description && 
-            item.imagePath === processedWithSource.imagePath
-          );
-          
-          if (!exists) {
-            get().addSharedContent(processedWithSource);
+        // 2. Chequear si hay un compartido inicial al iniciar
+        ShareReceiver.getSharedData().then(async (data) => {
+          if (data.text || data.imagePath) {
+            const processed = await processSharedData(data);
+            const processedWithSource = { ...processed, imagePath: data.imagePath };
+            
+            // Evitar duplicados basados en descripción e imagen nativa
+            const exists = get().sharedContentList.some(item => 
+              item.description === processedWithSource.description && 
+              item.imagePath === processedWithSource.imagePath
+            );
+            
+            if (!exists) {
+              get().addSharedContent(processedWithSource);
+            }
+            await ShareReceiver.clearSharedData();
           }
-          await ShareReceiver.clearSharedData();
-        }
-      }).catch(err => console.error('Error fetching initial shared data:', err));
+        }).catch(err => console.error('Error fetching initial shared data:', err));
 
-      // 3. Escuchar por compartidos recibidos en tiempo real (app abierta)
-      ShareReceiver.addListener('onShareReceived', async (data: RawSharedData) => {
-        if (data.text || data.imagePath) {
-          const processed = await processSharedData(data);
-          const processedWithSource = { ...processed, imagePath: data.imagePath };
-          get().addSharedContent(processedWithSource);
-          await ShareReceiver.clearSharedData();
-        }
+        // 3. Escuchar por compartidos recibidos en tiempo real (app abierta)
+        ShareReceiver.addListener('onShareReceived', async (data: RawSharedData) => {
+          if (data.text || data.imagePath) {
+            const processed = await processSharedData(data);
+            const processedWithSource = { ...processed, imagePath: data.imagePath };
+            get().addSharedContent(processedWithSource);
+            await ShareReceiver.clearSharedData();
+          }
+        });
       });
-    });
+    }, 250);
   }
 }));

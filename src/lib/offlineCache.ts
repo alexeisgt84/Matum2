@@ -172,7 +172,7 @@ export async function cacheImageUrls(urls: (string | null | undefined)[]): Promi
 
   try {
     const cache = await window.caches.open(IMAGE_CACHE_NAME);
-    const BATCH_SIZE = 4;
+    const BATCH_SIZE = 2;
 
     for (let i = 0; i < validUrls.length; i += BATCH_SIZE) {
       if (isOffline()) break;
@@ -534,8 +534,8 @@ async function processSyncQueue(): Promise<void> {
   if (isProcessingSyncQueue) return;
   isProcessingSyncQueue = true;
 
-  // Dar prioridad a las consultas principales de la interfaz antes de sincronizar en segundo plano
-  await new Promise((r) => setTimeout(r, 800));
+  // Dar prioridad a las consultas e imágenes principales de la interfaz antes de sincronizar en segundo plano
+  await new Promise((r) => setTimeout(r, 3500));
 
   while (syncQueue.length > 0) {
     if (isOffline()) {

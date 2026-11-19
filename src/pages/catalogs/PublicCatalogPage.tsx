@@ -43,6 +43,7 @@ import { ProductCard, ProductGridSkeleton } from '../../components/store/Product
 import { CartFab, CartSheet, type MinOrderState } from '../../components/store/Cart';
 import { ProductQuickView } from '../../components/store/ProductQuickView';
 import { StoreFooter } from '../../components/store/StoreFooter';
+import { CatalogInactiveView } from '../../components/store/CatalogInactiveView';
 import { recordStoreView } from '../../lib/analytics';
 import type {
   CartItem,
@@ -59,7 +60,7 @@ export interface PublicCatalogPageProps {
 }
 
 const CATALOG_SELECT =
-  'id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount, catalog_type, is_blocked, blocked_reason';
+  'id, slug, name, slogan, description, user_id, is_active, is_public, inactive_reason, reopen_at, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount, catalog_type, is_blocked, blocked_reason';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -406,26 +407,40 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
     setProductsLoading(false);
   };
 
+  const getBlockedErrorMessage = (cat: { blocked_reason?: string | null }) =>
+    cat.blocked_reason
+      ? `Catálogo suspendido: ${cat.blocked_reason}`
+      : 'Este catálogo ha sido bloqueado o suspendido por la administración.';
+
   const loadPublicCatalog = async () => {
     if (!slug) return;
     setError(null);
 
     const cachedCat = await getCatalogFromCache(slug);
-    if (cachedCat) {
-      await applyCachedPublicCatalog(cachedCat);
-    } else {
-      setLoading(true);
-      setProductsLoading(true);
-    }
 
     if (isOffline()) {
       if (!cachedCat) {
         setError('Sin conexión. Este catálogo aún no ha sido guardado en tu dispositivo.');
-        setLoading(false);
-        setProductsLoading(false);
+      } else if (cachedCat.is_blocked) {
+        setCatalog(null);
+        setError(getBlockedErrorMessage(cachedCat));
+      } else if (cachedCat.is_public === false) {
+        setCatalog(null);
+        setError('Este catálogo no se encuentra disponible actualmente.');
+      } else if (cachedCat.is_active === false) {
+        setCatalog(cachedCat);
+        setError(null);
+      } else {
+        await applyCachedPublicCatalog(cachedCat);
+        return;
       }
+      setLoading(false);
+      setProductsLoading(false);
       return;
     }
+
+    setLoading(true);
+    setProductsLoading(true);
 
     try {
       let { data: catData, error: catError } = await supabase
@@ -449,28 +464,46 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       if (catError) throw catError;
 
       if (!catData) {
-        if (!cachedCat) setError('Catálogo no encontrado.');
+        setCatalog(null);
+        setError('Catálogo no encontrado.');
         setLoading(false);
         setProductsLoading(false);
         return;
       }
 
       if (catData.is_blocked) {
-        setError(catData.blocked_reason ? `Catálogo suspendido: ${catData.blocked_reason}` : 'Este catálogo ha sido bloqueado o suspendido por la administración.');
+        await saveCatalogToCache({ ...catData, slug: (catData as any).slug || slug });
+        setCatalog(null);
+        setError(getBlockedErrorMessage(catData));
         setLoading(false);
         setProductsLoading(false);
         return;
       }
 
-      if (!catData.is_active || !catData.is_public) {
+      if (!catData.is_public) {
+        await saveCatalogToCache({ ...catData, slug: (catData as any).slug || slug });
+        setCatalog(null);
         setError('Este catálogo no se encuentra disponible actualmente.');
         setLoading(false);
         setProductsLoading(false);
         return;
       }
 
-      setCatalog(catData);
-      setLoading(false);
+      if (!catData.is_active) {
+        await saveCatalogToCache({ ...catData, slug: (catData as any).slug || slug });
+        setCatalog(catData);
+        setError(null);
+        setLoading(false);
+        setProductsLoading(false);
+        return;
+      }
+
+      if (cachedCat && cachedCat.id === catData.id) {
+        await applyCachedPublicCatalog({ ...cachedCat, ...catData });
+      } else {
+        setCatalog(catData);
+        setLoading(false);
+      }
 
       try {
         const [prodResult, catKeysResult, userResult] = await Promise.all([
@@ -534,7 +567,19 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       }
     } catch (err: any) {
       console.error(err);
-      if (!cachedCat) {
+      if (cachedCat && isNetworkError(err)) {
+        if (cachedCat.is_blocked) {
+          setCatalog(null);
+          setError(getBlockedErrorMessage(cachedCat));
+        } else if (cachedCat.is_active === false || cachedCat.is_public === false) {
+          setCatalog(null);
+          setError('Este catálogo no se encuentra disponible actualmente.');
+        } else {
+          await applyCachedPublicCatalog(cachedCat);
+          return;
+        }
+      } else {
+        setCatalog(null);
         setError(
           isNetworkError(err)
             ? 'Sin conexión. Este catálogo aún no ha sido guardado en tu dispositivo.'
@@ -975,16 +1020,22 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   }
 
   if (error || !catalog) {
+    const isNotFound = error === 'Catálogo no encontrado.';
+    const hasCustomDetail =
+      Boolean(error) &&
+      error !== 'Catálogo no encontrado.' &&
+      error !== 'Este catálogo no se encuentra disponible actualmente.';
+
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-5 text-center font-store">
         <div className="w-12 h-12 rounded-card bg-red-500/10 flex items-center justify-center border border-red-500/20 text-red-500 mb-3">
           <AlertTriangle size={22} />
         </div>
         <h1 className="font-display text-lg font-bold text-primary mb-1">
-          {error === 'Catálogo no encontrado.' ? 'Tienda no encontrada' : 'Tienda no disponible'}
+          {isNotFound ? 'Tienda no encontrada' : 'Tienda no disponible'}
         </h1>
         <p className="text-secondary text-xs max-w-xs mb-5">
-          El enlace que ingresaste no existe o no está activo en este momento.
+          {hasCustomDetail ? error : 'El enlace que ingresaste no existe o no está activo en este momento.'}
         </p>
         <Link to="/login">
           <Button variant="secondary" size="sm" icon={ArrowLeft}>
@@ -993,6 +1044,10 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         </Link>
       </div>
     );
+  }
+
+  if (catalog.is_active === false) {
+    return <CatalogInactiveView catalog={catalog} />;
   }
 
   return (

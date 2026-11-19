@@ -58,15 +58,20 @@ export const DashboardPage = () => {
   const myCatalogIds = useMemo(() => new Set(catalogs.map((c) => c.id)), [catalogs]);
   const sharedCatalogIds = useMemo(() => new Set(sharedCatalogs.map((c) => c.id)), [sharedCatalogs]);
 
+  const userId = user?.id;
+
   useEffect(() => {
     getPublicCatalogs();
-    if (user) {
+  }, [getPublicCatalogs]);
+
+  useEffect(() => {
+    if (userId) {
       if (!isCustomer) {
         getCatalogs();
       }
       getSharedCatalogs();
     }
-  }, [user, isCustomer, getPublicCatalogs, getCatalogs, getSharedCatalogs]);
+  }, [userId, isCustomer, getCatalogs, getSharedCatalogs]);
 
   const affiliatesCount = useMemo(
     () => publicCatalogs.filter((c) => Boolean(c.enable_affiliates)).length,

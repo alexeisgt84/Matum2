@@ -48,10 +48,11 @@ import { recordStoreView } from '../../lib/analytics';
 import { ProductCard } from '../../components/store/ProductCard';
 import { ProductBadgesOverlay, ProductBadgesInline } from '../../components/products/ProductBadges';
 import { WhatsAppIcon } from '../../components/store/SocialIcons';
+import { CatalogInactiveView } from '../../components/store/CatalogInactiveView';
 import type { CartItem, PublicCatalog, PublicProduct } from '../../types/store';
 
 const CATALOG_SELECT =
-  'id, slug, name, slogan, description, user_id, is_active, is_public, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, catalog_type, is_blocked, blocked_reason';
+  'id, slug, name, slogan, description, user_id, is_active, is_public, inactive_reason, reopen_at, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, catalog_type, is_blocked, blocked_reason';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -171,6 +172,11 @@ export const PublicProductPage: React.FC = () => {
 
   // Cargar catálogo y producto
   useEffect(() => {
+    const getBlockedErrorMessage = (cat: { blocked_reason?: string | null }) =>
+      cat.blocked_reason
+        ? `Catálogo suspendido: ${cat.blocked_reason}`
+        : 'Este catálogo ha sido bloqueado o suspendido por la administración.';
+
     const fetchData = async () => {
       if (!slug || !productId) return;
       setError(null);
@@ -180,24 +186,30 @@ export const PublicProductPage: React.FC = () => {
       if (cachedCat) {
         const cachedProds = await getCatalogProductsFromCache(cachedCat.id);
         cachedProd = cachedProds?.find((p: any) => p.id === productId) || null;
-        if (cachedProd) {
-          setCatalog(cachedCat);
-          setProduct(cachedProd);
-          setVendorPhone(cachedCat._vendorInfo?.vendorPhone || cachedCat.footer_phone || '');
-          setVendorPlan(cachedCat._vendorInfo?.vendorPlan || 'free');
-          setLoading(false);
-        }
       }
 
       if (isOffline()) {
         if (!cachedCat || !cachedProd) {
           setError('Sin conexión. Este producto aún no está guardado en el dispositivo.');
-          setLoading(false);
+        } else if (cachedCat.is_blocked) {
+          setCatalog(null);
+          setProduct(null);
+          setError(getBlockedErrorMessage(cachedCat));
+        } else if (cachedCat.is_active === false) {
+          setCatalog(null);
+          setProduct(null);
+          setError('Tienda no disponible o inactiva.');
+        } else {
+          setCatalog(cachedCat);
+          setProduct(cachedProd);
+          setVendorPhone(cachedCat._vendorInfo?.vendorPhone || cachedCat.footer_phone || '');
+          setVendorPlan(cachedCat._vendorInfo?.vendorPlan || 'free');
         }
+        setLoading(false);
         return;
       }
 
-      if (!cachedProd) setLoading(true);
+      setLoading(true);
 
       try {
         let { data: catData, error: catError } = await supabase
@@ -218,18 +230,41 @@ export const PublicProductPage: React.FC = () => {
         if (catError) throw catError;
 
         if (catData?.is_blocked) {
-          setError(catData.blocked_reason ? `Catálogo suspendido: ${catData.blocked_reason}` : 'Este catálogo ha sido bloqueado o suspendido por la administración.');
+          await saveCatalogToCache({ ...catData, slug: (catData as any).slug || slug });
+          setCatalog(null);
+          setProduct(null);
+          setError(getBlockedErrorMessage(catData));
           setLoading(false);
           return;
         }
 
-        if (!catData || !catData.is_active) {
-          if (!cachedProd) setError('Tienda no disponible o inactiva.');
+        if (!catData || !catData.is_public) {
+          if (catData) {
+            await saveCatalogToCache({ ...catData, slug: (catData as any).slug || slug });
+          }
+          setCatalog(null);
+          setProduct(null);
+          setError('Tienda no disponible o inactiva.');
+          setLoading(false);
+          return;
+        }
+
+        if (!catData.is_active) {
+          await saveCatalogToCache({ ...catData, slug: (catData as any).slug || slug });
+          setCatalog(catData);
+          setProduct(null);
+          setError(null);
           setLoading(false);
           return;
         }
 
         setCatalog(catData);
+        if (cachedProd && cachedCat?.id === catData.id) {
+          setProduct(cachedProd);
+          setVendorPhone(cachedCat._vendorInfo?.vendorPhone || catData.footer_phone || '');
+          setVendorPlan(cachedCat._vendorInfo?.vendorPlan || 'free');
+          setLoading(false);
+        }
 
         const [prodResult, relatedResult, userResult] = await Promise.all([
           supabase
@@ -287,7 +322,24 @@ export const PublicProductPage: React.FC = () => {
         await upsertCatalogProductsInCache(catData.id, [prodResult.data]);
       } catch (err: any) {
         console.error('Error fetching product data:', err);
-        if (!cachedProd) {
+        if (cachedCat && cachedProd && isNetworkError(err)) {
+          if (cachedCat.is_blocked) {
+            setCatalog(null);
+            setProduct(null);
+            setError(getBlockedErrorMessage(cachedCat));
+          } else if (cachedCat.is_active === false) {
+            setCatalog(null);
+            setProduct(null);
+            setError('Tienda no disponible o inactiva.');
+          } else {
+            setCatalog(cachedCat);
+            setProduct(cachedProd);
+            setVendorPhone(cachedCat._vendorInfo?.vendorPhone || cachedCat.footer_phone || '');
+            setVendorPlan(cachedCat._vendorInfo?.vendorPlan || 'free');
+          }
+        } else {
+          setCatalog(null);
+          setProduct(null);
           setError(
             isNetworkError(err)
               ? 'Sin conexión. Este producto aún no está guardado en el dispositivo.'
@@ -545,6 +597,10 @@ export const PublicProductPage: React.FC = () => {
     return <LoadingScreen label="Cargando producto…" className="font-store" />;
   }
 
+  if (!error && catalog && catalog.is_active === false && catalog.is_public !== false) {
+    return <CatalogInactiveView catalog={catalog} />;
+  }
+
   if (error || !product || !catalog) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 text-center font-store">
@@ -650,52 +706,54 @@ export const PublicProductPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8 lg:gap-10">
           {/* Columna Izquierda: Imagen y badges de valor */}
           <div className="space-y-3">
-            <div className="relative aspect-square w-full rounded-3xl overflow-hidden bg-surface/40 border border-border/70 shadow-sm group flex items-center justify-center">
-              {product.imagen_url ? (
-                <img
-                  src={product.imagen_url}
-                  alt={product.name}
-                  fetchPriority="high"
-                  className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center text-secondary/60 gap-2 p-6">
-                  <div className="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center border border-border">
-                    <ShoppingBag size={32} strokeWidth={1.5} />
+            <div className="relative aspect-square w-full">
+              <div className="relative w-full h-full rounded-3xl overflow-hidden bg-surface/40 border border-border/70 shadow-sm group flex items-center justify-center">
+                {product.imagen_url ? (
+                  <img
+                    src={product.imagen_url}
+                    alt={product.name}
+                    fetchPriority="high"
+                    className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-secondary/60 gap-2 p-6">
+                    <div className="w-16 h-16 rounded-2xl bg-surface flex items-center justify-center border border-border">
+                      <ShoppingBag size={32} strokeWidth={1.5} />
+                    </div>
+                    <span className="text-xs font-semibold text-secondary">Sin imagen disponible</span>
                   </div>
-                  <span className="text-xs font-semibold text-secondary">Sin imagen disponible</span>
-                </div>
-              )}
+                )}
 
-              {/* Badges de estado flotantes */}
-              {isOutOfStock ? (
-                <span className="absolute top-3.5 left-3.5 bg-red-500/90 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
-                  Agotado
-                </span>
-              ) : (
-                <span className="absolute top-3.5 left-3.5 bg-background/90 backdrop-blur-md text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold px-3 py-1 rounded-full shadow-sm flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Disponible
-                </span>
-              )}
+                {/* Badges de estado flotantes */}
+                {isOutOfStock ? (
+                  <span className="absolute top-3.5 left-3.5 bg-red-500/90 backdrop-blur-md text-white text-[11px] font-bold px-3 py-1 rounded-full shadow-md">
+                    Agotado
+                  </span>
+                ) : (
+                  <span className="absolute top-3.5 left-3.5 bg-background/90 backdrop-blur-md text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold px-3 py-1 rounded-full shadow-sm flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Disponible
+                  </span>
+                )}
 
-              {/* Etiquetas comerciales en esquina superior derecha */}
+                {/* Botón flotante para compartir foto */}
+                <button
+                  type="button"
+                  onClick={handleShareProduct}
+                  className="absolute bottom-3.5 right-3.5 w-9 h-9 rounded-full bg-black/45 hover:bg-black/65 backdrop-blur-md text-white flex items-center justify-center transition-all opacity-90 hover:opacity-100 shadow-md active:scale-95 z-10"
+                  aria-label="Compartir este producto"
+                >
+                  <Share2 size={14} />
+                </button>
+              </div>
+
+              {/* Etiquetas comerciales en esquina superior derecha (sobresalen del borde) */}
               <ProductBadgesOverlay
                 badges={product.badges}
                 isFeatured={product.is_featured}
                 size="md"
-                className="top-3.5 right-3.5"
+                className="top-4 -right-1.5"
               />
-
-              {/* Botón flotante para compartir foto */}
-              <button
-                type="button"
-                onClick={handleShareProduct}
-                className="absolute bottom-3.5 right-3.5 w-9 h-9 rounded-full bg-black/45 hover:bg-black/65 backdrop-blur-md text-white flex items-center justify-center transition-all opacity-90 hover:opacity-100 shadow-md active:scale-95 z-10"
-                aria-label="Compartir este producto"
-              >
-                <Share2 size={14} />
-              </button>
             </div>
           </div>
 

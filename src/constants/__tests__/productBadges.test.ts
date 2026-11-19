@@ -16,16 +16,18 @@ describe('productBadges constants and helpers', () => {
       'featured',
       'low_stock',
     ]);
-    expect(PRODUCT_BADGES.map((b) => `${b.emoji} ${b.label}`)).toEqual([
-      '🔥 EN OFERTA',
-      '🏷️ EN REBAJA',
-      '✨ NUEVO',
-      '⭐ DESTACADO',
-      '⏳ ÚLTIMAS UNIDADES',
+    expect(PRODUCT_BADGES.map((b) => b.label)).toEqual([
+      'EN OFERTA',
+      'EN REBAJA',
+      'NUEVO',
+      'DESTACADO',
+      'ÚLTIMAS UNIDADES',
     ]);
 
     const badgeClasses = new Set(PRODUCT_BADGES.map((b) => b.badgeClass));
     expect(badgeClasses.size).toBe(5);
+    const foldClasses = new Set(PRODUCT_BADGES.map((b) => b.foldClass));
+    expect(foldClasses.size).toBe(5);
   });
 
   it('normaliza identificadores válidos e ignora desconocidos', () => {

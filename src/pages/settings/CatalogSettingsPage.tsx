@@ -16,6 +16,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { ExchangeRatesModal } from '../../components/catalogs/ExchangeRatesModal';
 import { NemuImportModal } from '../../components/catalogs/NemuImportModal';
 import { useCatalogs } from '../../hooks/useCatalogs';
+import { CatalogInactivityFields } from '../../components/catalogs/CatalogInactivityFields';
 import { Select } from '../../components/ui/Select';
 import { useProfile } from '../../hooks/useProfile';
 import { useWhatsAppGroups } from '../../hooks/useWhatsAppGroups';
@@ -306,7 +307,8 @@ export const CatalogSettingsPage = () => {
   const [catLoading, setCatLoading] = useState(true);
 
   // Hook para actualizar catálogos
-  const { loading: updateLoading, updateCatalog } = useCatalogs();
+  const { loading: updateLoading, updateCatalog, deleteCatalog } = useCatalogs();
+  const [isDeleteCatalogConfirmOpen, setIsDeleteCatalogConfirmOpen] = useState(false);
 
   // Hook de colaboración
   const { 
@@ -323,6 +325,8 @@ export const CatalogSettingsPage = () => {
     descripcion: '',
     is_active: true,
     is_public: false,
+    inactive_reason: '',
+    reopen_at: '',
     slug: '',
     catalog_type: 'store' as 'store' | 'marketplace',
     is_sequence_scheduled: false,
@@ -508,6 +512,8 @@ export const CatalogSettingsPage = () => {
           descripcion: data.description || '',
           is_active: data.is_active ?? true,
           is_public: data.is_public ?? false,
+          inactive_reason: data.inactive_reason || '',
+          reopen_at: data.reopen_at || '',
           slug: data.slug || '',
           catalog_type: data.catalog_type === 'marketplace' ? 'marketplace' : 'store',
           is_sequence_scheduled: data.is_sequence_scheduled ?? false,
@@ -1633,6 +1639,15 @@ export const CatalogSettingsPage = () => {
                   onChange={(checked) => setStoreForm(prev => ({ ...prev, is_active: checked }))}
                 />
 
+                {!storeForm.is_active && (
+                  <CatalogInactivityFields
+                    inactiveReason={storeForm.inactive_reason}
+                    reopenAt={storeForm.reopen_at}
+                    onReasonChange={(val) => setStoreForm(prev => ({ ...prev, inactive_reason: val }))}
+                    onReopenAtChange={(val) => setStoreForm(prev => ({ ...prev, reopen_at: val }))}
+                  />
+                )}
+
                 <Switch
                   label="Hacer público en la web"
                   subtitle="Permite que cualquier persona acceda al catálogo con el enlace"
@@ -1763,6 +1778,30 @@ export const CatalogSettingsPage = () => {
             >
               Guardar Tienda
             </Button>
+
+            {catalog?.user_id === profile?.id && (
+              <div className="card border-red-500/20 bg-red-500/[0.03] space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-red-500 uppercase tracking-wider flex items-center gap-2">
+                      <Trash2 size={16} /> Zona de Peligro
+                    </h3>
+                    <p className="text-xs text-secondary mt-1 leading-relaxed">
+                      Al eliminar este catálogo se borrarán permanentemente todos sus productos, categorías, secuencias y configuraciones asociadas.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon={Trash2}
+                  onClick={() => setIsDeleteCatalogConfirmOpen(true)}
+                  className="!bg-red-500/10 hover:!bg-red-500/20 !text-red-500 border-red-500/30 w-full sm:w-auto"
+                >
+                  Eliminar Catálogo
+                </Button>
+              </div>
+            )}
           </form>
         )}
 
@@ -2659,6 +2698,24 @@ export const CatalogSettingsPage = () => {
         onClose={() => setIsCommissionsModalOpen(false)}
         catalogId={catalogId!}
         catalogName={catalog?.name || ''}
+      />
+
+      {/* Confirmar Eliminar Catálogo */}
+      <ConfirmDialog
+        isOpen={isDeleteCatalogConfirmOpen}
+        title="Eliminar Catálogo"
+        message="¿Estás seguro de que deseas eliminar este catálogo? Todos los productos, mensajes y secuencias asociadas se perderán permanentemente."
+        confirmLabel="Eliminar Catálogo"
+        loading={updateLoading}
+        onConfirm={async () => {
+          if (!catalogId) return;
+          const deleted = await deleteCatalog(catalogId);
+          setIsDeleteCatalogConfirmOpen(false);
+          if (deleted) {
+            navigate('/catalogs');
+          }
+        }}
+        onClose={() => setIsDeleteCatalogConfirmOpen(false)}
       />
 
       {/* Modal Vincular con Nemu */}

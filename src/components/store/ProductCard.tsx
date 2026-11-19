@@ -60,55 +60,57 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     >
       <div>
         {/* Imagen */}
-        <div className="relative aspect-square overflow-hidden rounded-card bg-surface border border-border group-focus-visible:ring-1 group-focus-visible:ring-[var(--accent)]">
-          {product.imagen_url ? (
-            <img
-              src={product.imagen_url}
-              alt={product.name}
-              loading={priority ? 'eager' : 'lazy'}
-              decoding="async"
-              className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-secondary/60">
-              <ShoppingBag size={24} strokeWidth={1.5} />
-            </div>
-          )}
+        <div className="relative aspect-square">
+          <div className="relative w-full h-full overflow-hidden rounded-card bg-surface border border-border group-focus-visible:ring-1 group-focus-visible:ring-[var(--accent)]">
+            {product.imagen_url ? (
+              <img
+                src={product.imagen_url}
+                alt={product.name}
+                loading={priority ? 'eager' : 'lazy'}
+                decoding="async"
+                className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-secondary/60">
+                <ShoppingBag size={24} strokeWidth={1.5} />
+              </div>
+            )}
 
-          {/* Badge superior izquierdo: Tu publicación */}
-          {isMarketplace && isOwner && (
-            <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent text-accent-text text-[9px] font-bold shadow-md z-10">
-              Tu producto
-            </span>
-          )}
+            {/* Badge superior izquierdo: Tu publicación */}
+            {isMarketplace && isOwner && (
+              <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent text-accent-text text-[9px] font-bold shadow-md z-10">
+                Tu producto
+              </span>
+            )}
 
-          {/* Etiquetas comerciales en la esquina superior derecha */}
+            {isOutOfStock && (
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center z-10 pointer-events-none">
+                <span className="px-2.5 py-1 rounded-md bg-red-600/90 text-white text-[10px] font-bold uppercase tracking-wider shadow-md">
+                  Agotado
+                </span>
+              </div>
+            )}
+
+            {/* Compartir (en esquina inferior derecha para no interferir con las etiquetas) */}
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                onShare(e);
+              }}
+              className="inline-flex absolute bottom-1.5 right-1.5 w-7 h-7 items-center justify-center rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white transition-all active:scale-90 shadow-sm z-10"
+              aria-label={`Compartir ${product.name}`}
+            >
+              <Share2 size={13} />
+            </button>
+          </div>
+
+          {/* Etiquetas comerciales en la esquina superior derecha (sobresalen del borde) */}
           <ProductBadgesOverlay
             badges={product.badges}
             isFeatured={product.is_featured}
             size="sm"
           />
-
-          {isOutOfStock && (
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center z-10 pointer-events-none">
-              <span className="px-2.5 py-1 rounded-md bg-red-600/90 text-white text-[10px] font-bold uppercase tracking-wider shadow-md">
-                Agotado
-              </span>
-            </div>
-          )}
-
-          {/* Compartir (en esquina inferior derecha para no interferir con las etiquetas) */}
-          <button
-            type="button"
-            onClick={e => {
-              e.stopPropagation();
-              onShare(e);
-            }}
-            className="inline-flex absolute bottom-1.5 right-1.5 w-7 h-7 items-center justify-center rounded-full bg-black/55 hover:bg-black/75 backdrop-blur-md text-white transition-all active:scale-90 shadow-sm z-10"
-            aria-label={`Compartir ${product.name}`}
-          >
-            <Share2 size={13} />
-          </button>
         </div>
 
         {/* Información superior */}

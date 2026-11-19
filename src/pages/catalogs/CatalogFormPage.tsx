@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCatalogs } from '../../hooks/useCatalogs';
+import { CatalogInactivityFields } from '../../components/catalogs/CatalogInactivityFields';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Save, Info, Zap, Globe, AlertCircle, Camera, MapPin, Clock, Phone, Mail, Coins, DollarSign, ShoppingBag, ShieldCheck, Lock } from 'lucide-react';
@@ -74,6 +75,8 @@ export const CatalogFormPage = () => {
     descripcion: '',
     is_active: true,
     is_public: false,
+    inactive_reason: '',
+    reopen_at: '',
     slug: '',
     catalog_type: (isAdmin && requestedType === 'marketplace' ? 'marketplace' : 'store') as 'store' | 'marketplace',
     is_sequence_scheduled: false,
@@ -144,6 +147,8 @@ export const CatalogFormPage = () => {
         descripcion: data.description || '',
         is_active: data.is_active ?? true,
         is_public: data.is_public ?? false,
+        inactive_reason: data.inactive_reason || '',
+        reopen_at: data.reopen_at || '',
         slug: data.slug || '',
         catalog_type: data.catalog_type === 'marketplace' ? 'marketplace' : 'store',
         is_sequence_scheduled: data.is_sequence_scheduled ?? false,
@@ -435,6 +440,15 @@ export const CatalogFormPage = () => {
               checked={form.is_active}
               onChange={(checked) => setForm(prev => ({ ...prev, is_active: checked }))}
             />
+
+            {!form.is_active && (
+              <CatalogInactivityFields
+                inactiveReason={form.inactive_reason}
+                reopenAt={form.reopen_at}
+                onReasonChange={(val) => setForm(prev => ({ ...prev, inactive_reason: val }))}
+                onReopenAtChange={(val) => setForm(prev => ({ ...prev, reopen_at: val }))}
+              />
+            )}
 
             <Switch
               label="Hacer público en la web"

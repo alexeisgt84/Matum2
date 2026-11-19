@@ -1,8 +1,9 @@
 import React, { useState, useRef, forwardRef, useImperativeHandle } from 'react';
-import EmojiPicker, { Theme } from 'emoji-picker-react';
 import { Bold, Italic, Smile } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import type { RichTextareaHandle } from '../../types/ui';
+
+const EmojiPicker = React.lazy(() => import('emoji-picker-react'));
 
 interface RichTextareaProps {
   value: string;
@@ -151,16 +152,24 @@ export const RichTextarea = forwardRef<RichTextareaHandle, RichTextareaProps>(({
                   onClick={() => setShowEmojiPicker(false)} 
                 />
                 <div className="absolute bottom-full left-0 mb-2 z-[70] shadow-2xl rounded-xl overflow-hidden animate-in zoom-in-95 duration-150 origin-bottom-left">
-                  <EmojiPicker
-                    onEmojiClick={onEmojiClick}
-                    theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
-                    width={300}
-                    height={360}
-                    lazyLoadEmojis={true}
-                    searchPlaceholder="Buscar emoji..."
-                    previewConfig={{ showPreview: false }}
-                    skinTonesDisabled
-                  />
+                  <React.Suspense
+                    fallback={
+                      <div className="w-[300px] h-[360px] bg-surface flex items-center justify-center text-xs text-secondary">
+                        Cargando emojis…
+                      </div>
+                    }
+                  >
+                    <EmojiPicker
+                      onEmojiClick={onEmojiClick}
+                      theme={(theme === 'dark' ? 'dark' : 'light') as any}
+                      width={300}
+                      height={360}
+                      lazyLoadEmojis={true}
+                      searchPlaceholder="Buscar emoji..."
+                      previewConfig={{ showPreview: false }}
+                      skinTonesDisabled
+                    />
+                  </React.Suspense>
                 </div>
               </>
             )}

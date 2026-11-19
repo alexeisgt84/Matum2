@@ -8,6 +8,32 @@ import { isOffline, isNetworkError, cacheImageUrls } from '../lib/offlineCache';
 const CACHED_USER_KEY = 'matum_cached_user';
 let isExplicitLogout = false;
 let lastProactiveRefreshAt = 0;
+let loadUserInFlight: Promise<void> | null = null;
+
+const isSameAuthUser = (a: AuthUser | null, b: AuthUser | null): boolean => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.id === b.id &&
+    a.phone === b.phone &&
+    a.nombre === b.nombre &&
+    a.avatar_url === b.avatar_url &&
+    a.plan === b.plan &&
+    a.role === b.role &&
+    a.can_create_catalogs === b.can_create_catalogs &&
+    a.referral_code === b.referral_code &&
+    JSON.stringify(a.payout_info ?? null) === JSON.stringify(b.payout_info ?? null)
+  );
+};
+
+const saveCachedProfile = (userId: string, profile: unknown) => {
+  if (!profile) return;
+  try {
+    localStorage.setItem(`matum_cached_profile_${userId}`, JSON.stringify(profile));
+  } catch {
+    // ignore storage errors
+  }
+};
 
 const notifySessionExpired = () => {
   if (typeof window !== 'undefined') {
@@ -132,6 +158,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         payout_info: profile?.payout_info || null,
       };
 
+      saveCachedProfile(data.user.id, profile);
       saveCachedUser(authUser);
       set({ user: authUser, loading: false, isInitialized: true });
     } catch (err: any) {
@@ -211,96 +238,149 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   loadUser: async () => {
-    const cachedUser = getCachedUser() || get().user;
-
-    // Si hay usuario en caché local, mantener la sesión activa de inmediato (0ms, sin pedir login)
-    if (cachedUser) {
-      saveCachedUser(cachedUser);
-      set({ user: cachedUser, loading: false, isInitialized: true });
+    if (loadUserInFlight) {
+      return loadUserInFlight;
     }
 
-    if (isOffline()) {
-      set({ user: cachedUser, loading: false, isInitialized: true });
-      return;
-    }
+    loadUserInFlight = (async () => {
+      const currentState = get();
+      const cachedUser = getCachedUser() || currentState.user;
 
-    try {
-      const sessionResult = await Promise.race([
-        supabase.auth.getSession(),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('Failed to fetch: session timeout')), 12000)
-        ),
-      ]);
-
-      const {
-        data: { session },
-        error,
-      } = sessionResult;
-
-      if (error) {
-        if (cachedUser && (isOffline() || isNetworkError(error))) {
-          // Mantener la sesión local solo si el fallo se debe a falta de red o modo offline
-          set({ user: cachedUser, loading: false, isInitialized: true });
-          return;
-        }
-        if (cachedUser) {
-          notifySessionExpired();
-        }
-        saveCachedUser(null);
-        set({ user: null, loading: false, isInitialized: true });
-        return;
-      }
-
-      if (session?.user) {
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-
-        if (profileError && cachedUser && cachedUser.id === session.user.id) {
-          set({ user: cachedUser, loading: false, isInitialized: true });
-          return;
-        }
-
-        const authUser: AuthUser = {
-          id: session.user.id,
-          phone: profile?.phone || cachedUser?.phone || session.user.email?.split('@')[0] || '',
-          nombre: profile?.full_name || cachedUser?.nombre || '',
-          avatar_url: profile?.avatar_url ?? cachedUser?.avatar_url ?? null,
-          plan: profile?.plan || cachedUser?.plan || 'free',
-          role: profile?.role || cachedUser?.role || 'user',
-          ...(profile?.can_create_catalogs !== undefined
-            ? { can_create_catalogs: Boolean(profile.can_create_catalogs) }
-            : cachedUser?.can_create_catalogs !== undefined
-            ? { can_create_catalogs: Boolean(cachedUser.can_create_catalogs) }
-            : {}),
-          referral_code: profile?.referral_code ?? cachedUser?.referral_code ?? null,
-          payout_info: profile?.payout_info ?? cachedUser?.payout_info ?? null,
-        };
-
-        saveCachedUser(authUser);
-        set({ user: authUser, loading: false, isInitialized: true });
-      } else if (cachedUser && isOffline()) {
-        // Mantener la sesión guardada en el dispositivo únicamente si está sin conexión
-        set({ user: cachedUser, loading: false, isInitialized: true });
-      } else {
-        if (cachedUser) {
-          notifySessionExpired();
-        }
-        saveCachedUser(null);
-        set({ user: null, loading: false, isInitialized: true });
-      }
-    } catch (err) {
-      console.warn('[AuthStore] Error o timeout verificando sesión, manteniendo sesión local:', err);
+      // Si hay usuario en caché local, mantener la sesión activa de inmediato (0ms, sin pedir login)
       if (cachedUser) {
-        set({ user: cachedUser, loading: false, isInitialized: true });
+        saveCachedUser(cachedUser);
+        if (!isSameAuthUser(currentState.user, cachedUser) || !currentState.isInitialized || currentState.loading) {
+          set({
+            user: isSameAuthUser(currentState.user, cachedUser) ? currentState.user : cachedUser,
+            loading: false,
+            isInitialized: true,
+          });
+        }
+      }
+
+      if (isOffline()) {
+        if (!currentState.isInitialized || currentState.loading || !isSameAuthUser(currentState.user, cachedUser)) {
+          set({
+            user: isSameAuthUser(currentState.user, cachedUser) ? currentState.user : cachedUser,
+            loading: false,
+            isInitialized: true,
+          });
+        }
         return;
       }
-      set({ user: null, loading: false, isInitialized: true });
-    } finally {
-      set({ loading: false, isInitialized: true });
-    }
+
+      try {
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('Failed to fetch: session timeout')), 12000)
+          ),
+        ]);
+
+        const {
+          data: { session },
+          error,
+        } = sessionResult;
+
+        if (error) {
+          if (cachedUser && (isOffline() || isNetworkError(error))) {
+            // Mantener la sesión local solo si el fallo se debe a falta de red o modo offline
+            const latestUser = get().user;
+            set({
+              user: isSameAuthUser(latestUser, cachedUser) ? latestUser : cachedUser,
+              loading: false,
+              isInitialized: true,
+            });
+            return;
+          }
+          if (cachedUser) {
+            notifySessionExpired();
+          }
+          saveCachedUser(null);
+          set({ user: null, loading: false, isInitialized: true });
+          return;
+        }
+
+        if (session?.user) {
+          const { data: profile, error: profileError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+          if (profileError && cachedUser && cachedUser.id === session.user.id) {
+            const latestUser = get().user;
+            set({
+              user: isSameAuthUser(latestUser, cachedUser) ? latestUser : cachedUser,
+              loading: false,
+              isInitialized: true,
+            });
+            return;
+          }
+
+          if (profile) {
+            saveCachedProfile(session.user.id, profile);
+          }
+
+          const authUser: AuthUser = {
+            id: session.user.id,
+            phone: profile?.phone || cachedUser?.phone || session.user.email?.split('@')[0] || '',
+            nombre: profile?.full_name || cachedUser?.nombre || '',
+            avatar_url: profile?.avatar_url ?? cachedUser?.avatar_url ?? null,
+            plan: profile?.plan || cachedUser?.plan || 'free',
+            role: profile?.role || cachedUser?.role || 'user',
+            ...(profile?.can_create_catalogs !== undefined
+              ? { can_create_catalogs: Boolean(profile.can_create_catalogs) }
+              : cachedUser?.can_create_catalogs !== undefined
+              ? { can_create_catalogs: Boolean(cachedUser.can_create_catalogs) }
+              : {}),
+            referral_code: profile?.referral_code ?? cachedUser?.referral_code ?? null,
+            payout_info: profile?.payout_info ?? cachedUser?.payout_info ?? null,
+          };
+
+          saveCachedUser(authUser);
+          const latestUser = get().user;
+          set({
+            user: isSameAuthUser(latestUser, authUser) ? latestUser : authUser,
+            loading: false,
+            isInitialized: true,
+          });
+        } else if (cachedUser && isOffline()) {
+          // Mantener la sesión guardada en el dispositivo únicamente si está sin conexión
+          const latestUser = get().user;
+          set({
+            user: isSameAuthUser(latestUser, cachedUser) ? latestUser : cachedUser,
+            loading: false,
+            isInitialized: true,
+          });
+        } else {
+          if (cachedUser) {
+            notifySessionExpired();
+          }
+          saveCachedUser(null);
+          set({ user: null, loading: false, isInitialized: true });
+        }
+      } catch (err) {
+        console.warn('[AuthStore] Error o timeout verificando sesión, manteniendo sesión local:', err);
+        if (cachedUser) {
+          const latestUser = get().user;
+          set({
+            user: isSameAuthUser(latestUser, cachedUser) ? latestUser : cachedUser,
+            loading: false,
+            isInitialized: true,
+          });
+          return;
+        }
+        set({ user: null, loading: false, isInitialized: true });
+      } finally {
+        loadUserInFlight = null;
+        if (get().loading || !get().isInitialized) {
+          set({ loading: false, isInitialized: true });
+        }
+      }
+    })();
+
+    return loadUserInFlight;
   },
 
   refreshSessionIfNeeded: async () => {

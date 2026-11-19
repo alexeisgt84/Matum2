@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Camera, Sparkles, X } from 'lucide-react';
-import heic2any from 'heic2any';
 import { toast } from 'react-hot-toast';
 import { blobToFile, preScaleImage } from '../../lib/imageOptimizer';
 import { ImageCropperModal } from './ImageCropperModal';
@@ -69,6 +68,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       setIsConverting(true);
       const toastId = toast.loading('Convirtiendo formato de iPhone...');
       try {
+        const { default: heic2any } = await import('heic2any');
         const converted = await heic2any({
           blob: file,
           toType: 'image/jpeg',
@@ -241,14 +241,16 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
 
       {bottomContent}
 
-      <ImageCropperModal
-        isOpen={isCropperOpen}
-        onClose={() => setIsCropperOpen(false)}
-        image={selectedImage || value || null}
-        onCropComplete={handleCropComplete}
-        title={title}
-        defaultAspect={defaultAspect}
-      />
+      {isCropperOpen && (
+        <ImageCropperModal
+          isOpen={isCropperOpen}
+          onClose={() => setIsCropperOpen(false)}
+          image={selectedImage || value || null}
+          onCropComplete={handleCropComplete}
+          title={title}
+          defaultAspect={defaultAspect}
+        />
+      )}
     </div>
   );
 };

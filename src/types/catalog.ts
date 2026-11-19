@@ -19,6 +19,8 @@ export interface Catalog {
   product_edit_template: string | null;
   is_active: boolean;
   is_public: boolean;
+  inactive_reason?: string | null;
+  reopen_at?: string | null;
   is_blocked?: boolean;
   blocked_reason?: string | null;
   blocked_at?: string | null;
@@ -75,6 +77,8 @@ export interface CatalogForm {
   sequence_schedules?: SequenceSchedule[];
   is_active: boolean;
   is_public: boolean;
+  inactive_reason?: string | null;
+  reopen_at?: string | null;
   slug?: string | null;
   logo_url?: string | null;
   cover_url?: string | null;

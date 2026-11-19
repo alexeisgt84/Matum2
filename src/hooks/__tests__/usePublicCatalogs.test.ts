@@ -71,7 +71,7 @@ describe('usePublicCatalogs hook', () => {
     ];
 
     const qb = (supabase as any)._queryBuilder;
-    qb.order.mockResolvedValueOnce({ data: mockData, error: null });
+    qb.order.mockReturnValueOnce(qb).mockResolvedValueOnce({ data: mockData, error: null });
 
     const { result } = renderHook(() => usePublicCatalogs());
 
@@ -80,8 +80,8 @@ describe('usePublicCatalogs hook', () => {
     });
 
     expect(result.current.publicCatalogs).toHaveLength(2);
-    expect(result.current.publicCatalogs[0].productCount).toBe(5);
-    expect(result.current.publicCatalogs[1].productCount).toBe(0);
+    expect(result.current.publicCatalogs.find((c) => c.id === 'cat-1')?.productCount).toBe(5);
+    expect(result.current.publicCatalogs.find((c) => c.id === 'cat-2')?.productCount).toBe(0);
   });
 
   it('filtra catálogos por término de búsqueda', async () => {
@@ -111,7 +111,7 @@ describe('usePublicCatalogs hook', () => {
     ];
 
     const qb = (supabase as any)._queryBuilder;
-    qb.order.mockResolvedValueOnce({ data: mockData, error: null });
+    qb.order.mockReturnValueOnce(qb).mockResolvedValueOnce({ data: mockData, error: null });
 
     const { result } = renderHook(() => usePublicCatalogs());
 

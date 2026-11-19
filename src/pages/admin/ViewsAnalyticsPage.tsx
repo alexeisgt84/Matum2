@@ -19,6 +19,7 @@ import {
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { TrafficChart } from '../../components/admin/TrafficChart';
 import { 
   fetchViewsAnalytics, 
   type AnalyticsData, 
@@ -271,6 +272,9 @@ export const ViewsAnalyticsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Gráfico de Evolución del Tráfico (Días, Semanas, Meses) */}
+      <TrafficChart timeSeries={data?.timeSeries} loading={loading} />
 
       {/* Tabs para organizar por Tienda, Usuario, Referidos y Productos */}
       <div className="space-y-4">

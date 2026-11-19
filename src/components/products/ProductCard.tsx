@@ -288,29 +288,31 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
       {/* Línea Inferior: Imagen, Título, Descripción y Grip */}
       <div className="flex gap-2.5 items-center">
-        <div className="w-12 h-12 rounded-card bg-surface-hover flex-shrink-0 overflow-hidden relative">
-          {product.imagen_url ? (
-            <img 
-              src={product.imagen_url} 
-              alt={product.name} 
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-secondary">
-              <Tag size={18} />
-            </div>
-          )}
+        <div className="w-12 h-12 flex-shrink-0 relative">
+          <div className="w-full h-full rounded-card bg-surface-hover overflow-hidden relative">
+            {product.imagen_url ? (
+              <img 
+                src={product.imagen_url} 
+                alt={product.name} 
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-secondary">
+                <Tag size={18} />
+              </div>
+            )}
+            {product.is_out_of_stock && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                <span className="text-[7px] font-bold text-white uppercase tracking-widest border border-white/20 px-1 py-0.5 rounded-full bg-black/40">Agotado</span>
+              </div>
+            )}
+          </div>
           <ProductBadgesOverlay
             badges={product.badges}
             isFeatured={product.is_featured}
             size="xs"
             compact
           />
-          {product.is_out_of_stock && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <span className="text-[7px] font-bold text-white uppercase tracking-widest border border-white/20 px-1 py-0.5 rounded-full bg-black/40">Agotado</span>
-            </div>
-          )}
         </div>
 
         <div className="flex-1 min-w-0">

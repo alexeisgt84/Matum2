@@ -985,9 +985,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
-                        <span aria-hidden="true" className="text-sm leading-none shrink-0">
-                          {badge.emoji}
-                        </span>
+                        <span
+                          aria-hidden="true"
+                          className={`w-2.5 h-2.5 rounded-full shrink-0 ${badge.dotClass}`}
+                        />
                         <div className="min-w-0">
                           <span className="block text-[11px] font-extrabold uppercase tracking-wider truncate">
                             {badge.label}
@@ -1017,16 +1018,18 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   data-testid="product-badges-preview-card"
                   className="w-36 shrink-0 rounded-card bg-surface border border-border/80 p-1.5 shadow-sm"
                 >
-                  <div className="relative aspect-square rounded-card bg-surface-hover border border-border overflow-hidden flex items-center justify-center">
-                    {preview ? (
-                      <img
-                        src={preview}
-                        alt={form.name || 'Vista previa del producto'}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <ShoppingBag size={22} className="text-secondary/50" />
-                    )}
+                  <div className="relative aspect-square">
+                    <div className="w-full h-full rounded-card bg-surface-hover border border-border overflow-hidden flex items-center justify-center">
+                      {preview ? (
+                        <img
+                          src={preview}
+                          alt={form.name || 'Vista previa del producto'}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <ShoppingBag size={22} className="text-secondary/50" />
+                      )}
+                    </div>
                     <ProductBadgesOverlay
                       badges={currentBadges}
                       isFeatured={form.is_featured}

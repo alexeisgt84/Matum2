@@ -1,4 +1,33 @@
 import { supabase } from './supabase';
+import {
+  eachDayOfInterval,
+  eachMonthOfInterval,
+  eachWeekOfInterval,
+  format,
+  startOfDay,
+  startOfMonth,
+  startOfWeek,
+  subDays,
+} from 'date-fns';
+import { es } from 'date-fns/locale';
+
+export type TrafficGranularity = 'day' | 'week' | 'month';
+
+export interface TrafficTimePoint {
+  key: string;
+  label: string;
+  fullLabel: string;
+  storeViews: number;
+  productViews: number;
+  referralViews: number;
+  totalViews: number;
+}
+
+export interface TrafficTimeSeries {
+  byDay: TrafficTimePoint[];
+  byWeek: TrafficTimePoint[];
+  byMonth: TrafficTimePoint[];
+}
 
 export interface ViewEvent {
   id?: string;
@@ -98,6 +127,7 @@ export interface OverallAnalyticsSummary {
 
 export interface AnalyticsData {
   summary: OverallAnalyticsSummary;
+  timeSeries: TrafficTimeSeries;
   byStore: StoreAnalyticsItem[];
   byUser: UserAnalyticsItem[];
   byReferral: ReferralAnalyticsItem[];
@@ -223,6 +253,182 @@ export const recordStoreView = async ({
   }
 };
 
+const capitalizeFirst = (text: string): string =>
+  text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+
+interface BucketCounts {
+  storeViews: number;
+  productViews: number;
+  referralViews: number;
+}
+
+const incrementBucket = (map: Map<string, BucketCounts>, key: string, ev: ViewEvent) => {
+  const bucket = map.get(key) || { storeViews: 0, productViews: 0, referralViews: 0 };
+  if (ev.product_id) {
+    bucket.productViews += 1;
+  } else {
+    bucket.storeViews += 1;
+  }
+  if (ev.referral_code?.trim()) {
+    bucket.referralViews += 1;
+  }
+  map.set(key, bucket);
+};
+
+/**
+ * Agrupa los eventos de visualización en series temporales por días, semanas y meses.
+ * Rellena con ceros los períodos intermedios para mantener continuidad en los gráficos.
+ */
+export const buildTrafficTimeSeries = (
+  events: ViewEvent[],
+  dateRange: 'all' | 'today' | '7d' | '30d' = 'all',
+  now: Date = new Date()
+): TrafficTimeSeries => {
+  const parsedEvents: { date: Date; event: ViewEvent }[] = [];
+  for (const ev of events) {
+    if (!ev.created_at) continue;
+    const d = new Date(ev.created_at);
+    if (!Number.isNaN(d.getTime())) {
+      parsedEvents.push({ date: d, event: ev });
+    }
+  }
+
+  if (parsedEvents.length === 0) {
+    return { byDay: [], byWeek: [], byMonth: [] };
+  }
+
+  let minDate = parsedEvents[0].date;
+  let maxDate = parsedEvents[0].date;
+  const dayBuckets = new Map<string, BucketCounts>();
+  const weekBuckets = new Map<string, BucketCounts>();
+  const monthBuckets = new Map<string, BucketCounts>();
+
+  for (const { date, event } of parsedEvents) {
+    if (date < minDate) minDate = date;
+    if (date > maxDate) maxDate = date;
+
+    const dayKey = format(date, 'yyyy-MM-dd');
+    incrementBucket(dayBuckets, dayKey, event);
+
+    const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+    const weekKey = format(weekStart, 'yyyy-MM-dd');
+    incrementBucket(weekBuckets, weekKey, event);
+
+    const monthKey = format(date, 'yyyy-MM');
+    incrementBucket(monthBuckets, monthKey, event);
+  }
+
+  const todayStart = startOfDay(now);
+  const maxDayStart = startOfDay(maxDate);
+  const endDay = maxDayStart > todayStart ? maxDayStart : todayStart;
+
+  let startDay: Date;
+  if (dateRange === 'today') {
+    startDay = todayStart;
+  } else if (dateRange === '7d') {
+    startDay = subDays(todayStart, 6);
+  } else if (dateRange === '30d') {
+    startDay = subDays(todayStart, 29);
+  } else {
+    const minDayStart = startOfDay(minDate);
+    const ninetyDaysAgo = subDays(endDay, 89);
+    startDay = minDayStart < ninetyDaysAgo ? ninetyDaysAgo : minDayStart;
+  }
+  if (startDay > endDay) {
+    startDay = endDay;
+  }
+
+  const byDay: TrafficTimePoint[] = eachDayOfInterval({ start: startDay, end: endDay }).map(day => {
+    const key = format(day, 'yyyy-MM-dd');
+    const counts = dayBuckets.get(key) || { storeViews: 0, productViews: 0, referralViews: 0 };
+    return {
+      key,
+      label: format(day, 'd MMM', { locale: es }),
+      fullLabel: capitalizeFirst(format(day, "EEEE d 'de' MMMM, yyyy", { locale: es })),
+      storeViews: counts.storeViews,
+      productViews: counts.productViews,
+      referralViews: counts.referralViews,
+      totalViews: counts.storeViews + counts.productViews,
+    };
+  });
+
+  const historyStart = dateRange === 'all' ? startOfDay(minDate) : startDay;
+  const startWeek = startOfWeek(historyStart, { weekStartsOn: 1 });
+  const endWeek = startOfWeek(endDay, { weekStartsOn: 1 });
+
+  const byWeek: TrafficTimePoint[] = eachWeekOfInterval(
+    { start: startWeek, end: endWeek },
+    { weekStartsOn: 1 }
+  ).map(weekStart => {
+    const key = format(weekStart, 'yyyy-MM-dd');
+    const counts = weekBuckets.get(key) || { storeViews: 0, productViews: 0, referralViews: 0 };
+    return {
+      key,
+      label: format(weekStart, 'd MMM', { locale: es }),
+      fullLabel: `Semana del ${format(weekStart, "d 'de' MMM, yyyy", { locale: es })}`,
+      storeViews: counts.storeViews,
+      productViews: counts.productViews,
+      referralViews: counts.referralViews,
+      totalViews: counts.storeViews + counts.productViews,
+    };
+  });
+
+  const startMonth = startOfMonth(historyStart);
+  const endMonth = startOfMonth(endDay);
+
+  const byMonth: TrafficTimePoint[] = eachMonthOfInterval({ start: startMonth, end: endMonth }).map(
+    monthStart => {
+      const key = format(monthStart, 'yyyy-MM');
+      const counts = monthBuckets.get(key) || { storeViews: 0, productViews: 0, referralViews: 0 };
+      return {
+        key,
+        label: capitalizeFirst(format(monthStart, 'MMM yy', { locale: es })),
+        fullLabel: capitalizeFirst(format(monthStart, 'MMMM yyyy', { locale: es })),
+        storeViews: counts.storeViews,
+        productViews: counts.productViews,
+        referralViews: counts.referralViews,
+        totalViews: counts.storeViews + counts.productViews,
+      };
+    }
+  );
+
+  return { byDay, byWeek, byMonth };
+};
+
+const ANALYTICS_PAGE_SIZE = 1000;
+const MAX_ANALYTICS_PAGES = 20;
+
+const fetchAllAnalyticsEvents = async (startDateIso?: string): Promise<ViewEvent[]> => {
+  const allEvents: ViewEvent[] = [];
+
+  for (let page = 0; page < MAX_ANALYTICS_PAGES; page++) {
+    const from = page * ANALYTICS_PAGE_SIZE;
+    const to = from + ANALYTICS_PAGE_SIZE - 1;
+
+    let query = supabase
+      .from('analytics_views')
+      .select('catalog_id, product_id, referral_code, created_at')
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (startDateIso) {
+      query = query.gte('created_at', startDateIso);
+    }
+
+    const { data, error } = await query;
+    if (error || !data || data.length === 0) {
+      break;
+    }
+
+    allEvents.push(...(data as ViewEvent[]));
+    if (data.length < ANALYTICS_PAGE_SIZE) {
+      break;
+    }
+  }
+
+  return allEvents;
+};
+
 /**
  * Carga y computa todas las métricas de visitas organizadas por tienda, usuario y referidos.
  */
@@ -260,14 +466,10 @@ export const fetchViewsAnalytics = async (dateRange: 'all' | 'today' | '7d' | '3
   catalogs.forEach(c => catalogMap.set(c.id, c));
 
   // 2. Intentar leer eventos detallados de analytics_views
-  let viewsQuery = supabase
-    .from('analytics_views')
-    .select('*')
-    .order('created_at', { ascending: false });
-
+  let startDateIso: string | undefined;
   if (dateRange !== 'all') {
     const now = new Date();
-    let startDate = new Date();
+    const startDate = new Date();
     if (dateRange === 'today') {
       startDate.setHours(0, 0, 0, 0);
     } else if (dateRange === '7d') {
@@ -275,11 +477,11 @@ export const fetchViewsAnalytics = async (dateRange: 'all' | 'today' | '7d' | '3
     } else if (dateRange === '30d') {
       startDate.setDate(now.getDate() - 30);
     }
-    viewsQuery = viewsQuery.gte('created_at', startDate.toISOString());
+    startDateIso = startDate.toISOString();
   }
 
-  const { data: analyticsEvents } = await viewsQuery;
-  const events: ViewEvent[] = analyticsEvents || [];
+  const events: ViewEvent[] = await fetchAllAnalyticsEvents(startDateIso);
+  const timeSeries = buildTrafficTimeSeries(events, dateRange);
 
   // Estructuras de acumulación
   // Tiendas
@@ -564,6 +766,7 @@ export const fetchViewsAnalytics = async (dateRange: 'all' | 'today' | '7d' | '3
       topProduct,
       topReferral,
     },
+    timeSeries,
     byStore,
     byUser,
     byReferral,

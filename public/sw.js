@@ -1,11 +1,22 @@
 const IMAGE_CACHE_NAME = 'matum-images-v1';
+const STATIC_CACHE_NAME = 'matum-static-v1';
+const VALID_CACHES = new Set([IMAGE_CACHE_NAME, STATIC_CACHE_NAME]);
 
 self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys.map((key) => (!VALID_CACHES.has(key) ? caches.delete(key) : Promise.resolve()))
+        )
+      )
+      .then(() => self.clients.claim())
+  );
 });
 
 function isCacheableImageRequest(request) {
@@ -17,24 +28,40 @@ function isCacheableImageRequest(request) {
   return false;
 }
 
+function isCacheableStaticRequest(request) {
+  if (request.method !== 'GET') return false;
+  const url = request.url || '';
+  if (/\/assets\/[^/]+\.(js|css)(\?.*)?$/i.test(url)) return true;
+  if (url.startsWith('https://fonts.gstatic.com/')) return true;
+  return false;
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+
+  if (isCacheableStaticRequest(request)) {
+    event.respondWith(
+      caches.open(STATIC_CACHE_NAME).then(async (cache) => {
+        const cachedResponse = await cache.match(request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        const networkResponse = await fetch(request);
+        if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
+          cache.put(request, networkResponse.clone()).catch(() => {});
+        }
+        return networkResponse;
+      })
+    );
+    return;
+  }
+
   if (!isCacheableImageRequest(request)) return;
 
   event.respondWith(
     caches.open(IMAGE_CACHE_NAME).then(async (cache) => {
       const cachedResponse = await cache.match(request, { ignoreVary: true });
       if (cachedResponse) {
-        // Revalidar en segundo plano si hay conexión
-        if (navigator.onLine) {
-          fetch(request)
-            .then((networkResponse) => {
-              if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
-                cache.put(request, networkResponse.clone()).catch(() => {});
-              }
-            })
-            .catch(() => {});
-        }
         return cachedResponse;
       }
 

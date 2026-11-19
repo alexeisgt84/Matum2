@@ -1,5 +1,3 @@
-import heic2any from 'heic2any';
-
 export interface OptimizeConfig {
   maxWidth?: number;
   maxHeight?: number;
@@ -218,6 +216,7 @@ export const optimizeImage = async (
   // Soporte para HEIC (iPhone)
   if (file.type.includes('heic') || file.type.includes('heif') || extension === 'heic' || extension === 'heif') {
     try {
+      const { default: heic2any } = await import('heic2any');
       const converted = await heic2any({
         blob: processingFile,
         toType: 'image/jpeg',

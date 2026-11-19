@@ -34,11 +34,26 @@ export const usePlanLimits = () => {
 
     setLoading(!cached);
     try {
-      // 1. Obtener IDs de catálogos del usuario
-      const { data: userCatalogs } = await supabase
-        .from('catalogs')
-        .select('id')
-        .eq('user_id', user.id);
+      // 1. Consultar en paralelo catálogos, grupos y límites del plan
+      const [
+        { data: userCatalogs },
+        { count: groupCount },
+        { data: planData },
+      ] = await Promise.all([
+        supabase
+          .from('catalogs')
+          .select('id')
+          .eq('user_id', user.id),
+        supabase
+          .from('whatsapp_groups')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+        supabase
+          .from('subscription_plans')
+          .select('catalogs_limit, products_limit, groups_limit')
+          .eq('id', user.plan)
+          .single(),
+      ]);
 
       const catalogIds = userCatalogs?.map((c) => c.id) || [];
       const catCount = catalogIds.length;
@@ -53,25 +68,12 @@ export const usePlanLimits = () => {
         prodCount = count || 0;
       }
 
-      // 3. Contar grupos totales
-      const { count: groupCount } = await supabase
-        .from('whatsapp_groups')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
       const nextCounts = {
         catalogs: catCount,
         products: prodCount,
         groups: groupCount || 0,
       };
       setCounts(nextCounts);
-
-      // 4. Obtener límites del plan desde la DB
-      const { data: planData } = await supabase
-        .from('subscription_plans')
-        .select('catalogs_limit, products_limit, groups_limit')
-        .eq('id', user.plan)
-        .single();
 
       let nextLimits: PlanLimits | null = null;
       if (planData) {

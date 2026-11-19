@@ -168,20 +168,22 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
 
         <div className="overflow-y-auto flex-1 min-h-0">
           <div className="p-3 pb-0">
-            <div className="w-full aspect-square bg-surface/50 border border-border/60 rounded-2xl relative overflow-hidden flex items-center justify-center">
-              {product.imagen_url ? (
-                <img src={product.imagen_url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
-              ) : (
-                <div className="text-secondary/60 flex flex-col items-center gap-1.5 py-10">
-                  <ShoppingBag size={36} strokeWidth={1.5} />
-                  <span className="text-[11px] font-medium text-secondary">Sin imagen</span>
-                </div>
-              )}
+            <div className="relative aspect-square w-full">
+              <div className="w-full h-full bg-surface/50 border border-border/60 rounded-2xl relative overflow-hidden flex items-center justify-center">
+                {product.imagen_url ? (
+                  <img src={product.imagen_url} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 hover:scale-105" />
+                ) : (
+                  <div className="text-secondary/60 flex flex-col items-center gap-1.5 py-10">
+                    <ShoppingBag size={36} strokeWidth={1.5} />
+                    <span className="text-[11px] font-medium text-secondary">Sin imagen</span>
+                  </div>
+                )}
+              </div>
               <ProductBadgesOverlay
                 badges={product.badges}
                 isFeatured={product.is_featured}
                 size="sm"
-                className="top-11 right-2.5"
+                className="top-11 -right-1.5"
               />
             </div>
           </div>

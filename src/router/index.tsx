@@ -1,35 +1,73 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import { createBrowserRouter, Navigate, useLocation } from 'react-router-dom';
 import App from '../App';
-import { LoginPage } from '../pages/auth/LoginPage';
-import { RegisterPage } from '../pages/auth/RegisterPage';
-import { ForgotPasswordPage } from '../pages/auth/ForgotPasswordPage';
-import { CatalogsPage } from '../pages/catalogs/CatalogsPage';
-import { CatalogFormPage } from '../pages/catalogs/CatalogFormPage';
-import { CatalogDetailPage } from '../pages/catalogs/CatalogDetailPage';
-import { CatalogTemplatesPage } from '../pages/catalogs/CatalogTemplatesPage';
-import { CatalogSettingsPage } from '../pages/settings/CatalogSettingsPage';
-import { FollowedCatalogsPage } from '../pages/catalogs/FollowedCatalogsPage';
-import { ProfilePage } from '../pages/profile/ProfilePage';
-import { EditProfilePage } from '../pages/profile/EditProfilePage';
-import { GeminiConfigPage } from '../pages/profile/GeminiConfigPage';
-import { SubscriptionPage } from '../pages/profile/SubscriptionPage';
-import { AffiliatesPage } from '../pages/profile/AffiliatesPage';
 import { DashboardPage } from '../pages/dashboard/DashboardPage';
-import { AdminDashboard } from '../pages/admin/AdminDashboard';
-import { PlansPage } from '../pages/admin/PlansPage';
-import { UsersPage } from '../pages/admin/UsersPage';
-import { PaymentsPage } from '../pages/admin/PaymentsPage';
-import { AdminSettingsPage } from '../pages/admin/AdminSettingsPage';
-import { EvolutionServersPage } from '../pages/admin/EvolutionServersPage';
-import { ViewsAnalyticsPage } from '../pages/admin/ViewsAnalyticsPage';
-import { AdminCatalogsPage } from '../pages/admin/AdminCatalogsPage';
 import { useAuthStore } from '../store/authStore';
 import { ErrorPage } from '../pages/ErrorPage';
-import { PublicCatalogPage } from '../pages/catalogs/PublicCatalogPage';
-import { PublicProductPage } from '../pages/catalogs/PublicProductPage';
 import { LoadingScreen } from '../components/ui/AnimatedLogo';
 
+const LoginPage = React.lazy(() => import('../pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
+const RegisterPage = React.lazy(() => import('../pages/auth/RegisterPage').then((m) => ({ default: m.RegisterPage })));
+const ForgotPasswordPage = React.lazy(() =>
+  import('../pages/auth/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage }))
+);
+const CatalogsPage = React.lazy(() => import('../pages/catalogs/CatalogsPage').then((m) => ({ default: m.CatalogsPage })));
+const CatalogFormPage = React.lazy(() =>
+  import('../pages/catalogs/CatalogFormPage').then((m) => ({ default: m.CatalogFormPage }))
+);
+const CatalogDetailPage = React.lazy(() =>
+  import('../pages/catalogs/CatalogDetailPage').then((m) => ({ default: m.CatalogDetailPage }))
+);
+const CatalogTemplatesPage = React.lazy(() =>
+  import('../pages/catalogs/CatalogTemplatesPage').then((m) => ({ default: m.CatalogTemplatesPage }))
+);
+const CatalogSettingsPage = React.lazy(() =>
+  import('../pages/settings/CatalogSettingsPage').then((m) => ({ default: m.CatalogSettingsPage }))
+);
+const FollowedCatalogsPage = React.lazy(() =>
+  import('../pages/catalogs/FollowedCatalogsPage').then((m) => ({ default: m.FollowedCatalogsPage }))
+);
+const ProfilePage = React.lazy(() => import('../pages/profile/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const EditProfilePage = React.lazy(() =>
+  import('../pages/profile/EditProfilePage').then((m) => ({ default: m.EditProfilePage }))
+);
+const GeminiConfigPage = React.lazy(() =>
+  import('../pages/profile/GeminiConfigPage').then((m) => ({ default: m.GeminiConfigPage }))
+);
+const SubscriptionPage = React.lazy(() =>
+  import('../pages/profile/SubscriptionPage').then((m) => ({ default: m.SubscriptionPage }))
+);
+const AffiliatesPage = React.lazy(() =>
+  import('../pages/profile/AffiliatesPage').then((m) => ({ default: m.AffiliatesPage }))
+);
+const AdminDashboard = React.lazy(() =>
+  import('../pages/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard }))
+);
+const PlansPage = React.lazy(() => import('../pages/admin/PlansPage').then((m) => ({ default: m.PlansPage })));
+const UsersPage = React.lazy(() => import('../pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })));
+const PaymentsPage = React.lazy(() => import('../pages/admin/PaymentsPage').then((m) => ({ default: m.PaymentsPage })));
+const AdminSettingsPage = React.lazy(() =>
+  import('../pages/admin/AdminSettingsPage').then((m) => ({ default: m.AdminSettingsPage }))
+);
+const EvolutionServersPage = React.lazy(() =>
+  import('../pages/admin/EvolutionServersPage').then((m) => ({ default: m.EvolutionServersPage }))
+);
+const ViewsAnalyticsPage = React.lazy(() =>
+  import('../pages/admin/ViewsAnalyticsPage').then((m) => ({ default: m.ViewsAnalyticsPage }))
+);
+const AdminCatalogsPage = React.lazy(() =>
+  import('../pages/admin/AdminCatalogsPage').then((m) => ({ default: m.AdminCatalogsPage }))
+);
+const PublicCatalogPage = React.lazy(() =>
+  import('../pages/catalogs/PublicCatalogPage').then((m) => ({ default: m.PublicCatalogPage }))
+);
+const PublicProductPage = React.lazy(() =>
+  import('../pages/catalogs/PublicProductPage').then((m) => ({ default: m.PublicProductPage }))
+);
+
+const LazyRoute = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
+);
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loadUser, isInitialized } = useAuthStore();
@@ -46,7 +84,7 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
     const loginPath = target && target !== '/' ? `/login?redirect=${encodeURIComponent(target)}` : '/login';
     return <Navigate to={loginPath} replace />;
   }
-  return <>{children}</>;
+  return <LazyRoute>{children}</LazyRoute>;
 };
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
@@ -56,7 +94,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   if (!user || user.role !== 'admin') {
     return <Navigate to="/" replace />;
   }
-  return <>{children}</>;
+  return <LazyRoute>{children}</LazyRoute>;
 };
 
 export const router = createBrowserRouter([
@@ -65,9 +103,9 @@ export const router = createBrowserRouter([
     element: <App />,
     errorElement: <ErrorPage />,
     children: [
-      { path: 'login', element: <LoginPage /> },
-      { path: 'register', element: <RegisterPage /> },
-      { path: 'forgot-password', element: <ForgotPasswordPage /> },
+      { path: 'login', element: <LazyRoute><LoginPage /></LazyRoute> },
+      { path: 'register', element: <LazyRoute><RegisterPage /></LazyRoute> },
+      { path: 'forgot-password', element: <LazyRoute><ForgotPasswordPage /></LazyRoute> },
       {
         path: '',
         element: <DashboardPage />,
@@ -154,15 +192,15 @@ export const router = createBrowserRouter([
       },
       {
         path: ':slug/p/:productId',
-        element: <PublicProductPage />,
+        element: <LazyRoute><PublicProductPage /></LazyRoute>,
       },
       {
         path: ':slug/producto/:productId',
-        element: <PublicProductPage />,
+        element: <LazyRoute><PublicProductPage /></LazyRoute>,
       },
       {
         path: ':slug',
-        element: <PublicCatalogPage />,
+        element: <LazyRoute><PublicCatalogPage /></LazyRoute>,
       },
     ],
   },

@@ -85,19 +85,19 @@ describe('ProductBadges components', () => {
     expect(inline.container).toBeEmptyDOMElement();
   });
 
-  it('muestra múltiples etiquetas apiladas en la esquina superior derecha con estilos distintivos', () => {
+  it('muestra múltiples etiquetas apiladas en la esquina superior derecha sobresaliendo con pliegue trasero y sin emojis', () => {
     render(<ProductBadgesOverlay badges={['low_stock', 'on_sale', 'new']} />);
     const overlay = screen.getByTestId('product-badges-overlay');
-    expect(overlay).toHaveClass('top-1.5', 'right-1.5', 'flex-col', 'items-end', 'pointer-events-none');
+    expect(overlay).toHaveClass('top-2', '-right-1.5', 'flex-col', 'items-end', 'pointer-events-none');
 
     const items = overlay.querySelectorAll('[data-badge-id]');
     expect(items).toHaveLength(3);
     expect(items[0]).toHaveAttribute('data-badge-id', 'on_sale');
     expect(items[1]).toHaveAttribute('data-badge-id', 'new');
     expect(items[2]).toHaveAttribute('data-badge-id', 'low_stock');
-    expect(screen.getByText('EN OFERTA')).toBeInTheDocument();
-    expect(screen.getByText('NUEVO')).toBeInTheDocument();
-    expect(screen.getByText('ÚLTIMAS UNIDADES')).toBeInTheDocument();
+    expect(items[0].textContent).toBe('EN OFERTA');
+    expect(items[1].textContent).toBe('NUEVO');
+    expect(items[2].textContent).toBe('ÚLTIMAS UNIDADES');
   });
 
   it('integra las etiquetas en la tarjeta de tienda sin interferir con el botón compartir ni mostrar contenedores vacíos', () => {
@@ -128,7 +128,7 @@ describe('ProductBadges components', () => {
     );
 
     const overlay = screen.getByTestId('product-badges-overlay');
-    expect(overlay).toHaveClass('top-1.5', 'right-1.5');
+    expect(overlay).toHaveClass('top-2', '-right-1.5');
     expect(within(overlay).getByText('EN REBAJA')).toBeInTheDocument();
     expect(within(overlay).getByText('DESTACADO')).toBeInTheDocument();
 
