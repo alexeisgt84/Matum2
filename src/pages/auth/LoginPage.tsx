@@ -1,21 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Select } from '../../components/ui/Select';
-import { LogIn, Phone, Lock } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowRight, AlertCircle, Store } from 'lucide-react';
 import { COUNTRIES } from '../../constants/countries';
+import { AuthLayout, UnifiedPhoneInput } from './AuthLayout';
 
 export const LoginPage = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES.find(c => c.code === '53') || COUNTRIES[0]); // Cuba por defecto
-  const { login, loading, error } = useAuthStore();
+  const [showPassword, setShowPassword] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState(
+    COUNTRIES.find((c) => c.code === '53') || COUNTRIES[0]
+  ); // Cuba por defecto
+  const { login, loading, error, setError } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const rawRedirect = searchParams.get('redirect');
-  const redirect = rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : null;
+  const redirect =
+    rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')
+      ? rawRedirect
+      : null;
+
+  useEffect(() => {
+    setError(null);
+  }, [setError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,103 +33,114 @@ export const LoginPage = () => {
       const fullPhone = `${selectedCountry.code}${cleanPhone}`;
       await login({ phone: fullPhone, password });
       navigate(redirect || '/catalogs');
-    } catch (err) {}
+    } catch {
+      // El store ya gestiona el estado de error
+    }
   };
 
+  const registerHref = redirect
+    ? `/register?redirect=${encodeURIComponent(redirect)}`
+    : '/register';
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="card w-full max-w-lg">
-        <div className="mb-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[var(--accent)]/10 text-[var(--accent)] mb-4">
-            <LogIn size={32} />
-          </div>
-          <h1 className="text-3xl font-bold text-white">Bienvenido</h1>
-          <p className="text-gray-400 mt-2">Inicia sesión para gestionar tus catálogos</p>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-secondary ml-1 block">Teléfono WhatsApp</label>
-            <div className="flex gap-3">
-              <div className="w-[110px]">
-                <Select
-                  value={selectedCountry.name}
-                  onChange={(e) => {
-                    const country = COUNTRIES.find(c => c.name === e.target.value);
-                    if (country) setSelectedCountry(country);
-                  }}
-                >
-                  {COUNTRIES.map((c) => (
-                    <option key={c.name} value={c.name} className="bg-surface text-primary">
-                      {c.flag} +{c.code}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              
-              <div className="flex-1">
-                <Input
-                  placeholder={selectedCountry.placeholder}
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                  required
-                  autoFocus
-                  icon={Phone}
-                />
-              </div>
-            </div>
-          </div>
-
-          <Input
-            label="Contraseña"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            icon={Lock}
-            required
-          />
-
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3">
-              <p className="text-red-500 text-xs text-center font-medium">{error}</p>
-            </div>
-          )}
-
-          <div className="pt-2">
-            <Button
-              type="submit"
-              className="w-full"
-              loading={loading}
-              size="lg"
+    <AuthLayout
+      activeTab="login"
+      title="Bienvenido de nuevo"
+      subtitle="Inicia sesión para gestionar tus catálogos y ventas"
+      redirect={redirect}
+      footer={
+        <div className="space-y-3">
+          <p className="text-secondary text-xs sm:text-sm">
+            ¿Aún no tienes cuenta?{' '}
+            <Link
+              to={registerHref}
+              className="text-[var(--accent)] font-bold hover:underline"
             >
-              Iniciar sesión
-            </Button>
-          </div>
-        </form>
-
-        <div className="mt-8 space-y-4 text-center">
-          <Link 
-            to="/forgot-password" 
-            className="text-sm text-gray-400 hover:text-white transition-colors block"
+              Regístrate ahora
+            </Link>
+          </p>
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center gap-1.5 text-xs text-secondary hover:text-primary transition-colors"
           >
-            ¿Olvidaste tu contraseña?
+            <Store size={13} className="text-[var(--accent)]" />
+            <span>Explorar tiendas públicas sin iniciar sesión</span>
           </Link>
-          
-          <div className="pt-6 border-t border-white/5">
-            <p className="text-gray-400 text-sm">
-              ¿No tienes cuenta?{' '}
-              <Link to={redirect ? `/register?redirect=${encodeURIComponent(redirect)}` : '/register'} className="text-[var(--accent)] font-bold hover:underline">
-                Regístrate ahora
-              </Link>
-            </p>
-            <Link to="/" className="mt-3 inline-block text-xs text-secondary hover:text-primary transition-colors">
-              ← Explorar tiendas sin iniciar sesión
+        </div>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <UnifiedPhoneInput
+          countries={COUNTRIES}
+          selectedCountry={selectedCountry}
+          onSelectCountry={setSelectedCountry}
+          phone={phone}
+          onChangePhone={setPhone}
+          label="Teléfono WhatsApp"
+          autoFocus
+          required
+          disabled={loading}
+        />
+
+        {/* Campo Contraseña de 44px con enlace de recuperación alineado */}
+        <div className="w-full space-y-1.5">
+          <div className="flex items-center justify-between ml-0.5">
+            <label
+              htmlFor="login-password"
+              className="text-xs font-semibold text-primary"
+            >
+              Contraseña
+            </label>
+            <Link
+              to="/forgot-password"
+              className="text-[11px] font-medium text-[var(--accent)] hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
             </Link>
           </div>
+
+          <div className="relative h-11 bg-surface-hover/80 border border-border rounded-xl flex items-center transition-all focus-within:border-accent focus-within:bg-surface focus-within:ring-2 focus-within:ring-[var(--accent)]/20">
+            <Lock size={15} className="ml-3.5 text-secondary/70 shrink-0 pointer-events-none" />
+            <input
+              id="login-password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={loading}
+              className="w-full h-full bg-transparent px-3 text-sm text-primary placeholder:text-secondary/50 outline-none disabled:opacity-50"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+              className="pr-3.5 pl-2 h-full text-secondary/70 hover:text-primary transition-colors focus:outline-none flex items-center justify-center"
+            >
+              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
         </div>
-      </div>
-    </div>
+
+        {error && (
+          <div className="bg-danger/10 border border-danger/25 rounded-xl p-3 flex items-center gap-2.5 text-danger">
+            <AlertCircle size={16} className="shrink-0" />
+            <p className="text-xs font-medium leading-snug">{error}</p>
+          </div>
+        )}
+
+        <div className="pt-1.5">
+          <Button
+            type="submit"
+            className="w-full h-11 rounded-xl font-bold text-sm bg-accent hover:bg-accent-hover text-accent-text shadow-[0_8px_24px_-4px_rgba(108,56,255,0.45)] flex items-center justify-center gap-2"
+            loading={loading}
+            size="lg"
+          >
+            <span>Entrar a mi cuenta</span>
+            <ArrowRight size={16} />
+          </Button>
+        </div>
+      </form>
+    </AuthLayout>
   );
 };
-
