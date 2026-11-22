@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Store,
-  Send,
   TrendingUp,
   ShieldCheck,
   Sparkles,
@@ -123,18 +122,6 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
                   <h3 className="text-xs font-bold text-primary">Tienda & Marketplace en 1 minuto</h3>
                   <p className="text-[11px] text-secondary mt-0.5 leading-snug">
                     Catálogo moderno con carrito de compras y enlace listo para compartir.
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-surface/80 border border-border/80 backdrop-blur-sm flex items-start gap-3 shadow-sm hover:border-[var(--accent)]/40 transition-colors">
-                <div className="w-9 h-9 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center shrink-0">
-                  <Send size={17} />
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-primary">Difusión Inteligente en WhatsApp</h3>
-                  <p className="text-[11px] text-secondary mt-0.5 leading-snug">
-                    Publica ofertas y secuencias automáticas en tus grupos de WhatsApp.
                   </p>
                 </div>
               </div>
