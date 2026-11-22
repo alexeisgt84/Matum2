@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   buildTrafficTimeSeries,
+  getCountryFlag,
+  getCountryName,
   getOrCreateVisitorId,
+  inferCountryFromTimezone,
   recordStoreView,
   type ViewEvent,
 } from '../analytics';
@@ -55,7 +58,30 @@ describe('analytics tracking', () => {
     expect(supabase.rpc).toHaveBeenCalledWith('record_store_view', expect.objectContaining({
       p_catalog_id: 'cat-123',
       p_referral_code: 'ref_alex',
+      p_country_code: expect.anything(),
+      p_timezone: expect.anything(),
     }));
+  });
+
+  it('sends inferred country code and timezone to record_store_view RPC', async () => {
+    const originalDateTimeFormat = Intl.DateTimeFormat;
+    Intl.DateTimeFormat = (() => ({
+      resolvedOptions: () => ({ timeZone: 'America/Havana' }),
+    })) as unknown as typeof Intl.DateTimeFormat;
+
+    try {
+      await recordStoreView({
+        catalogId: 'cat-havana',
+      });
+
+      expect(supabase.rpc).toHaveBeenCalledWith('record_store_view', expect.objectContaining({
+        p_catalog_id: 'cat-havana',
+        p_country_code: 'CU',
+        p_timezone: 'America/Havana',
+      }));
+    } finally {
+      Intl.DateTimeFormat = originalDateTimeFormat;
+    }
   });
 
   it('calls record_store_view RPC with product_id when recording product view', async () => {
@@ -144,5 +170,34 @@ describe('buildTrafficTimeSeries', () => {
     expect(seriesAll.byWeek.length).toBeGreaterThanOrEqual(5);
     const totalWeekly = seriesAll.byWeek.reduce((acc, w) => acc + w.totalViews, 0);
     expect(totalWeekly).toBe(4);
+  });
+});
+
+describe('geo helpers', () => {
+  it('infers ISO country codes from IANA timezones', () => {
+    expect(inferCountryFromTimezone('America/Havana')).toBe('CU');
+    expect(inferCountryFromTimezone('Europe/Madrid')).toBe('ES');
+    expect(inferCountryFromTimezone('America/Mexico_City')).toBe('MX');
+    expect(inferCountryFromTimezone('America/New_York')).toBe('US');
+    expect(inferCountryFromTimezone('America/Argentina/Buenos_Aires')).toBe('AR');
+    expect(inferCountryFromTimezone('Invalid/Zone')).toBeNull();
+    expect(inferCountryFromTimezone(null)).toBeNull();
+  });
+
+  it('returns flag emojis for valid ISO-2 codes and globe fallback otherwise', () => {
+    expect(getCountryFlag('cu')).toBe('🇨🇺');
+    expect(getCountryFlag('US')).toBe('🇺🇸');
+    expect(getCountryFlag('ES')).toBe('🇪🇸');
+    expect(getCountryFlag('XX')).toBe('🌍');
+    expect(getCountryFlag('T1')).toBe('🌍');
+    expect(getCountryFlag(null)).toBe('🌍');
+  });
+
+  it('returns Spanish country names or fallback label for unknown', () => {
+    expect(getCountryName('CU')).toBe('Cuba');
+    expect(getCountryName('us')).toBe('Estados Unidos');
+    expect(getCountryName('NL')).toBe('Países Bajos');
+    expect(getCountryName('XX')).toBe('No especificado (Histórico)');
+    expect(getCountryName(null)).toBe('No especificado (Histórico)');
   });
 });

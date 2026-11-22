@@ -14,7 +14,8 @@ import {
   ChevronUp, 
   Calendar, 
   Award,
-  TrendingUp
+  TrendingUp,
+  Globe
 } from 'lucide-react';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
@@ -25,12 +26,13 @@ import {
   type AnalyticsData, 
   type StoreAnalyticsItem, 
   type UserAnalyticsItem, 
-  type ReferralAnalyticsItem, 
+  type ReferralAnalyticsItem,
+  type CountryAnalyticsItem,
   type ProductAnalyticsItem 
 } from '../../lib/analytics';
 import { toast } from 'react-hot-toast';
 
-type TabType = 'stores' | 'users' | 'referrals' | 'products';
+type TabType = 'stores' | 'users' | 'referrals' | 'countries' | 'products';
 type DateRangeType = 'all' | 'today' | '7d' | '30d';
 
 export const ViewsAnalyticsPage: React.FC = () => {
@@ -110,6 +112,18 @@ export const ViewsAnalyticsPage: React.FC = () => {
       (r.affiliatePhone && r.affiliatePhone.includes(term))
     );
   }, [data?.byReferral, searchTerm]);
+
+  // Filtrado de Países
+  const filteredCountries = useMemo(() => {
+    if (!data?.byCountry) return [];
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return data.byCountry;
+    return data.byCountry.filter(c =>
+      c.countryName.toLowerCase().includes(term) ||
+      c.countryCode.toLowerCase().includes(term) ||
+      c.catalogsTargeted.some(cat => cat.name.toLowerCase().includes(term))
+    );
+  }, [data?.byCountry, searchTerm]);
 
   // Filtrado de Productos
   const filteredProducts = useMemo(() => {
@@ -325,6 +339,21 @@ export const ViewsAnalyticsPage: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setActiveTab('countries')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap ${
+              activeTab === 'countries'
+                ? 'border-accent text-accent bg-accent/5'
+                : 'border-transparent text-secondary hover:text-primary hover:bg-surface-hover'
+            }`}
+          >
+            <Globe size={16} />
+            <span>Por Países</span>
+            <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded-full bg-surface-hover text-secondary">
+              {data?.byCountry.filter(c => !c.isUnknown).length || 0}
+            </span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('products')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-t-xl text-xs font-bold transition-all border-b-2 whitespace-nowrap ${
               activeTab === 'products'
@@ -350,6 +379,8 @@ export const ViewsAnalyticsPage: React.FC = () => {
                 ? 'Buscar usuario por nombre, teléfono o código...'
                 : activeTab === 'referrals'
                 ? 'Buscar por código de referido o afiliado...'
+                : activeTab === 'countries'
+                ? 'Buscar por país, código ISO o tienda visitada...'
                 : 'Buscar por producto, tienda o propietario...'
             }
             value={searchTerm}
@@ -701,7 +732,153 @@ export const ViewsAnalyticsPage: React.FC = () => {
               </div>
             )}
 
-            {/* 4. RANKING DE PRODUCTOS */}
+            {/* 4. ORGANIZAR POR PAÍSES */}
+            {activeTab === 'countries' && (
+              <div className="space-y-3">
+                {data?.summary.topCountry && (
+                  <div className="card p-4 bg-gradient-to-r from-accent/5 via-surface to-blue-500/5 border-accent/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center flex-shrink-0">
+                        <Globe size={20} />
+                      </div>
+                      <div>
+                        <span className="block text-[10px] font-bold text-secondary uppercase tracking-wider">
+                          Países Detectados
+                        </span>
+                        <span className="font-black text-base text-primary">
+                          {data.summary.countriesCount}{' '}
+                          {data.summary.countriesCount === 1 ? 'país' : 'países'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-border">
+                      <span className="block text-[10px] font-bold text-secondary uppercase tracking-wider">
+                        Principal Origen
+                      </span>
+                      <span className="font-bold text-sm text-primary">
+                        {data.summary.topCountry.flag} {data.summary.topCountry.name}{' '}
+                        <span className="text-accent font-black">
+                          ({data.summary.topCountry.views.toLocaleString()} vistas)
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {filteredCountries.length === 0 ? (
+                  <div className="card p-8 text-center text-secondary text-xs">
+                    No se encontraron registros geográficos para este período o búsqueda.
+                  </div>
+                ) : (
+                  filteredCountries.map((country: CountryAnalyticsItem) => (
+                    <div key={country.countryCode} className="card p-4 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div
+                            className={`w-11 h-11 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 ${
+                              country.isUnknown
+                                ? 'bg-surface-hover text-secondary'
+                                : 'bg-blue-500/10'
+                            }`}
+                          >
+                            {country.flag}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-bold text-sm text-primary truncate">
+                                {country.countryName}
+                              </h4>
+                              {country.isUnknown ? (
+                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase bg-surface-hover text-secondary">
+                                  Histórico / Sin datos
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase font-mono bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                  {country.countryCode}
+                                </span>
+                              )}
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-accent/10 text-accent">
+                                {country.percentage}%
+                              </span>
+                            </div>
+                            {country.uniqueVisitors > 0 && (
+                              <p className="text-xs text-secondary mt-0.5">
+                                Visitantes únicos:{' '}
+                                <span className="font-semibold text-primary">
+                                  {country.uniqueVisitors.toLocaleString()}
+                                </span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Totales del país */}
+                        <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 pt-3 sm:pt-0 border-border">
+                          <div className="text-center sm:text-right">
+                            <span className="block text-[10px] text-secondary font-semibold uppercase">
+                              A Tiendas
+                            </span>
+                            <span className="font-bold text-sm text-primary">
+                              {country.storeViews.toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="text-center sm:text-right">
+                            <span className="block text-[10px] text-secondary font-semibold uppercase">
+                              A Productos
+                            </span>
+                            <span className="font-bold text-sm text-primary">
+                              {country.productViews.toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="text-center sm:text-right bg-accent/5 px-3 py-1.5 rounded-xl border border-accent/15">
+                            <span className="block text-[10px] text-accent font-bold uppercase">
+                              Total Vistas
+                            </span>
+                            <span className="font-black text-base text-accent">
+                              {country.totalViews.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Barra de progreso proporcional */}
+                      <div className="w-full h-1.5 rounded-full bg-surface-hover overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            country.isUnknown ? 'bg-secondary/40' : 'bg-accent'
+                          }`}
+                          style={{ width: `${Math.min(Math.max(country.percentage, 2), 100)}%` }}
+                        />
+                      </div>
+
+                      {/* Tiendas visitadas desde este país */}
+                      {country.catalogsTargeted.length > 0 && (
+                        <div className="pt-2 border-t border-border flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-bold text-secondary uppercase">
+                            Tiendas visitadas desde este país:
+                          </span>
+                          {country.catalogsTargeted.map(cat => (
+                            <span
+                              key={cat.id}
+                              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs bg-surface-hover text-primary border border-border"
+                            >
+                              <span>{cat.name}</span>
+                              <span className="text-[10px] font-bold text-accent">
+                                ({cat.views})
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* 5. RANKING DE PRODUCTOS */}
             {activeTab === 'products' && (
               <div className="space-y-2">
                 {filteredProducts.length === 0 ? (

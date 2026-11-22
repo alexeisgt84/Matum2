@@ -37,6 +37,8 @@ export interface ViewEvent {
   referral_code?: string | null;
   visitor_id?: string | null;
   referrer_url?: string | null;
+  country_code?: string | null;
+  timezone?: string | null;
   created_at?: string;
 }
 
@@ -113,6 +115,24 @@ export interface ProductAnalyticsItem {
   referralViews: number;
 }
 
+export interface CountryAnalyticsItem {
+  countryCode: string;
+  countryName: string;
+  flag: string;
+  isUnknown: boolean;
+  storeViews: number;
+  productViews: number;
+  totalViews: number;
+  referralViews: number;
+  uniqueVisitors: number;
+  percentage: number;
+  catalogsTargeted: {
+    id: string;
+    name: string;
+    views: number;
+  }[];
+}
+
 export interface OverallAnalyticsSummary {
   totalStoreViews: number;
   totalProductViews: number;
@@ -120,9 +140,11 @@ export interface OverallAnalyticsSummary {
   totalReferralViews: number;
   activeStoresCount: number;
   activeUsersCount: number;
+  countriesCount: number;
   topStore: { name: string; views: number } | null;
   topProduct: { name: string; views: number } | null;
   topReferral: { code: string; views: number } | null;
+  topCountry: { code: string; name: string; flag: string; views: number } | null;
 }
 
 export interface AnalyticsData {
@@ -131,8 +153,157 @@ export interface AnalyticsData {
   byStore: StoreAnalyticsItem[];
   byUser: UserAnalyticsItem[];
   byReferral: ReferralAnalyticsItem[];
+  byCountry: CountryAnalyticsItem[];
   byProduct: ProductAnalyticsItem[];
 }
+
+const TIMEZONE_TO_COUNTRY: Record<string, string> = {
+  'America/Havana': 'CU',
+  'America/Mexico_City': 'MX',
+  'America/Cancun': 'MX',
+  'America/Monterrey': 'MX',
+  'America/Tijuana': 'MX',
+  'America/Merida': 'MX',
+  'America/Chihuahua': 'MX',
+  'America/Mazatlan': 'MX',
+  'America/Hermosillo': 'MX',
+  'Europe/Madrid': 'ES',
+  'Atlantic/Canary': 'ES',
+  'America/Bogota': 'CO',
+  'America/Lima': 'PE',
+  'America/Santiago': 'CL',
+  'Pacific/Easter': 'CL',
+  'America/Buenos_Aires': 'AR',
+  'America/Guayaquil': 'EC',
+  'Pacific/Galapagos': 'EC',
+  'America/Caracas': 'VE',
+  'America/Panama': 'PA',
+  'America/Santo_Domingo': 'DO',
+  'America/Puerto_Rico': 'PR',
+  'America/Costa_Rica': 'CR',
+  'America/Guatemala': 'GT',
+  'America/Tegucigalpa': 'HN',
+  'America/El_Salvador': 'SV',
+  'America/Managua': 'NI',
+  'America/La_Paz': 'BO',
+  'America/Asuncion': 'PY',
+  'America/Montevideo': 'UY',
+  'America/Sao_Paulo': 'BR',
+  'America/Manaus': 'BR',
+  'America/Fortaleza': 'BR',
+  'America/Recife': 'BR',
+  'America/Belem': 'BR',
+  'America/Cuiaba': 'BR',
+  'America/Toronto': 'CA',
+  'America/Vancouver': 'CA',
+  'America/Montreal': 'CA',
+  'America/Edmonton': 'CA',
+  'America/Winnipeg': 'CA',
+  'America/Halifax': 'CA',
+  'Europe/Amsterdam': 'NL',
+  'Europe/London': 'GB',
+  'Europe/Paris': 'FR',
+  'Europe/Berlin': 'DE',
+  'Europe/Rome': 'IT',
+  'Europe/Lisbon': 'PT',
+  'Europe/Moscow': 'RU',
+  'Europe/Dublin': 'IE',
+  'Europe/Stockholm': 'SE',
+  'America/New_York': 'US',
+  'America/Chicago': 'US',
+  'America/Denver': 'US',
+  'America/Los_Angeles': 'US',
+  'America/Phoenix': 'US',
+  'America/Detroit': 'US',
+  'America/Anchorage': 'US',
+  'Pacific/Honolulu': 'US',
+};
+
+const COUNTRY_NAMES_ES: Record<string, string> = {
+  CU: 'Cuba',
+  US: 'Estados Unidos',
+  ES: 'España',
+  MX: 'México',
+  NL: 'Países Bajos',
+  CO: 'Colombia',
+  AR: 'Argentina',
+  CL: 'Chile',
+  PE: 'Perú',
+  EC: 'Ecuador',
+  VE: 'Venezuela',
+  PA: 'Panamá',
+  DO: 'Rep. Dominicana',
+  PR: 'Puerto Rico',
+  CR: 'Costa Rica',
+  GT: 'Guatemala',
+  HN: 'Honduras',
+  SV: 'El Salvador',
+  NI: 'Nicaragua',
+  BO: 'Bolivia',
+  PY: 'Paraguay',
+  UY: 'Uruguay',
+  BR: 'Brasil',
+  CA: 'Canadá',
+  IE: 'Irlanda',
+  SE: 'Suecia',
+  DE: 'Alemania',
+  FR: 'Francia',
+  IT: 'Italia',
+  GB: 'Reino Unido',
+  PT: 'Portugal',
+  RU: 'Rusia',
+};
+
+const isValidIsoCountry = (code?: string | null): code is string => {
+  if (!code) return false;
+  const upper = code.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(upper) && upper !== 'XX' && upper !== 'T1';
+};
+
+/** Obtiene la zona horaria IANA del navegador/dispositivo */
+export const getVisitorTimezone = (): string | null => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+};
+
+/** Infiere un código de país ISO-2 a partir de una zona horaria IANA */
+export const inferCountryFromTimezone = (tz?: string | null): string | null => {
+  const clean = tz?.trim();
+  if (!clean) return null;
+  if (TIMEZONE_TO_COUNTRY[clean]) {
+    return TIMEZONE_TO_COUNTRY[clean];
+  }
+  if (clean.startsWith('America/Argentina/')) return 'AR';
+  if (clean.startsWith('America/Indiana/') || clean.startsWith('America/Kentucky/')) return 'US';
+  return null;
+};
+
+/** Genera el emoji de bandera para un código de país ISO-2 */
+export const getCountryFlag = (countryCode?: string | null): string => {
+  if (!isValidIsoCountry(countryCode)) return '🌍';
+  const upper = countryCode.trim().toUpperCase();
+  return String.fromCodePoint(...upper.split('').map(c => 0x1f1e6 + c.charCodeAt(0) - 65));
+};
+
+/** Devuelve el nombre del país en español a partir del código ISO-2 */
+export const getCountryName = (countryCode?: string | null): string => {
+  if (!isValidIsoCountry(countryCode)) {
+    return 'No especificado (Histórico)';
+  }
+  const upper = countryCode.trim().toUpperCase();
+  if (COUNTRY_NAMES_ES[upper]) {
+    return COUNTRY_NAMES_ES[upper];
+  }
+  try {
+    const displayNames = new Intl.DisplayNames(['es'], { type: 'region' });
+    return displayNames.of(upper) || upper;
+  } catch {
+    return upper;
+  }
+};
 
 /** Obtiene o genera un identificador anónimo único para el visitante */
 export const getOrCreateVisitorId = (): string => {
@@ -189,6 +360,8 @@ export const recordStoreView = async ({
   const visitorId = getOrCreateVisitorId();
   const referrerUrl = typeof document !== 'undefined' ? document.referrer || window.location.href : null;
   const cleanRef = referralCode?.trim() || null;
+  const timezone = getVisitorTimezone();
+  const countryCode = inferCountryFromTimezone(timezone);
 
   try {
     // 1. Intentar registrar a través del RPC de Supabase si está disponible
@@ -198,6 +371,8 @@ export const recordStoreView = async ({
       p_referral_code: cleanRef,
       p_visitor_id: visitorId,
       p_referrer_url: referrerUrl,
+      p_country_code: countryCode,
+      p_timezone: timezone,
     });
 
     if (!rpcError) {
@@ -211,6 +386,8 @@ export const recordStoreView = async ({
       referral_code: cleanRef,
       visitor_id: visitorId,
       referrer_url: referrerUrl,
+      country_code: countryCode,
+      timezone,
     });
 
     if (!insertError) {
@@ -407,7 +584,7 @@ const fetchAllAnalyticsEvents = async (startDateIso?: string): Promise<ViewEvent
 
     let query = supabase
       .from('analytics_views')
-      .select('catalog_id, product_id, referral_code, created_at')
+      .select('catalog_id, product_id, referral_code, visitor_id, country_code, timezone, created_at')
       .order('created_at', { ascending: false })
       .range(from, to);
 
@@ -415,7 +592,20 @@ const fetchAllAnalyticsEvents = async (startDateIso?: string): Promise<ViewEvent
       query = query.gte('created_at', startDateIso);
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+    if (error && page === 0) {
+      let fallbackQuery = supabase
+        .from('analytics_views')
+        .select('catalog_id, product_id, referral_code, created_at')
+        .order('created_at', { ascending: false })
+        .range(from, to);
+      if (startDateIso) {
+        fallbackQuery = fallbackQuery.gte('created_at', startDateIso);
+      }
+      const fallbackRes = await fallbackQuery;
+      data = fallbackRes.data as any;
+      error = fallbackRes.error;
+    }
     if (error || !data || data.length === 0) {
       break;
     }
@@ -519,6 +709,17 @@ export const fetchViewsAnalytics = async (dateRange: 'all' | 'today' | '7d' | '3
     catalogsMap: new Map(),
   });
 
+  // Países
+  const countryMap = new Map<string, {
+    countryCode: string;
+    isUnknown: boolean;
+    storeViews: number;
+    productViews: number;
+    referralViews: number;
+    visitorsSet: Set<string>;
+    catalogsMap: Map<string, number>;
+  }>();
+
   // Procesar eventos de la tabla si existen
   if (events.length > 0) {
     events.forEach(ev => {
@@ -572,6 +773,37 @@ export const fetchViewsAnalytics = async (dateRange: 'all' | 'today' | '7d' | '3
 
       const catCount = refEntry.catalogsMap.get(catId) || 0;
       refEntry.catalogsMap.set(catId, catCount + 1);
+
+      // Acumulación por país
+      const resolvedCode = isValidIsoCountry(ev.country_code)
+        ? ev.country_code.trim().toUpperCase()
+        : inferCountryFromTimezone(ev.timezone) || 'UNKNOWN';
+      const isUnknownCountry = resolvedCode === 'UNKNOWN';
+
+      if (!countryMap.has(resolvedCode)) {
+        countryMap.set(resolvedCode, {
+          countryCode: resolvedCode,
+          isUnknown: isUnknownCountry,
+          storeViews: 0,
+          productViews: 0,
+          referralViews: 0,
+          visitorsSet: new Set<string>(),
+          catalogsMap: new Map<string, number>(),
+        });
+      }
+      const cEntry = countryMap.get(resolvedCode)!;
+      if (isProd) {
+        cEntry.productViews += 1;
+      } else {
+        cEntry.storeViews += 1;
+      }
+      if (refCode !== 'direct') {
+        cEntry.referralViews += 1;
+      }
+      if (ev.visitor_id) {
+        cEntry.visitorsSet.add(ev.visitor_id);
+      }
+      cEntry.catalogsMap.set(catId, (cEntry.catalogsMap.get(catId) || 0) + 1);
     });
   } else {
     // Si la tabla analytics_views aún no tiene registros (por ejemplo en ambiente local previo a eventos),
@@ -734,6 +966,41 @@ export const fetchViewsAnalytics = async (dateRange: 'all' | 'today' | '7d' | '3
   });
   byProduct.sort((a, b) => b.viewsCount - a.viewsCount);
 
+  // 6.5 Construir lista organizada POR PAÍS
+  const totalGeoEvents = events.length;
+  const byCountry: CountryAnalyticsItem[] = Array.from(countryMap.values())
+    .map(c => {
+      const totalViews = c.storeViews + c.productViews;
+      const catalogsTargeted = Array.from(c.catalogsMap.entries())
+        .map(([cId, count]) => {
+          const cat = catalogMap.get(cId);
+          return {
+            id: cId,
+            name: cat?.name || 'Tienda no encontrada',
+            views: count,
+          };
+        })
+        .sort((a, b) => b.views - a.views);
+
+      return {
+        countryCode: c.countryCode,
+        countryName: getCountryName(c.isUnknown ? null : c.countryCode),
+        flag: getCountryFlag(c.isUnknown ? null : c.countryCode),
+        isUnknown: c.isUnknown,
+        storeViews: c.storeViews,
+        productViews: c.productViews,
+        totalViews,
+        referralViews: c.referralViews,
+        uniqueVisitors: c.visitorsSet.size,
+        percentage: totalGeoEvents > 0 ? Math.round((totalViews / totalGeoEvents) * 1000) / 10 : 0,
+        catalogsTargeted,
+      };
+    })
+    .sort((a, b) => {
+      if (a.isUnknown !== b.isUnknown) return a.isUnknown ? 1 : -1;
+      return b.totalViews - a.totalViews;
+    });
+
   // 7. Calcular resumen global
   const totalStoreViews = byStore.reduce((acc, s) => acc + s.storeViews, 0);
   const totalProductViews = byStore.reduce((acc, s) => acc + s.productViews, 0);
@@ -754,6 +1021,16 @@ export const fetchViewsAnalytics = async (dateRange: 'all' | 'today' | '7d' | '3
     ? { code: validTopReferrals[0].code, views: validTopReferrals[0].totalViews }
     : null;
 
+  const knownCountries = byCountry.filter(c => !c.isUnknown && c.totalViews > 0);
+  const topCountry = knownCountries.length > 0
+    ? {
+        code: knownCountries[0].countryCode,
+        name: knownCountries[0].countryName,
+        flag: knownCountries[0].flag,
+        views: knownCountries[0].totalViews,
+      }
+    : null;
+
   return {
     summary: {
       totalStoreViews,
@@ -762,14 +1039,17 @@ export const fetchViewsAnalytics = async (dateRange: 'all' | 'today' | '7d' | '3
       totalReferralViews,
       activeStoresCount: catalogs.filter(c => c.is_active).length,
       activeUsersCount: users.length,
+      countriesCount: knownCountries.length,
       topStore,
       topProduct,
       topReferral,
+      topCountry,
     },
     timeSeries,
     byStore,
     byUser,
     byReferral,
+    byCountry,
     byProduct,
   };
 };
