@@ -2,8 +2,9 @@ import React, { useState, useRef, forwardRef, useImperativeHandle } from 'react'
 import { Bold, Italic, Smile } from 'lucide-react';
 import { useStore } from '../../store/useStore';
 import type { RichTextareaHandle } from '../../types/ui';
+import { lazyWithRetry } from '../../lib/lazyWithRetry';
 
-const EmojiPicker = React.lazy(() => import('emoji-picker-react'));
+const EmojiPicker = lazyWithRetry(() => import('emoji-picker-react'));
 
 interface RichTextareaProps {
   value: string;

@@ -1,5 +1,5 @@
 const IMAGE_CACHE_NAME = 'matum-images-v2';
-const STATIC_CACHE_NAME = 'matum-static-v1';
+const STATIC_CACHE_NAME = 'matum-static-v2';
 const VALID_CACHES = new Set([IMAGE_CACHE_NAME, STATIC_CACHE_NAME]);
 
 self.addEventListener('install', () => {
@@ -31,8 +31,49 @@ function isCacheableImageRequest(request) {
 function isCacheableStaticRequest(request) {
   if (request.method !== 'GET') return false;
   const url = request.url || '';
-  if (/\/assets\/[^/]+\.(js|css)(\?.*)?$/i.test(url)) return true;
   if (url.startsWith('https://fonts.gstatic.com/')) return true;
+  try {
+    const parsedUrl = new URL(url);
+    if (
+      parsedUrl.origin === self.location.origin &&
+      /^\/assets\/[^/]+\.(js|css)$/i.test(parsedUrl.pathname)
+    ) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+function isValidStaticResponse(request, response) {
+  if (!response) return false;
+  const url = request.url || '';
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+
+  if (url.startsWith('https://fonts.gstatic.com/')) {
+    return response.type === 'opaque' || (response.ok && !contentType.includes('text/html'));
+  }
+
+  if (!response.ok || contentType.includes('text/html')) {
+    return false;
+  }
+
+  let pathname = url;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    pathname = url.split('?')[0];
+  }
+
+  if (/\.js$/i.test(pathname)) {
+    return /(javascript|ecmascript)/i.test(contentType);
+  }
+
+  if (/\.css$/i.test(pathname)) {
+    return contentType.includes('text/css');
+  }
+
   return false;
 }
 
@@ -44,10 +85,13 @@ self.addEventListener('fetch', (event) => {
       caches.open(STATIC_CACHE_NAME).then(async (cache) => {
         const cachedResponse = await cache.match(request);
         if (cachedResponse) {
-          return cachedResponse;
+          if (isValidStaticResponse(request, cachedResponse)) {
+            return cachedResponse;
+          }
+          await cache.delete(request).catch(() => {});
         }
         const networkResponse = await fetch(request);
-        if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
+        if (isValidStaticResponse(request, networkResponse)) {
           cache.put(request, networkResponse.clone()).catch(() => {});
         }
         return networkResponse;

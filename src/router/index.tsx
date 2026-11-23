@@ -5,63 +5,64 @@ import { DashboardPage } from '../pages/dashboard/DashboardPage';
 import { useAuthStore } from '../store/authStore';
 import { ErrorPage } from '../pages/ErrorPage';
 import { LoadingScreen } from '../components/ui/AnimatedLogo';
+import { lazyWithRetry } from '../lib/lazyWithRetry';
 
-const LoginPage = React.lazy(() => import('../pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
-const RegisterPage = React.lazy(() => import('../pages/auth/RegisterPage').then((m) => ({ default: m.RegisterPage })));
-const ForgotPasswordPage = React.lazy(() =>
+const LoginPage = lazyWithRetry(() => import('../pages/auth/LoginPage').then((m) => ({ default: m.LoginPage })));
+const RegisterPage = lazyWithRetry(() => import('../pages/auth/RegisterPage').then((m) => ({ default: m.RegisterPage })));
+const ForgotPasswordPage = lazyWithRetry(() =>
   import('../pages/auth/ForgotPasswordPage').then((m) => ({ default: m.ForgotPasswordPage }))
 );
-const CatalogsPage = React.lazy(() => import('../pages/catalogs/CatalogsPage').then((m) => ({ default: m.CatalogsPage })));
-const CatalogFormPage = React.lazy(() =>
+const CatalogsPage = lazyWithRetry(() => import('../pages/catalogs/CatalogsPage').then((m) => ({ default: m.CatalogsPage })));
+const CatalogFormPage = lazyWithRetry(() =>
   import('../pages/catalogs/CatalogFormPage').then((m) => ({ default: m.CatalogFormPage }))
 );
-const CatalogDetailPage = React.lazy(() =>
+const CatalogDetailPage = lazyWithRetry(() =>
   import('../pages/catalogs/CatalogDetailPage').then((m) => ({ default: m.CatalogDetailPage }))
 );
-const CatalogTemplatesPage = React.lazy(() =>
+const CatalogTemplatesPage = lazyWithRetry(() =>
   import('../pages/catalogs/CatalogTemplatesPage').then((m) => ({ default: m.CatalogTemplatesPage }))
 );
-const CatalogSettingsPage = React.lazy(() =>
+const CatalogSettingsPage = lazyWithRetry(() =>
   import('../pages/settings/CatalogSettingsPage').then((m) => ({ default: m.CatalogSettingsPage }))
 );
-const FollowedCatalogsPage = React.lazy(() =>
+const FollowedCatalogsPage = lazyWithRetry(() =>
   import('../pages/catalogs/FollowedCatalogsPage').then((m) => ({ default: m.FollowedCatalogsPage }))
 );
-const ProfilePage = React.lazy(() => import('../pages/profile/ProfilePage').then((m) => ({ default: m.ProfilePage })));
-const EditProfilePage = React.lazy(() =>
+const ProfilePage = lazyWithRetry(() => import('../pages/profile/ProfilePage').then((m) => ({ default: m.ProfilePage })));
+const EditProfilePage = lazyWithRetry(() =>
   import('../pages/profile/EditProfilePage').then((m) => ({ default: m.EditProfilePage }))
 );
-const GeminiConfigPage = React.lazy(() =>
+const GeminiConfigPage = lazyWithRetry(() =>
   import('../pages/profile/GeminiConfigPage').then((m) => ({ default: m.GeminiConfigPage }))
 );
-const SubscriptionPage = React.lazy(() =>
+const SubscriptionPage = lazyWithRetry(() =>
   import('../pages/profile/SubscriptionPage').then((m) => ({ default: m.SubscriptionPage }))
 );
-const AffiliatesPage = React.lazy(() =>
+const AffiliatesPage = lazyWithRetry(() =>
   import('../pages/profile/AffiliatesPage').then((m) => ({ default: m.AffiliatesPage }))
 );
-const AdminDashboard = React.lazy(() =>
+const AdminDashboard = lazyWithRetry(() =>
   import('../pages/admin/AdminDashboard').then((m) => ({ default: m.AdminDashboard }))
 );
-const PlansPage = React.lazy(() => import('../pages/admin/PlansPage').then((m) => ({ default: m.PlansPage })));
-const UsersPage = React.lazy(() => import('../pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })));
-const PaymentsPage = React.lazy(() => import('../pages/admin/PaymentsPage').then((m) => ({ default: m.PaymentsPage })));
-const AdminSettingsPage = React.lazy(() =>
+const PlansPage = lazyWithRetry(() => import('../pages/admin/PlansPage').then((m) => ({ default: m.PlansPage })));
+const UsersPage = lazyWithRetry(() => import('../pages/admin/UsersPage').then((m) => ({ default: m.UsersPage })));
+const PaymentsPage = lazyWithRetry(() => import('../pages/admin/PaymentsPage').then((m) => ({ default: m.PaymentsPage })));
+const AdminSettingsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminSettingsPage').then((m) => ({ default: m.AdminSettingsPage }))
 );
-const EvolutionServersPage = React.lazy(() =>
+const EvolutionServersPage = lazyWithRetry(() =>
   import('../pages/admin/EvolutionServersPage').then((m) => ({ default: m.EvolutionServersPage }))
 );
-const ViewsAnalyticsPage = React.lazy(() =>
+const ViewsAnalyticsPage = lazyWithRetry(() =>
   import('../pages/admin/ViewsAnalyticsPage').then((m) => ({ default: m.ViewsAnalyticsPage }))
 );
-const AdminCatalogsPage = React.lazy(() =>
+const AdminCatalogsPage = lazyWithRetry(() =>
   import('../pages/admin/AdminCatalogsPage').then((m) => ({ default: m.AdminCatalogsPage }))
 );
-const PublicCatalogPage = React.lazy(() =>
+const PublicCatalogPage = lazyWithRetry(() =>
   import('../pages/catalogs/PublicCatalogPage').then((m) => ({ default: m.PublicCatalogPage }))
 );
-const PublicProductPage = React.lazy(() =>
+const PublicProductPage = lazyWithRetry(() =>
   import('../pages/catalogs/PublicProductPage').then((m) => ({ default: m.PublicProductPage }))
 );
 
