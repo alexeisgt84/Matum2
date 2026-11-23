@@ -840,7 +840,6 @@ export const FollowedCatalogsPage = () => {
                               </div>
                               <ProductBadgesOverlay
                                 badges={product.badges}
-                                isFeatured={product.is_featured}
                                 size="xs"
                                 compact
                               />
@@ -851,7 +850,6 @@ export const FollowedCatalogsPage = () => {
                               <p className="text-secondary text-[11px] truncate mt-1">{product.description || 'Sin descripción'}</p>
                               <ProductBadgesInline
                                 badges={product.badges}
-                                isFeatured={product.is_featured}
                                 className="mt-1.5"
                               />
                               
@@ -1232,7 +1230,6 @@ export const FollowedCatalogsPage = () => {
                         </div>
                         <ProductBadgesOverlay
                           badges={product.badges}
-                          isFeatured={product.is_featured}
                           size="xs"
                           compact
                         />
@@ -1243,7 +1240,6 @@ export const FollowedCatalogsPage = () => {
                         <p className="text-secondary text-[11px] truncate mt-1">{product.description || 'Sin descripción'}</p>
                         <ProductBadgesInline
                           badges={product.badges}
-                          isFeatured={product.is_featured}
                           className="mt-1.5"
                         />
                         <span className="text-accent text-xs font-bold font-mono block mt-2 tabular-nums">

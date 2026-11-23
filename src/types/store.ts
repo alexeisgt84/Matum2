@@ -63,6 +63,8 @@ export interface PublicProduct {
   position?: number | null;
   contact_phone?: string | null;
   sender_name?: string | null;
+  details_and_dimensions?: string | null;
+  care_and_maintenance?: string | null;
 }
 
 export interface StoreCategory {

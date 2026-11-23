@@ -191,11 +191,31 @@ async function fetchImageBlobWithOfflineFallback(imgUrl: string): Promise<Blob |
     if (response.ok) {
       return await response.blob();
     }
+
+    // Si un Service Worker previo devolvió una respuesta opaca (no-cors) en caché,
+    // reintentar saltando la caché para obtener una respuesta CORS legible.
+    if (response.type === 'opaque') {
+      const sep = imgUrl.includes('?') ? '&' : '?';
+      const freshResponse = await fetch(`${imgUrl}${sep}_cb=${Date.now()}`, {
+        mode: 'cors',
+        cache: 'no-store',
+      });
+      if (freshResponse.ok) {
+        return await freshResponse.blob();
+      }
+    }
   } catch {
     // Fallback a caché offline si falla la red
   }
 
   return await getCachedImageBlob(imgUrl);
+}
+
+function buildTextWithUrl(text?: string, url?: string): string {
+  const baseText = text || '';
+  if (!url) return baseText;
+  if (baseText.includes(url)) return baseText;
+  return baseText ? `${baseText}\n\n${url}` : url;
 }
 
 /**
@@ -322,8 +342,21 @@ export const shareContent = async (options: ShareOptions) => {
             })
           );
 
-          if (files.length > 0 && navigator.canShare({ files })) {
-            shareData.files = files;
+          if (files.length > 0) {
+            if (navigator.canShare({ ...shareData, files })) {
+              shareData.files = files;
+            } else if (
+              navigator.canShare({
+                title: shareData.title,
+                text: buildTextWithUrl(text, url),
+                files,
+              })
+            ) {
+              // Muchos navegadores móviles no permiten url + files juntos; priorizar la imagen e incluir la URL en el texto
+              delete shareData.url;
+              shareData.text = buildTextWithUrl(text, url);
+              shareData.files = files;
+            }
           }
         } catch (error) {
           console.warn('Error processing images for web share:', error);
@@ -336,9 +369,26 @@ export const shareContent = async (options: ShareOptions) => {
         } catch (shareError: any) {
           if (shareError.name === 'AbortError') return;
 
+          if (shareData.files && shareData.url) {
+            const filesOnlyData = {
+              title: shareData.title,
+              text: buildTextWithUrl(text, url),
+              files: shareData.files,
+            };
+            try {
+              await navigator.share(filesOnlyData);
+              return;
+            } catch (filesRetryError: any) {
+              if (filesRetryError.name === 'AbortError') return;
+            }
+          }
+
           if (shareData.files) {
-            const fallbackData = { ...shareData };
-            delete fallbackData.files;
+            const fallbackData: any = {
+              title: shareData.title,
+              text: text || '',
+            };
+            if (url) fallbackData.url = url;
             try {
               await navigator.share(fallbackData);
             } catch (retryError: any) {

@@ -6,10 +6,19 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
+interface ParsedAIResponse {
+  title: string;
+  price?: number | null;
+  currency?: 'USD' | 'CUP';
+  description: string;
+  details_and_dimensions?: string;
+  care_and_maintenance?: string;
+}
+
 /**
  * Extrae y parsea un bloque JSON de la respuesta de texto de Gemini (incluyendo bloques markdown ```json)
  */
-function parseJsonFromText(text: string): { title: string; price?: number | null; currency?: 'USD' | 'CUP'; description: string } | null {
+function parseJsonFromText(text: string): ParsedAIResponse | null {
   if (!text) return null;
   try {
     const trimmed = text.trim();
@@ -41,13 +50,17 @@ function parseJsonFromText(text: string): { title: string; price?: number | null
     const priceMatch = candidate.match(/"price"\s*:\s*([0-9.]+)/i);
     const currencyMatch = candidate.match(/"currency"\s*:\s*"(USD|CUP)"/i);
     const descMatch = candidate.match(/"description"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"[a-zA-Z0-9_]+"\s*:|"\s*\}|$)/i);
+    const detailsMatch = candidate.match(/"details_and_dimensions"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"[a-zA-Z0-9_]+"\s*:|"\s*\}|$)/i);
+    const careMatch = candidate.match(/"care_and_maintenance"\s*:\s*"([\s\S]*?)(?:"\s*,\s*"[a-zA-Z0-9_]+"\s*:|"\s*\}|$)/i);
 
     if (titleMatch || descMatch) {
       return {
         title: titleMatch ? titleMatch[1] : '',
         price: priceMatch ? parseFloat(priceMatch[1]) : null,
         currency: currencyMatch ? (currencyMatch[1] as any) : 'USD',
-        description: descMatch ? descMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : ''
+        description: descMatch ? descMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : '',
+        details_and_dimensions: detailsMatch ? detailsMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : '',
+        care_and_maintenance: careMatch ? careMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : ''
       };
     }
 
@@ -59,10 +72,10 @@ function parseJsonFromText(text: string): { title: string; price?: number | null
 }
 
 /**
- * Sanea la descripción generada eliminando asteriscos, negrita de markdown residual
+ * Sanea el texto eliminando asteriscos, negrita de markdown residual
  * y estandarizando las viñetas limpias con "• ".
  */
-function sanitizeDescriptionText(desc?: string): string {
+function sanitizeText(desc?: string): string {
   if (!desc) return '';
   let text = String(desc).trim();
 
@@ -119,7 +132,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Obtener el perfil del usuario para recuperar su gemini_api_key y gemini_model de forma resiliente
+    // Obtener el perfil del usuario para recuperar su gemini_api_key y gemini_model
     let geminiApiKey = '';
     let geminiModel = 'gemini-2.5-flash';
 
@@ -130,8 +143,6 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (profileError) {
-      console.warn("La columna gemini_model no parece existir aún, intentando fallback de consulta...", profileError.message);
-      // Fallback: consultar únicamente la clave API si la columna de modelo no existe todavía
       const { data: fallbackProfile, error: fallbackError } = await supabaseAdmin
         .from('users')
         .select('gemini_api_key')
@@ -147,6 +158,7 @@ Deno.serve(async (req: Request) => {
       geminiApiKey = profile.gemini_api_key;
       geminiModel = profile.gemini_model || 'gemini-2.5-flash';
     }
+
     if (!geminiApiKey || geminiApiKey.trim() === '') {
       return new Response(
         JSON.stringify({ 
@@ -177,17 +189,9 @@ Deno.serve(async (req: Request) => {
       const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiApiKey}`;
       const geminiResponse = await fetch(geminiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: "Responde estrictamente con la palabra OK." }
-              ]
-            }
-          ]
+          contents: [{ parts: [{ text: "Responde estrictamente con la palabra OK." }] }]
         })
       });
 
@@ -208,71 +212,71 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    if (!image) {
-      throw new Error('La imagen en formato base64 es requerida');
+    // Validación de entrada: se necesita imagen o al menos nombre/especificaciones
+    const hasImage = Boolean(image && typeof image === 'string' && image.trim().length > 0);
+    const hasText = Boolean((productName && productName.trim().length > 0) || (productInfo && productInfo.trim().length > 0));
+
+    if (!hasImage && !hasText) {
+      throw new Error('Escribe el nombre del producto, añade especificaciones o sube una imagen para que la IA pueda completar la ficha.');
     }
 
-    // Diseñar prompt optimizado estrictamente para ficha técnica e-commerce con búsqueda web (estilo NazaarListener)
-    const promptText = `Actúa como un especialista en fichas técnicas de productos e-commerce.
-Analiza con rigor la IMAGEN adjunta del producto (etiquetas, empaques, logos, modelo físico visible, detalles y especificaciones impresas) y la información provista:
+    // Diseñar prompt estructurado para búsqueda en internet y división en las 3 secciones requeridas
+    const promptText = `Actúa como un experto en catalogación y fichas técnicas de productos e-commerce de alto nivel.
+TU TAREA: Investigar en internet (usando la búsqueda de Google) y analizar ${hasImage ? 'la imagen adjunta del producto y ' : ''}los datos provistos para generar una ficha de producto completa, precisa y profesional dividida en 3 secciones fundamentales:
+1) DESCRIPCIÓN
+2) DETALLES Y DIMENSIONES
+3) CUIDADO Y MANTENIMIENTO
 
-- Título actual / detectado: "${productName || 'No especificado'}"
-- Precio detectado actualmente: ${inputPrice !== null && inputPrice !== undefined && inputPrice !== '' ? `${inputPrice} ${inputCurrency || 'USD'}` : 'No detectado'}
-- Información o notas adicionales:
+Datos provistos por el usuario:
+- Nombre o título indicado: "${productName || 'No especificado'}"
+- Precio de referencia actual: ${inputPrice !== null && inputPrice !== undefined && inputPrice !== '' ? `${inputPrice} ${inputCurrency || 'USD'}` : 'No detectado'}
+- Especificaciones o notas suministradas:
 """
 ${productInfo || 'Sin notas adicionales'}
 """
 
-TU OBJETIVO: Generar una ficha técnica precisa, limpia y enfocada en datos objetivos. INVESTIGA EN INTERNET (usando la búsqueda de Google) para obtener especificaciones técnicas oficiales exactas del fabricante para este modelo específico, sin frases de relleno publicitario ni discursos de marketing.
+INSTRUCCIONES DE INVESTIGACIÓN:
+- BUSCA EN INTERNET el producto exacto por su nombre comercial, marca y modelo.
+- Obtén las dimensiones reales (alto, ancho, profundidad, peso), materiales de fabricación y especificaciones técnicas oficiales del fabricante.
+- Obtén las pautas oficiales o mejores prácticas recomendadas de cuidado, limpieza y mantenimiento.
 
-REGLAS ESTRICTAS DE FORMATO Y CONTENIDO:
-1. "title": Título comercial conciso y profesional (Marca + Modelo específico comercial + Capacidad/Variante técnica principal). Sin emojis, sin números de teléfono ni frases publicitarias tipo "Vendo", "Aprovecha" o "Nuevo en caja". Máximo 8 palabras.
-2. "price": Precio numérico de venta al público en número decimal o entero (ej: 150). Extraerlo fielmente si aparece en la imagen, etiquetas o notas. Si no se menciona precio explícito de venta, asigna null.
-3. "currency": "USD" o "CUP" (por defecto "USD" salvo que se indique claramente "CUP", "pesos cubanos" o "$ cup").
-4. "description": Ficha técnica limpia y directa centrada en especificaciones y características reales del producto.
+REGLAS ESTRICTAS DE FORMATO Y CONTENIDO (PROHIBIDO USAR ASTERISCOS * O **):
+1. "title": Título comercial conciso, profesional y atractivo (Marca + Modelo específico + Capacidad/Variante técnica). Máximo 8 palabras. Sin emojis.
+2. "price": Precio numérico de venta sugerido o detectado (número entero o decimal). Si no se conoce con certeza o no viene especificado, asigna null.
+3. "currency": "USD" o "CUP" (por defecto "USD", o "CUP" si las notas o contexto lo indican).
+4. "description": Descripción general y comercial del producto. Explica qué es, su función principal, para quién está diseñado y sus principales beneficios o características diferenciales. No uses asteriscos. Redacción limpia, atractiva y directa.
+5. "details_and_dimensions": Especificaciones técnicas completas organizadas con viñetas limpias usando el carácter "• ". Debe incluir:
+   • Medidas y dimensiones (ej: Alto, Ancho, Profundidad, Diámetro)
+   • Peso aproximado
+   • Materiales de construcción / fabricación
+   • Especificaciones técnicas clave (capacidad, potencia, voltaje, compatibilidad, conectividad, etc.)
+   • Qué incluye el paquete / empaque
+6. "care_and_maintenance": Guía práctica y recomendaciones de uso, limpieza y mantenimiento preventivo para prolongar la vida útil del producto, organizadas con viñetas limpias usando "• ". Debe incluir:
+   • Modo adecuado de limpieza y productos recomendados o a evitar
+   • Precauciones de uso y seguridad
+   • Almacenamiento y conservación adecuada
 
-   PROHIBIDO USAR ASTERISCOS: NO uses asteriscos (* ni ** ni ***). Prohibido usar markdown de negritas (**palabra**).
-   PROHIBIDO TEXTO DE RELLENO: NO incluyas discursos de ventas, opiniones publicitarias ("el mejor del mercado", "experimenta el futuro"), saludos ni frases de relleno.
-
-   Estructura obligatoria de la descripción (usa viñetas con el caracter "• " y encabezados en mayúsculas):
-
-   PRODUCTO:
-   Breve descripción técnica objetiva de qué es el artículo y su función principal.
-
-   ESPECIFICACIONES TÉCNICAS:
-   • Medidas / Dimensiones: ...
-   • Capacidad / Tamaño: ...
-   • Potencia / Voltaje: ...
-   • Materiales / Construcción: ...
-   • Conectividad / Compatibilidad / Sistema: ...
-   (Incluye todas las especificaciones técnicas oficiales investigadas en internet para este modelo específico o visibles en la imagen).
-
-   CARACTERÍSTICAS PRINCIPALES:
-   • Funciones técnicas destacadas del producto.
-
-   ESTADO Y CONTENIDO:
-   • Condición: (ej. Nuevo en caja / Usado).
-   • Incluye: Accesorios o elementos incluidos (si se aprecian o especifican).
-
-IMPORTANTE: Responde ÚNICAMENTE con un bloque JSON válido, sin explicaciones adicionales fuera de este bloque. Estructura exacta requerida:
+IMPORTANTE: Responde ÚNICAMENTE con un bloque JSON válido, sin explicaciones ni texto fuera de él. Formato requerido:
 \`\`\`json
 {
   "title": "string",
-  "price": 0,
+  "price": null,
   "currency": "USD",
-  "description": "string"
+  "description": "string",
+  "details_and_dimensions": "string",
+  "care_and_maintenance": "string"
 }
 \`\`\``;
 
-    const parts = [
-      { text: promptText },
-      {
+    const parts: any[] = [{ text: promptText }];
+    if (hasImage) {
+      parts.push({
         inlineData: {
           mimeType,
           data: image
         }
-      }
-    ];
+      });
+    }
 
     const modelsToTry = [
       geminiModel,
@@ -280,7 +284,7 @@ IMPORTANTE: Responde ÚNICAMENTE con un bloque JSON válido, sin explicaciones a
       'gemini-2.0-flash'
     ].filter((m, idx, arr) => Boolean(m) && arr.indexOf(m) === idx);
 
-    let parsedResult: { title: string; price?: number | null; currency?: 'USD' | 'CUP'; description: string } | null = null;
+    let parsedResult: ParsedAIResponse | null = null;
     let lastError: any = null;
 
     for (const model of modelsToTry) {
@@ -295,8 +299,8 @@ IMPORTANTE: Responde ÚNICAMENTE con un bloque JSON válido, sin explicaciones a
             contents: [{ role: 'user', parts }],
             tools: [{ googleSearch: {} }],
             generationConfig: {
-              maxOutputTokens: 2500,
-              temperature: 0.1
+              maxOutputTokens: 3000,
+              temperature: 0.2
             }
           })
         });
@@ -327,8 +331,8 @@ IMPORTANTE: Responde ÚNICAMENTE con un bloque JSON válido, sin explicaciones a
           body: JSON.stringify({
             contents: [{ role: 'user', parts }],
             generationConfig: {
-              maxOutputTokens: 2500,
-              temperature: 0.1
+              maxOutputTokens: 3000,
+              temperature: 0.2
             }
           })
         });
@@ -352,7 +356,7 @@ IMPORTANTE: Responde ÚNICAMENTE con un bloque JSON válido, sin explicaciones a
 
     if (!parsedResult) {
       throw new Error(
-        lastError?.message || 'No se pudo generar la ficha técnica con IA a través de Gemini.'
+        lastError?.message || 'No se pudo generar la información del producto con IA.'
       );
     }
 
@@ -360,7 +364,9 @@ IMPORTANTE: Responde ÚNICAMENTE con un bloque JSON válido, sin explicaciones a
       title: parsedResult.title ? String(parsedResult.title).trim() : (productName || 'Producto sin título'),
       price: typeof parsedResult.price === 'number' && !isNaN(parsedResult.price) && parsedResult.price > 0 ? parsedResult.price : null,
       currency: parsedResult.currency === 'CUP' ? 'CUP' : 'USD',
-      description: sanitizeDescriptionText(parsedResult.description)
+      description: sanitizeText(parsedResult.description),
+      details_and_dimensions: sanitizeText(parsedResult.details_and_dimensions),
+      care_and_maintenance: sanitizeText(parsedResult.care_and_maintenance)
     };
 
     return new Response(JSON.stringify(sanitizedResult), {

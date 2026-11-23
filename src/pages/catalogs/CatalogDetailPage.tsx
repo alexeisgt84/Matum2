@@ -77,7 +77,7 @@ import { DropdownMenu, type DropdownItem } from '../../components/ui/DropdownMen
 import { toast } from 'react-hot-toast';
 import { useEvolution } from '../../hooks/useEvolution';
 import type { Product } from '../../types/product';
-import { normalizeProductBadges, syncBadgesWithFeatured } from '../../constants/productBadges';
+import { normalizeProductBadges } from '../../constants/productBadges';
 import type { WhatsAppMessage } from '../../types/message';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { CatalogStatusBar } from '../../components/catalogs/CatalogStatusBar';
@@ -1094,22 +1094,12 @@ export const CatalogDetailPage = () => {
     if (selectedProductIds.length === 0) return;
     const toastId = toast.loading(`${isFeatured ? 'Marcando como destacados' : 'Quitando de destacados'} ${selectedProductIds.length} productos…`);
     try {
-      const selectedSet = new Set(selectedProductIds);
-      const targetProducts = products.filter(p => selectedSet.has(p.id));
-      const results = await Promise.all(
-        targetProducts.map(p =>
-          supabase
-            .from('products')
-            .update({
-              is_featured: isFeatured,
-              badges: syncBadgesWithFeatured(p.badges, isFeatured),
-            })
-            .eq('id', p.id)
-        )
-      );
+      const { error } = await supabase
+        .from('products')
+        .update({ is_featured: isFeatured })
+        .in('id', selectedProductIds);
 
-      const firstError = results.find(r => r.error)?.error;
-      if (firstError) throw firstError;
+      if (error) throw error;
       toast.success(`${selectedProductIds.length} productos actualizados`, { id: toastId });
       clearSelection();
       getProducts(true);
@@ -2140,7 +2130,7 @@ export const CatalogDetailPage = () => {
             const normalized = normalizeProductBadges(badges);
             setEditingProduct(prev =>
               prev && prev.id === prod.id
-                ? { ...prev, badges: normalized, is_featured: normalized.includes('featured') }
+                ? { ...prev, badges: normalized }
                 : prev
             );
           }
@@ -2297,7 +2287,7 @@ export const CatalogDetailPage = () => {
             </Button>
             <div className="flex gap-2">
               <Button 
-                variant="secondary" 
+                variant={isPremium && hasInstance ? 'secondary' : 'primary'}
                 onClick={async () => {
                   if (productToAgotado) {
                     setIsAgotadoLoading(true);
@@ -2322,37 +2312,39 @@ export const CatalogDetailPage = () => {
               >
                 Confirmar
               </Button>
-              <Button 
-                variant="primary" 
-                icon={Send}
-                onClick={async () => {
-                  if (productToAgotado) {
-                    setIsAgotadoLoading(true);
-                    try {
-                      // 1. Actualizar DB
-                      const { error } = await supabase
-                        .from('products')
-                        .update({ is_out_of_stock: true, stock_status: 'out_of_stock' })
-                        .eq('id', productToAgotado.id);
-                      
-                      if (error) throw error;
-                      
-                      // 2. Enviar a grupos
-                      await sendProductOutOfStock(productToAgotado);
-                      
-                      getProducts();
-                      setProductToAgotado(null);
-                    } catch (err: any) {
-                      toast.error('Error: ' + err.message);
-                    } finally {
-                      setIsAgotadoLoading(false);
+              {isPremium && hasInstance && (
+                <Button 
+                  variant="primary" 
+                  icon={Send}
+                  onClick={async () => {
+                    if (productToAgotado) {
+                      setIsAgotadoLoading(true);
+                      try {
+                        // 1. Actualizar DB
+                        const { error } = await supabase
+                          .from('products')
+                          .update({ is_out_of_stock: true, stock_status: 'out_of_stock' })
+                          .eq('id', productToAgotado.id);
+                        
+                        if (error) throw error;
+                        
+                        // 2. Enviar a grupos
+                        await sendProductOutOfStock(productToAgotado);
+                        
+                        getProducts();
+                        setProductToAgotado(null);
+                      } catch (err: any) {
+                        toast.error('Error: ' + err.message);
+                      } finally {
+                        setIsAgotadoLoading(false);
+                      }
                     }
-                  }
-                }}
-                loading={isAgotadoLoading}
-              >
-                Confirmar y enviar
-              </Button>
+                  }}
+                  loading={isAgotadoLoading}
+                >
+                  Confirmar y enviar
+                </Button>
+              )}
             </div>
           </div>
         }
@@ -2364,7 +2356,9 @@ export const CatalogDetailPage = () => {
           <div>
             <p className="text-white font-bold mb-1">{productToAgotado?.name}</p>
             <p className="text-gray-400 text-sm leading-relaxed">
-              ¿Deseas marcar este producto como agotado? Puedes solo confirmarlo en el sistema o enviarlo también como aviso a los grupos de WhatsApp vinculados.
+              {isPremium && hasInstance
+                ? '¿Deseas marcar este producto como agotado? Puedes solo confirmarlo en el sistema o enviarlo también como aviso a los grupos de WhatsApp vinculados.'
+                : '¿Deseas marcar este producto como agotado?'}
             </p>
           </div>
         </div>
@@ -2386,7 +2380,7 @@ export const CatalogDetailPage = () => {
             </Button>
             <div className="flex gap-2">
               <Button 
-                variant="secondary" 
+                variant={isPremium && hasInstance ? 'secondary' : 'primary'}
                 onClick={async () => {
                   if (productToAvailable) {
                     setIsAgotadoLoading(true);
@@ -2411,37 +2405,39 @@ export const CatalogDetailPage = () => {
               >
                 Confirmar
               </Button>
-              <Button 
-                variant="primary" 
-                icon={Send}
-                onClick={async () => {
-                  if (productToAvailable) {
-                    setIsAgotadoLoading(true);
-                    try {
-                      // 1. Actualizar DB
-                      const { error } = await supabase
-                        .from('products')
-                        .update({ is_out_of_stock: false, stock_status: 'available' })
-                        .eq('id', productToAvailable.id);
-                      
-                      if (error) throw error;
-                      
-                      // 2. Enviar a grupos
-                      await sendProductAvailable(productToAvailable);
-                      
-                      getProducts();
-                      setProductToAvailable(null);
-                    } catch (err: any) {
-                      toast.error('Error: ' + err.message);
-                    } finally {
-                      setIsAgotadoLoading(false);
+              {isPremium && hasInstance && (
+                <Button 
+                  variant="primary" 
+                  icon={Send}
+                  onClick={async () => {
+                    if (productToAvailable) {
+                      setIsAgotadoLoading(true);
+                      try {
+                        // 1. Actualizar DB
+                        const { error } = await supabase
+                          .from('products')
+                          .update({ is_out_of_stock: false, stock_status: 'available' })
+                          .eq('id', productToAvailable.id);
+                        
+                        if (error) throw error;
+                        
+                        // 2. Enviar a grupos
+                        await sendProductAvailable(productToAvailable);
+                        
+                        getProducts();
+                        setProductToAvailable(null);
+                      } catch (err: any) {
+                        toast.error('Error: ' + err.message);
+                      } finally {
+                        setIsAgotadoLoading(false);
+                      }
                     }
-                  }
-                }}
-                loading={isAgotadoLoading}
-              >
-                Confirmar y enviar
-              </Button>
+                  }}
+                  loading={isAgotadoLoading}
+                >
+                  Confirmar y enviar
+                </Button>
+              )}
             </div>
           </div>
         }
@@ -2453,7 +2449,9 @@ export const CatalogDetailPage = () => {
           <div>
             <p className="text-white font-bold mb-1">{productToAvailable?.name}</p>
             <p className="text-gray-400 text-sm leading-relaxed">
-              ¿Deseas marcar este producto nuevamente como disponible? Puedes solo confirmarlo en el sistema o enviarlo también como aviso a los grupos de WhatsApp vinculados.
+              {isPremium && hasInstance
+                ? '¿Deseas marcar este producto nuevamente como disponible? Puedes solo confirmarlo en el sistema o enviarlo también como aviso a los grupos de WhatsApp vinculados.'
+                : '¿Deseas marcar este producto nuevamente como disponible?'}
             </p>
           </div>
         </div>

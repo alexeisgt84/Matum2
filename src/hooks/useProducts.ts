@@ -13,7 +13,7 @@ import {
   syncCatalogForOffline,
 } from '../lib/offlineCache';
 import { matchesSearchTerms, buildSupabaseSearchFilter } from '../lib/searchTerms';
-import { normalizeProductBadges, syncBadgesWithFeatured } from '../constants/productBadges';
+import { normalizeProductBadges } from '../constants/productBadges';
 
 function filterAndSortCachedProducts(
   allProducts: Product[],
@@ -305,8 +305,7 @@ export const useProducts = (
         imagen_url = publicUrl;
       }
 
-      const normalizedBadges = normalizeProductBadges(form.badges, form.is_featured);
-      const isFeatured = normalizedBadges.includes('featured');
+      const normalizedBadges = normalizeProductBadges(form.badges);
 
       const productData = {
         name: form.name.trim(),
@@ -316,7 +315,7 @@ export const useProducts = (
         imagen_url,
         category_id: form.category_id || null,
         is_active: form.is_active !== undefined ? form.is_active : true,
-        is_featured: isFeatured,
+        is_featured: form.is_featured !== undefined ? Boolean(form.is_featured) : false,
         badges: normalizedBadges,
         commission_amount:
           form.commission_amount === '' || form.commission_amount === null || form.commission_amount === undefined
@@ -333,6 +332,8 @@ export const useProducts = (
             ? null
             : Number(form.delivery_time_value),
         delivery_time_unit: form.delivery_time_unit || 'hours',
+        details_and_dimensions: form.details_and_dimensions?.trim() || null,
+        care_and_maintenance: form.care_and_maintenance?.trim() || null,
       };
 
       let result: Product | null = null;
@@ -407,6 +408,8 @@ export const useProducts = (
         catalog_id: catalogId!,
         name: p.name,
         description: p.description,
+        details_and_dimensions: p.details_and_dimensions || null,
+        care_and_maintenance: p.care_and_maintenance || null,
         price: p.price,
         currency: p.currency,
         imagen_url: p.imagen_url,
@@ -464,17 +467,16 @@ export const useProducts = (
 
   const toggleProductFeatured = async (product: Product): Promise<boolean> => {
     const nextFeatured = !product.is_featured;
-    const nextBadges = syncBadgesWithFeatured(product.badges, nextFeatured);
     try {
       await ensureActiveSession();
       const { error } = await supabase
         .from('products')
-        .update({ is_featured: nextFeatured, badges: nextBadges })
+        .update({ is_featured: nextFeatured })
         .eq('id', product.id);
 
       if (error) throw error;
 
-      const updated = { ...product, is_featured: nextFeatured, badges: nextBadges };
+      const updated = { ...product, is_featured: nextFeatured };
       setProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
       if (catalogId) {
         await upsertCatalogProductsInCache(catalogId, [updated]);
@@ -490,26 +492,25 @@ export const useProducts = (
 
   const updateProductBadges = async (product: Product, badges: string[]): Promise<boolean> => {
     const normalizedBadges = normalizeProductBadges(badges);
-    const nextFeatured = normalizedBadges.includes('featured');
     try {
       await ensureActiveSession();
       const { error } = await supabase
         .from('products')
-        .update({ badges: normalizedBadges, is_featured: nextFeatured })
+        .update({ badges: normalizedBadges })
         .eq('id', product.id);
 
       if (error) throw error;
 
-      const updated = { ...product, badges: normalizedBadges, is_featured: nextFeatured };
+      const updated = { ...product, badges: normalizedBadges };
       setProducts((prev) => prev.map((p) => (p.id === product.id ? updated : p)));
       if (catalogId) {
         await upsertCatalogProductsInCache(catalogId, [updated]);
       }
-      toast.success('Etiquetas del producto actualizadas');
+      toast.success('Etiqueta del producto actualizada');
       return true;
     } catch (err: any) {
       console.error('Error updating product badges:', err);
-      toast.error('Error al guardar etiquetas: ' + (err.message || 'Error desconocido'));
+      toast.error('Error al guardar etiqueta: ' + (err.message || 'Error desconocido'));
       return false;
     }
   };

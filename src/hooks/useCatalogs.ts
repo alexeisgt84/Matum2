@@ -14,6 +14,37 @@ import {
   syncCatalogForOffline,
 } from '../lib/offlineCache';
 
+async function uploadCatalogImage(
+  file: File,
+  prefix: 'logo' | 'cover',
+  maxWidth: number,
+  maxHeight: number,
+  quality: number
+): Promise<string> {
+  const isPng = file.type === 'image/png';
+  const isWebp = file.type === 'image/webp';
+  const extension = isWebp ? 'webp' : isPng ? 'png' : 'jpg';
+  const format = isWebp ? 'image/webp' : isPng ? 'image/png' : 'image/jpeg';
+
+  const optimizedBlob = await optimizeImage(file, {
+    maxWidth,
+    maxHeight,
+    quality,
+    format,
+  });
+  const fileName = `catalogs/${prefix}_${Date.now()}.${extension}`;
+  const optimizedFile = blobToFile(optimizedBlob, fileName);
+  const { error: uploadError } = await supabase.storage
+    .from('products')
+    .upload(fileName, optimizedFile, {
+      contentType: format,
+      upsert: true,
+    });
+  if (uploadError) throw uploadError;
+  const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
+  return publicUrl;
+}
+
 export const useCatalogs = () => {
   const { user } = useAuthStore();
   const userId = user?.id;
@@ -173,49 +204,11 @@ export const useCatalogs = () => {
       let cover_url = form.cover_url || null;
 
       if (logoFile) {
-        const isPng = logoFile.type === 'image/png';
-        const extension = isPng ? 'png' : 'jpg';
-        const format = isPng ? 'image/png' : 'image/jpeg';
-        const optimizedBlob = await optimizeImage(logoFile, {
-          maxWidth: 256,
-          maxHeight: 256,
-          quality: 0.8,
-          format,
-        });
-        const fileName = `catalogs/logo_${Date.now()}.${extension}`;
-        const optimizedFile = blobToFile(optimizedBlob, fileName);
-        const { error: uploadError } = await supabase.storage
-          .from('products')
-          .upload(fileName, optimizedFile, {
-            contentType: format,
-            upsert: true,
-          });
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
-        logo_url = publicUrl;
+        logo_url = await uploadCatalogImage(logoFile, 'logo', 256, 256, 0.8);
       }
 
       if (coverFile) {
-        const isPng = coverFile.type === 'image/png';
-        const extension = isPng ? 'png' : 'jpg';
-        const format = isPng ? 'image/png' : 'image/jpeg';
-        const optimizedBlob = await optimizeImage(coverFile, {
-          maxWidth: 1920,
-          maxHeight: 768,
-          quality: 0.82,
-          format,
-        });
-        const fileName = `catalogs/cover_${Date.now()}.${extension}`;
-        const optimizedFile = blobToFile(optimizedBlob, fileName);
-        const { error: uploadError } = await supabase.storage
-          .from('products')
-          .upload(fileName, optimizedFile, {
-            contentType: format,
-            upsert: true,
-          });
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
-        cover_url = publicUrl;
+        cover_url = await uploadCatalogImage(coverFile, 'cover', 1920, 768, 0.82);
       }
 
       const { data, error } = await supabase
@@ -297,49 +290,11 @@ export const useCatalogs = () => {
       let cover_url = form.cover_url;
 
       if (logoFile) {
-        const isPng = logoFile.type === 'image/png';
-        const extension = isPng ? 'png' : 'jpg';
-        const format = isPng ? 'image/png' : 'image/jpeg';
-        const optimizedBlob = await optimizeImage(logoFile, {
-          maxWidth: 256,
-          maxHeight: 256,
-          quality: 0.8,
-          format,
-        });
-        const fileName = `catalogs/logo_${Date.now()}.${extension}`;
-        const optimizedFile = blobToFile(optimizedBlob, fileName);
-        const { error: uploadError } = await supabase.storage
-          .from('products')
-          .upload(fileName, optimizedFile, {
-            contentType: format,
-            upsert: true,
-          });
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
-        logo_url = publicUrl;
+        logo_url = await uploadCatalogImage(logoFile, 'logo', 256, 256, 0.8);
       }
 
       if (coverFile) {
-        const isPng = coverFile.type === 'image/png';
-        const extension = isPng ? 'png' : 'jpg';
-        const format = isPng ? 'image/png' : 'image/jpeg';
-        const optimizedBlob = await optimizeImage(coverFile, {
-          maxWidth: 1920,
-          maxHeight: 768,
-          quality: 0.82,
-          format,
-        });
-        const fileName = `catalogs/cover_${Date.now()}.${extension}`;
-        const optimizedFile = blobToFile(optimizedBlob, fileName);
-        const { error: uploadError } = await supabase.storage
-          .from('products')
-          .upload(fileName, optimizedFile, {
-            contentType: format,
-            upsert: true,
-          });
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(fileName);
-        cover_url = publicUrl;
+        cover_url = await uploadCatalogImage(coverFile, 'cover', 1920, 768, 0.82);
       }
 
       const updateData: any = {};
@@ -354,8 +309,8 @@ export const useCatalogs = () => {
       if (form.available_template !== undefined) updateData.available_template = form.available_template;
       if (form.is_active !== undefined) updateData.is_active = form.is_active;
       if (form.is_public !== undefined) updateData.is_public = form.is_public;
-      if (form.inactive_reason !== undefined) updateData.inactive_reason = form.inactive_reason;
-      if (form.reopen_at !== undefined) updateData.reopen_at = form.reopen_at;
+      if (form.inactive_reason !== undefined) updateData.inactive_reason = form.inactive_reason || null;
+      if (form.reopen_at !== undefined) updateData.reopen_at = form.reopen_at || null;
       if (form.slug !== undefined) updateData.slug = form.slug;
       if (logo_url !== undefined) updateData.logo_url = logo_url;
       if (cover_url !== undefined) updateData.cover_url = cover_url;

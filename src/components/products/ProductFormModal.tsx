@@ -5,7 +5,7 @@ import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import type { Product, ProductForm } from '../../types/product';
 import type { Category } from '../../types/category';
-import { Save, Tag, Send, Coins, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings, Package, Truck, Clock, Star, ShoppingBag, X } from 'lucide-react';
+import { Save, Tag, Send, Coins, Sparkles, Crown, Calculator, Link2Off, Plus, Check, ChevronDown, Settings, Package, Truck, Clock, Star, ShoppingBag, X, Ruler, FileText, ShieldCheck, ChevronUp } from 'lucide-react';
 import { CalculatorModal } from '../ui/CalculatorModal';
 import { ImageUpload } from '../ui/ImageUpload';
 import { toast } from 'react-hot-toast';
@@ -18,7 +18,6 @@ import { parseProductText, type DetectedPrice } from '../../lib/priceParser';
 import {
   PRODUCT_BADGES,
   normalizeProductBadges,
-  syncBadgesWithFeatured,
   type ProductBadgeId,
 } from '../../constants/productBadges';
 import { ProductBadgesOverlay } from './ProductBadges';
@@ -56,6 +55,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [form, setForm] = useState<ProductForm>({
     name: '',
     description: '',
+    details_and_dimensions: '',
+    care_and_maintenance: '',
     price: '',
     currency: 'USD',
     imagen_url: null,
@@ -162,15 +163,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         imageBlob = blob;
         toast.dismiss(toastId);
       } catch (err) {
-        console.error("Error al descargar la imagen remota:", err);
-        toast.error('No se pudo recuperar la imagen remota para analizarla.', { id: toastId });
-        setIsAnalyzing(false);
-        return;
+        console.warn("No se pudo descargar la imagen remota, continuando con texto:", err);
+        toast.dismiss(toastId);
       }
     }
 
-    if (!imageBlob) {
-      toast.error('Por favor, añade una foto del producto primero.');
+    const hasName = Boolean(form.name && form.name.trim().length > 0);
+    const hasDesc = Boolean(form.description && form.description.trim().length > 0);
+    const hasDetails = Boolean(form.details_and_dimensions && form.details_and_dimensions.trim().length > 0);
+
+    if (!imageBlob && !hasName && !hasDesc && !hasDetails) {
+      toast.error('Escribe el nombre del producto, añade notas o sube una foto para completar con IA.');
       return;
     }
 
@@ -180,21 +183,25 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
 
     setIsAnalyzing(true);
-    const toastId = toast.loading('IA analizando imagen del producto...');
+    const toastId = toast.loading('IA buscando en internet y analizando producto...');
     try {
       const result = await analyzeProductImage(imageBlob, {
         name: form.name,
         description: form.description,
+        details_and_dimensions: form.details_and_dimensions,
+        care_and_maintenance: form.care_and_maintenance,
         price: form.price,
         currency: form.currency,
       });
       
-      // Auto-completar título y descripción con los datos devueltos
+      // Auto-completar título, descripción, detalles/dimensiones y cuidado/mantenimiento
       setForm(prev => {
         const updated = {
           ...prev,
           name: result.title || prev.name,
-          description: result.description || prev.description
+          description: result.description || prev.description,
+          details_and_dimensions: result.details_and_dimensions || prev.details_and_dimensions,
+          care_and_maintenance: result.care_and_maintenance || prev.care_and_maintenance,
         };
         if (result.price && (!prev.price || prev.price === '' || prev.price === '0')) {
           updated.price = result.price.toString();
@@ -203,13 +210,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         return updated;
       });
       
-      toast.success('¡Detalles auto-completados por IA! ✨', { id: toastId });
+      toast.success('¡Ficha técnica y cuidados completados con IA! ✨', { id: toastId });
     } catch (err: any) {
       console.error("AI Analysis failed:", err);
       if (err.message?.includes('NO_API_KEY')) {
         toast.error('Configura tu API Key en tu perfil para usar la IA.', { id: toastId });
       } else {
-        toast.error('No se pudo analizar la imagen con la IA', { id: toastId });
+        toast.error(err.message || 'No se pudo completar con la IA', { id: toastId });
       }
     } finally {
       setIsAnalyzing(false);
@@ -227,16 +234,18 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   useEffect(() => {
     if (product) {
-      const initialBadges = normalizeProductBadges(product.badges, product.is_featured);
+      const initialBadges = normalizeProductBadges(product.badges);
       setForm({
         name: product.name,
         description: product.description || '',
+        details_and_dimensions: product.details_and_dimensions || '',
+        care_and_maintenance: product.care_and_maintenance || '',
         price: product.price?.toString() || '',
         currency: product.currency || 'USD',
         imagen_url: product.imagen_url,
         category_id: product.category_id || null,
         is_active: product.is_active ?? true,
-        is_featured: Boolean(product.is_featured || initialBadges.includes('featured')),
+        is_featured: Boolean(product.is_featured),
         badges: initialBadges,
         commission_amount: product.commission_amount !== null && product.commission_amount !== undefined ? product.commission_amount.toString() : '',
         commission_currency: (product.commission_currency as 'CUP' | 'USD') || 'CUP',
@@ -254,6 +263,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setForm({
         name: parsed.suggestedTitle || '',
         description: prefilledData.description || '',
+        details_and_dimensions: '',
+        care_and_maintenance: '',
         price: parsed.bestPrice ? parsed.bestPrice.price.toString() : '',
         currency: parsed.bestPrice ? parsed.bestPrice.currency : 'USD',
         imagen_url: null,
@@ -277,6 +288,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setForm({
         name: '',
         description: '',
+        details_and_dimensions: '',
+        care_and_maintenance: '',
         price: '',
         currency: 'USD',
         imagen_url: null,
@@ -317,22 +330,18 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     setForm((prev) => ({ ...prev, price: newVal.toString() }));
   };
 
-  const currentBadges = normalizeProductBadges(form.badges, form.is_featured);
+  const currentBadges = normalizeProductBadges(form.badges);
   const hasBadgesChanged =
     currentBadges.length !== savedBadges.length ||
     currentBadges.some((b, idx) => b !== savedBadges[idx]);
 
   const handleToggleBadge = (badgeId: ProductBadgeId) => {
     setForm((prev) => {
-      const existing = normalizeProductBadges(prev.badges, prev.is_featured);
-      const nextRaw = existing.includes(badgeId)
-        ? existing.filter((b) => b !== badgeId)
-        : [...existing, badgeId];
-      const next = normalizeProductBadges(nextRaw);
+      const existing = normalizeProductBadges(prev.badges);
+      const next: ProductBadgeId[] = existing.includes(badgeId) ? [] : [badgeId];
       return {
         ...prev,
         badges: next,
-        is_featured: next.includes('featured'),
       };
     });
   };
@@ -341,7 +350,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     setForm((prev) => ({
       ...prev,
       badges: [],
-      is_featured: false,
     }));
   };
 
@@ -455,10 +463,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 ) : null
               }
               bottomContent={
-                !preview && profile?.gemini_api_key ? (
-                  <div className="mt-2 py-1 px-3 rounded-full bg-emerald-500/5 border border-emerald-500/10 text-[10px] text-emerald-400 font-medium flex items-center gap-1.5 justify-center">
-                    <Sparkles size={12} className="text-emerald-400 animate-pulse" />
-                    <span>Añade una foto para habilitar la IA ✨</span>
+                profile?.gemini_api_key ? (
+                  <div className="mt-2 py-1 px-3 rounded-full bg-purple-500/10 border border-purple-500/20 text-[10px] text-purple-300 font-medium flex items-center gap-1.5 justify-center">
+                    <Sparkles size={12} className="text-purple-400 animate-pulse" />
+                    <span>Autocompleta con IA buscando en internet por foto o nombre ✨</span>
                   </div>
                 ) : null
               }
@@ -472,11 +480,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <div className="p-3.5 bg-gradient-to-br from-purple-500/20 to-indigo-500/20 text-purple-400 rounded-2xl border border-purple-500/40 mb-3 shadow-lg shadow-purple-500/20 animate-bounce">
                   <Sparkles size={28} className="animate-pulse" />
                 </div>
-                <span className="text-xs font-bold text-white uppercase tracking-widest bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent">
-                  La IA está leyendo tu imagen...
+                <span className="text-xs font-bold text-white uppercase tracking-widest bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent text-center">
+                  La IA está investigando en internet...
                 </span>
                 <span className="text-[10px] text-gray-300 mt-1.5 tracking-wide text-center max-w-[280px]">
-                  Analizando los detalles de tu producto para autocompletar el título y descripción sugeridos
+                  Buscando especificaciones oficiales, dimensiones y cuidados recomendados para tu producto
                 </span>
               </div>
             )}
@@ -891,45 +899,99 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               )}
             </div>
 
-            {/* Descripción */}
-            <Input
-              label="Descripción (Opcional)"
-              placeholder="Ej: Salsa de tomate artesanal, queso mozzarella y albahaca fresca..."
-              multiline
-              rows={3}
-              value={form.description}
-              onChange={(e) => {
-                const newDesc = e.target.value;
-                setForm(prev => {
-                  const updated = { ...prev, description: newDesc };
-                  if (newDesc) {
-                    const parsed = parseProductText(newDesc);
-                    if (!prev.price || prev.price === '') {
-                      if (parsed.bestPrice) {
-                        updated.price = parsed.bestPrice.price.toString();
-                        updated.currency = parsed.bestPrice.currency;
+            {/* Ficha descriptiva y técnica del producto */}
+            <div className="space-y-3 p-3.5 rounded-2xl bg-surface-hover/30 border border-border">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                  <FileText size={14} className="text-accent" />
+                  <span>Ficha y Especificaciones</span>
+                </span>
+                {isPremium && (
+                  <button
+                    type="button"
+                    onClick={handleAIClick}
+                    disabled={isAnalyzing}
+                    className="flex items-center gap-1 py-1 px-2.5 rounded-lg text-[11px] font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/25 transition-all active:scale-95"
+                    title="Completar con IA a partir del nombre o foto"
+                  >
+                    <Sparkles size={11} className="text-purple-300" />
+                    <span>Completar con IA ✨</span>
+                  </button>
+                )}
+              </div>
+
+              {/* 1. Descripción */}
+              <Input
+                label="Descripción"
+                placeholder="Ej: Elegante reloj inteligente con pantalla AMOLED resistente al agua..."
+                multiline
+                rows={3}
+                value={form.description}
+                onChange={(e) => {
+                  const newDesc = e.target.value;
+                  setForm(prev => {
+                    const updated = { ...prev, description: newDesc };
+                    if (newDesc) {
+                      const parsed = parseProductText(newDesc);
+                      if (!prev.price || prev.price === '') {
+                        if (parsed.bestPrice) {
+                          updated.price = parsed.bestPrice.price.toString();
+                          updated.currency = parsed.bestPrice.currency;
+                        }
+                        if (parsed.suggestedTitle && (!prev.name || prev.name === '')) {
+                          updated.name = parsed.suggestedTitle;
+                        }
+                        setDetectedPrices(parsed.allPrices);
+                      } else if (parsed.allPrices.length > 0) {
+                        setDetectedPrices(parsed.allPrices);
                       }
-                      if (parsed.suggestedTitle && (!prev.name || prev.name === '')) {
-                        updated.name = parsed.suggestedTitle;
+                      if (parsed.delivery && (!prev.delivery_cost || prev.delivery_cost === '')) {
+                        updated.delivery_cost = parsed.delivery.cost !== null ? parsed.delivery.cost.toString() : '';
+                        updated.delivery_currency = parsed.delivery.currency;
                       }
-                      setDetectedPrices(parsed.allPrices);
-                    } else if (parsed.allPrices.length > 0) {
-                      setDetectedPrices(parsed.allPrices);
+                      if (parsed.deliveryTime && (!prev.delivery_time_value || prev.delivery_time_value === '')) {
+                        updated.delivery_time_value = parsed.deliveryTime.value.toString();
+                        updated.delivery_time_unit = parsed.deliveryTime.unit;
+                      }
                     }
-                    if (parsed.delivery && (!prev.delivery_cost || prev.delivery_cost === '')) {
-                      updated.delivery_cost = parsed.delivery.cost !== null ? parsed.delivery.cost.toString() : '';
-                      updated.delivery_currency = parsed.delivery.currency;
-                    }
-                    if (parsed.deliveryTime && (!prev.delivery_time_value || prev.delivery_time_value === '')) {
-                      updated.delivery_time_value = parsed.deliveryTime.value.toString();
-                      updated.delivery_time_unit = parsed.deliveryTime.unit;
-                    }
-                  }
-                  return updated;
-                });
-              }}
-              disabled={isAnalyzing}
-            />
+                    return updated;
+                  });
+                }}
+                disabled={isAnalyzing}
+              />
+
+              {/* 2. Detalles y dimensiones */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 ml-1">
+                  <Ruler size={13} className="text-secondary" />
+                  <label className="text-xs font-semibold text-secondary">Detalles y dimensiones (Opcional)</label>
+                </div>
+                <textarea
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-surface border border-border text-primary text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-accent resize-y transition-colors placeholder:text-secondary/50 font-normal min-h-[75px]"
+                  placeholder="• Medidas: 45 x 38 x 10.7 mm&#10;• Peso: 48g&#10;• Material: Aluminio de grado aeroespacial&#10;• Batería: Hasta 36 horas"
+                  rows={3}
+                  value={form.details_and_dimensions || ''}
+                  onChange={(e) => setForm(prev => ({ ...prev, details_and_dimensions: e.target.value }))}
+                  disabled={isAnalyzing}
+                />
+              </div>
+
+              {/* 3. Cuidado y mantenimiento */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 ml-1">
+                  <ShieldCheck size={13} className="text-secondary" />
+                  <label className="text-xs font-semibold text-secondary">Cuidado y mantenimiento (Opcional)</label>
+                </div>
+                <textarea
+                  className="w-full px-3.5 py-2.5 rounded-2xl bg-surface border border-border text-primary text-xs leading-relaxed focus:outline-none focus:ring-1 focus:ring-accent resize-y transition-colors placeholder:text-secondary/50 font-normal min-h-[75px]"
+                  placeholder="• Limpiar con un paño suave ligeramente humedecido&#10;• Evitar el contacto con disolventes o químicos abrasivos&#10;• Almacenar en un lugar seco y fresco"
+                  rows={3}
+                  value={form.care_and_maintenance || ''}
+                  onChange={(e) => setForm(prev => ({ ...prev, care_and_maintenance: e.target.value }))}
+                  disabled={isAnalyzing}
+                />
+              </div>
+            </div>
 
             {/* Etiquetas del producto */}
             <section
@@ -951,7 +1013,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     )}
                   </h4>
                   <p className="text-[11px] text-secondary mt-0.5">
-                    Activa una o varias etiquetas comerciales para destacar este producto sobre su fotografía.
+                    Elige una etiqueta comercial para destacar este producto desde la parte superior de la tarjeta.
                   </p>
                 </div>
 
@@ -1032,7 +1094,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     </div>
                     <ProductBadgesOverlay
                       badges={currentBadges}
-                      isFeatured={form.is_featured}
                       size="xs"
                     />
                   </div>
@@ -1055,8 +1116,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     </p>
                     <p className="text-[10px] text-secondary leading-relaxed mt-0.5">
                       {currentBadges.length > 0
-                        ? 'Así se mostrarán las etiquetas en la esquina superior derecha de la imagen en tu catálogo.'
-                        : 'Sin etiquetas activas. Cuando selecciones una o más, aparecerán aquí sobre la foto.'}
+                        ? 'Así sobresaldrá la etiqueta desde arriba en la tarjeta del producto.'
+                        : 'Sin etiqueta activa. Cuando elijas una, aparecerá aquí sobresaliendo desde arriba.'}
                     </p>
                   </div>
 
@@ -1096,14 +1157,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <button
                 type="button"
                 onClick={() =>
-                  setForm((prev) => {
-                    const nextFeatured = !prev.is_featured;
-                    return {
-                      ...prev,
-                      is_featured: nextFeatured,
-                      badges: syncBadgesWithFeatured(prev.badges, nextFeatured),
-                    };
-                  })
+                  setForm((prev) => ({
+                    ...prev,
+                    is_featured: !prev.is_featured,
+                  }))
                 }
                 className={`w-12 h-6 rounded-full transition-colors relative shrink-0 ${form.is_featured ? 'bg-amber-500' : 'bg-secondary/40'}`}
                 aria-label={form.is_featured ? 'Quitar de destacados' : 'Marcar como destacado'}

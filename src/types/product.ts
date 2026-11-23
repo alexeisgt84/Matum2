@@ -28,6 +28,8 @@ export interface Product {
   delivery_time_unit?: 'hours' | 'days' | null;
   contact_phone?: string | null;
   sender_name?: string | null;
+  details_and_dimensions?: string | null;
+  care_and_maintenance?: string | null;
 }
 
 export interface ProductForm {
@@ -46,4 +48,6 @@ export interface ProductForm {
   delivery_currency?: 'CUP' | 'USD';
   delivery_time_value?: number | string;
   delivery_time_unit?: 'hours' | 'days';
+  details_and_dimensions?: string;
+  care_and_maintenance?: string;
 }

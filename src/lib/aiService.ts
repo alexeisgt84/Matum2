@@ -8,8 +8,6 @@ export const fileToBase64 = (file: File | Blob): Promise<string> => {
     const reader = new FileReader();
     reader.onload = () => {
       const base64String = reader.result as string;
-      // El resultado viene como "data:image/jpeg;base64,....."
-      // Necesitamos separar la parte base64 pura
       const parts = base64String.split(',');
       const cleanBase64 = parts.length > 1 ? parts[1] : parts[0];
       resolve(cleanBase64);
@@ -24,6 +22,8 @@ export const fileToBase64 = (file: File | Blob): Promise<string> => {
 export interface AIAnalysisResult {
   title: string;
   description: string;
+  details_and_dimensions?: string;
+  care_and_maintenance?: string;
   price?: number | null;
   currency?: 'USD' | 'CUP';
 }
@@ -31,27 +31,44 @@ export interface AIAnalysisResult {
 export interface AIAnalysisContext {
   name?: string | null;
   description?: string | null;
+  details_and_dimensions?: string | null;
+  care_and_maintenance?: string | null;
   price?: number | string | null;
   currency?: string | null;
 }
 
 /**
- * Invoca la Edge Function de Supabase para analizar la imagen de un producto de forma segura
+ * Invoca la Edge Function de Supabase para analizar e investigar el producto con IA y búsqueda en internet.
+ * Funciona tanto con imagen como a partir de su nombre y especificaciones.
  */
 export const analyzeProductImage = async (
-  file: File | Blob,
+  file?: File | Blob | null,
   context?: AIAnalysisContext
 ): Promise<AIAnalysisResult> => {
   try {
-    const base64Image = await fileToBase64(file);
-    const mimeType = file.type || 'image/jpeg';
+    let base64Image: string | null = null;
+    let mimeType = 'image/jpeg';
+
+    if (file) {
+      base64Image = await fileToBase64(file);
+      mimeType = file.type || 'image/jpeg';
+    }
+
+    // Combinar notas y especificaciones si vienen en campos separados
+    const combinedInfoParts = [
+      context?.description ? `Descripción / notas previas: ${context.description}` : null,
+      context?.details_and_dimensions ? `Detalles y dimensiones previos: ${context.details_and_dimensions}` : null,
+      context?.care_and_maintenance ? `Cuidado y mantenimiento previos: ${context.care_and_maintenance}` : null,
+    ].filter(Boolean);
+
+    const productInfo = combinedInfoParts.join('\n\n');
 
     const { data, error } = await supabase.functions.invoke('analyze-image-gemini', {
       body: { 
         image: base64Image, 
         mimeType,
         productName: context?.name || '',
-        productInfo: context?.description || '',
+        productInfo,
         price: context?.price || null,
         currency: context?.currency || 'USD',
       }
@@ -83,7 +100,9 @@ export const analyzeProductImage = async (
 
     return {
       title: data.title,
-      description: data.description,
+      description: data.description || '',
+      details_and_dimensions: data.details_and_dimensions || '',
+      care_and_maintenance: data.care_and_maintenance || '',
       price: data.price,
       currency: data.currency
     };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import { CatalogInactivityFields } from '../../components/catalogs/CatalogInactivityFields';
@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { Switch } from '../../components/ui/Switch';
 import { Select } from '../../components/ui/Select';
+import { ImageUpload } from '../../components/ui/ImageUpload';
 import { useProfile } from '../../hooks/useProfile';
 import { useAuthStore } from '../../store/authStore';
 import { toast } from 'react-hot-toast';
@@ -104,9 +105,6 @@ export const CatalogFormPage = () => {
   const [coverFile, setCoverFile] = useState<File | undefined>();
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
-
   const reservedRoutes = ['login', 'register', 'forgot-password', 'catalogs', 'history', 'profile', 'admin'];
 
   useEffect(() => {
@@ -168,26 +166,6 @@ export const CatalogFormPage = () => {
       });
       setLogoPreview(data.logo_url);
       setCoverPreview(data.cover_url);
-    }
-  };
-
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setLogoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setLogoPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setCoverFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setCoverPreview(reader.result as string);
-      reader.readAsDataURL(file);
     }
   };
 
@@ -355,70 +333,57 @@ export const CatalogFormPage = () => {
             {/* Portada / Banner */}
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-secondary uppercase tracking-wider block ml-1">Banner de Portada (Tienda)</label>
-              <div 
-                onClick={() => coverInputRef.current?.click()}
-                className="relative h-28 w-full rounded-2xl overflow-hidden bg-white/5 border border-dashed border-border hover:border-[var(--accent)] cursor-pointer transition-all flex items-center justify-center group"
-              >
-                {coverPreview ? (
-                  <>
-                    <img src={coverPreview} alt="Portada" className="w-full h-full object-cover animate-in fade-in duration-300" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-[10px] font-black uppercase tracking-wider text-white gap-1.5">
-                      <Camera size={16} /> Cambiar Portada
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center p-4">
-                    <Camera size={24} className="text-gray-500 mx-auto mb-1 group-hover:scale-110 transition-transform" />
-                    <span className="text-[9px] text-secondary font-black uppercase tracking-wider">Subir Banner de Portada</span>
-                  </div>
-                )}
-              </div>
-              <input 
-                type="file" 
-                ref={coverInputRef} 
-                className="hidden" 
-                accept="image/jpeg,image/jpg,image/png/*"
-                onChange={handleCoverChange}
+              <ImageUpload
+                value={coverPreview}
+                onChange={(newFile, newPreview) => {
+                  setCoverFile(newFile);
+                  setCoverPreview(newPreview);
+                }}
+                onRemove={() => {
+                  if (coverPreview && coverPreview.startsWith('blob:')) {
+                    URL.revokeObjectURL(coverPreview);
+                  }
+                  setCoverFile(undefined);
+                  setCoverPreview(null);
+                  setForm((prev) => ({ ...prev, cover_url: null }));
+                }}
+                label="Subir Banner de Portada"
+                title="Studio de Banner"
+                defaultAspect={16 / 9}
+                filePrefix="cover"
+                className="w-full"
+                previewClassName="w-full h-28 sm:h-32"
               />
             </div>
 
             {/* Logo */}
             <div className="space-y-2">
               <label className="text-[10px] font-bold text-secondary uppercase tracking-wider block ml-1">Logo de la Tienda</label>
-              <div className="flex items-center gap-4">
-                <div 
-                  onClick={() => logoInputRef.current?.click()}
-                  className="relative w-16 h-16 rounded-2xl overflow-hidden bg-white/5 border border-dashed border-border hover:border-[var(--accent)] cursor-pointer transition-all flex items-center justify-center group flex-shrink-0"
-                >
-                  {logoPreview ? (
-                    <>
-                      <img src={logoPreview} alt="Logo" className="w-full h-full object-cover animate-in fade-in duration-300" />
-                      <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                        <Camera size={14} />
-                      </div>
-                    </>
-                  ) : (
-                    <Camera size={18} className="text-gray-500 group-hover:scale-110 transition-transform" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-grow">
-                  <p className="text-[11px] font-bold text-primary uppercase">Subir Imagen de Logo</p>
-                  <p className="text-[9px] text-secondary uppercase tracking-wider mt-0.5">Se recomienda una imagen cuadrada</p>
-                  <button
-                    type="button"
-                    onClick={() => logoInputRef.current?.click()}
-                    className="mt-1.5 text-[9px] font-black uppercase text-[var(--accent)] hover:underline tracking-wider"
-                  >
-                    Seleccionar Archivo
-                  </button>
-                </div>
-                <input 
-                  type="file" 
-                  ref={logoInputRef} 
-                  className="hidden" 
-                  accept="image/jpeg,image/jpg,image/png/*"
-                  onChange={handleLogoChange}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <ImageUpload
+                  value={logoPreview}
+                  onChange={(newFile, newPreview) => {
+                    setLogoFile(newFile);
+                    setLogoPreview(newPreview);
+                  }}
+                  onRemove={() => {
+                    if (logoPreview && logoPreview.startsWith('blob:')) {
+                      URL.revokeObjectURL(logoPreview);
+                    }
+                    setLogoFile(undefined);
+                    setLogoPreview(null);
+                    setForm((prev) => ({ ...prev, logo_url: null }));
+                  }}
+                  label="Subir Logo"
+                  title="Studio de Logo"
+                  defaultAspect={1}
+                  filePrefix="logo"
+                  previewClassName="w-24 h-24"
                 />
+                <div className="min-w-0 flex-grow text-center sm:text-left">
+                  <p className="text-[11px] font-bold text-primary uppercase">Imagen de Logo</p>
+                  <p className="text-[9px] text-secondary uppercase tracking-wider mt-0.5">Se recomienda una imagen cuadrada. Puedes recortarla y optimizarla en el Studio.</p>
+                </div>
               </div>
             </div>
           </div>

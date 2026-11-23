@@ -510,7 +510,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           supabase
             .from('products')
             .select(
-              'id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name, is_featured, badges'
+              'id, name, description, price, currency, price_cup, price_usd, imagen_url, is_out_of_stock, stock_status, category_id, commission_amount, commission_currency, delivery_cost, delivery_currency, delivery_time_value, delivery_time_unit, is_active, position, contact_phone, sender_name, is_featured, badges, details_and_dimensions, care_and_maintenance'
             )
             .eq('catalog_id', catData.id)
             .eq('is_active', true)
@@ -802,7 +802,9 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       messageText += `*Enlace:* ${currentHost}/${slug}\n`;
     }
     messageText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
-    messageText += `👤 *Datos del Cliente:*\n`;
+    messageText += differentRecipient
+      ? `👤 *Datos del Cliente:*\n`
+      : `👤 *Datos de la persona que recibe:*\n`;
     messageText += `• *Nombre:* ${name}\n`;
     messageText += `• *Dirección de Entrega:* ${address}\n`;
     messageText += `• *Teléfono de Contacto:* ${phone}\n`;
@@ -1344,7 +1346,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       <Modal
         isOpen={isCustomerFormOpen}
         onClose={() => setIsCustomerFormOpen(false)}
-        title="Datos de envío"
+        title="Datos de la persona que recibe el producto"
         footer={
           <div className="flex gap-2 w-full">
             <Button
@@ -1386,11 +1388,11 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       >
         <div className="space-y-3 text-left font-store">
           <p className="text-xs text-secondary leading-relaxed">
-            Completa tus datos para coordinar la entrega y finalizar tu pedido por WhatsApp.
+            Completa los datos de la persona que recibe el producto para coordinar la entrega y finalizar tu pedido por WhatsApp.
           </p>
 
           <Input
-            label="Nombre completo"
+            label="Nombre de la persona que recibe"
             placeholder="Ej: Juan Pérez"
             value={customerName}
             onChange={e => setCustomerName(e.target.value)}
@@ -1409,7 +1411,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
           />
 
           <Input
-            label="Número de teléfono"
+            label="Teléfono de quien recibe"
             placeholder="Ej: +53 51234567"
             type="tel"
             value={customerPhone}

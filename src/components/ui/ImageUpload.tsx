@@ -16,6 +16,7 @@ export interface ImageUploadProps {
   defaultAspect?: number;
   filePrefix?: string;
   className?: string;
+  previewClassName?: string;
   extraActions?: React.ReactNode;
   bottomContent?: React.ReactNode;
   hideStudioButton?: boolean;
@@ -31,6 +32,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
   defaultAspect = 1,
   filePrefix = 'image',
   className = '',
+  previewClassName = 'w-32 h-32',
   extraActions,
   bottomContent,
   hideStudioButton = false,
@@ -166,9 +168,9 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
 
   return (
     <div className={`flex flex-col items-center ${className}`}>
-      <div className="relative group">
+      <div className={`relative group ${previewClassName.includes('w-full') ? 'w-full' : ''}`}>
         <div
-          className={`w-32 h-32 rounded-2xl bg-surface-hover border-2 border-dashed border-border flex items-center justify-center relative overflow-hidden transition-colors ${
+          className={`${previewClassName} rounded-2xl bg-surface-hover border-2 border-dashed border-border flex items-center justify-center relative overflow-hidden transition-colors ${
             disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-[var(--accent)]/50'
           }`}
           onClick={handleSelectImage}

@@ -294,4 +294,113 @@ describe('share.ts - marca de agua y shareContent', () => {
     expect(sharePayload.files).toHaveLength(1);
     expect(sharePayload.files[0].size).toBe(rawBlob.size);
   });
+
+  it('shareContent reintenta con CORS sin caché si fetch inicial devuelve respuesta opaque', async () => {
+    const rawBlob = new Blob(['cors-fresh-photo'], { type: 'image/jpeg' });
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        type: 'opaque',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        type: 'cors',
+        blob: vi.fn().mockResolvedValue(rawBlob),
+      }) as unknown as typeof fetch;
+
+    const canShareMock = vi.fn().mockReturnValue(true);
+    const shareMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'canShare', {
+      configurable: true,
+      value: canShareMock,
+    });
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: shareMock,
+    });
+
+    await shareContent({
+      title: 'Camisa',
+      text: 'Ver producto: https://nazaar.shop/tienda/p/1',
+      url: 'https://nazaar.shop/tienda/p/1',
+      imageUrl: 'https://cdn.example.com/camisa.jpg',
+      watermark: false,
+    });
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(shareMock).toHaveBeenCalledTimes(1);
+    const sharePayload = shareMock.mock.calls[0][0];
+    expect(sharePayload.files).toHaveLength(1);
+    expect(sharePayload.files[0].size).toBe(rawBlob.size);
+  });
+
+  it('shareContent prioriza enviar files con la URL en text si canShare rechaza url + files juntos', async () => {
+    const rawBlob = new Blob(['photo-bytes'], { type: 'image/jpeg' });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: vi.fn().mockResolvedValue(rawBlob),
+    }) as unknown as typeof fetch;
+
+    const canShareMock = vi.fn((data: any) => !(data?.url && data?.files));
+    const shareMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'canShare', {
+      configurable: true,
+      value: canShareMock,
+    });
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: shareMock,
+    });
+
+    await shareContent({
+      title: 'Camisa',
+      text: 'Precio: 1000 CUP',
+      url: 'https://nazaar.shop/tienda/p/1',
+      imageUrl: 'https://cdn.example.com/camisa.jpg',
+      watermark: false,
+    });
+
+    expect(shareMock).toHaveBeenCalledTimes(1);
+    const sharePayload = shareMock.mock.calls[0][0];
+    expect(sharePayload.files).toHaveLength(1);
+    expect(sharePayload.url).toBeUndefined();
+    expect(sharePayload.text).toContain('https://nazaar.shop/tienda/p/1');
+  });
+
+  it('shareContent reintenta con files sin url separado antes de descartar la imagen si navigator.share falla', async () => {
+    const rawBlob = new Blob(['photo-bytes'], { type: 'image/jpeg' });
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      blob: vi.fn().mockResolvedValue(rawBlob),
+    }) as unknown as typeof fetch;
+
+    const canShareMock = vi.fn().mockReturnValue(true);
+    const shareMock = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('NotAllowedError'))
+      .mockResolvedValueOnce(undefined);
+    Object.defineProperty(navigator, 'canShare', {
+      configurable: true,
+      value: canShareMock,
+    });
+    Object.defineProperty(navigator, 'share', {
+      configurable: true,
+      value: shareMock,
+    });
+
+    await shareContent({
+      title: 'Camisa',
+      text: 'Precio: 1000 CUP',
+      url: 'https://nazaar.shop/tienda/p/1',
+      imageUrl: 'https://cdn.example.com/camisa.jpg',
+      watermark: false,
+    });
+
+    expect(shareMock).toHaveBeenCalledTimes(2);
+    const retryPayload = shareMock.mock.calls[1][0];
+    expect(retryPayload.files).toHaveLength(1);
+    expect(retryPayload.url).toBeUndefined();
+    expect(retryPayload.text).toContain('https://nazaar.shop/tienda/p/1');
+  });
 });

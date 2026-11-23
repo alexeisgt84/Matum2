@@ -77,33 +77,32 @@ describe('ProductBadges components', () => {
     vi.clearAllMocks();
   });
 
-  it('no renderiza ningún contenedor vacío cuando el producto no tiene etiquetas', () => {
-    const { container } = render(<ProductBadgesOverlay badges={[]} isFeatured={false} />);
+  it('no renderiza ningún contenedor vacío cuando el producto no tiene etiquetas o solo tiene is_featured', () => {
+    const { container } = render(<ProductBadgesOverlay badges={[]} />);
     expect(container).toBeEmptyDOMElement();
 
-    const inline = render(<ProductBadgesInline badges={[]} isFeatured={false} />);
+    const featuredOnly = render(<ProductBadgesOverlay badges={['featured']} />);
+    expect(featuredOnly.container).toBeEmptyDOMElement();
+
+    const inline = render(<ProductBadgesInline badges={[]} />);
     expect(inline.container).toBeEmptyDOMElement();
   });
 
-  it('muestra múltiples etiquetas apiladas en la esquina superior derecha sobresaliendo con pliegue trasero y sin emojis', () => {
-    render(<ProductBadgesOverlay badges={['low_stock', 'on_sale', 'new']} />);
+  it('muestra como máximo una etiqueta sobresaliendo desde arriba con pliegue trasero y sin emojis', () => {
+    render(<ProductBadgesOverlay badges={['on_sale', 'new', 'low_stock']} />);
     const overlay = screen.getByTestId('product-badges-overlay');
-    expect(overlay).toHaveClass('top-2', '-right-1.5', 'flex-col', 'items-end', 'pointer-events-none');
+    expect(overlay).toHaveClass('-top-1.5', 'right-2', 'pointer-events-none');
 
     const items = overlay.querySelectorAll('[data-badge-id]');
-    expect(items).toHaveLength(3);
+    expect(items).toHaveLength(1);
     expect(items[0]).toHaveAttribute('data-badge-id', 'on_sale');
-    expect(items[1]).toHaveAttribute('data-badge-id', 'new');
-    expect(items[2]).toHaveAttribute('data-badge-id', 'low_stock');
     expect(items[0].textContent).toBe('EN OFERTA');
-    expect(items[1].textContent).toBe('NUEVO');
-    expect(items[2].textContent).toBe('ÚLTIMAS UNIDADES');
   });
 
-  it('integra las etiquetas en la tarjeta de tienda sin interferir con el botón compartir ni mostrar contenedores vacíos', () => {
+  it('integra la etiqueta en la tarjeta de tienda sobresaliendo desde arriba sin interferir con el botón compartir', () => {
     const { rerender } = render(
       <StoreProductCard
-        product={basePublicProduct}
+        product={{ ...basePublicProduct, is_featured: true }}
         quantity={0}
         price={{ main: '25 USD' }}
         onOpen={vi.fn()}
@@ -113,11 +112,12 @@ describe('ProductBadges components', () => {
       />
     );
 
+    // is_featured solo ordena al inicio y no muestra etiqueta visual
     expect(screen.queryByTestId('product-badges-overlay')).not.toBeInTheDocument();
 
     rerender(
       <StoreProductCard
-        product={{ ...basePublicProduct, badges: ['discount', 'featured'], is_featured: true }}
+        product={{ ...basePublicProduct, badges: ['discount'], is_featured: true }}
         quantity={0}
         price={{ main: '25 USD' }}
         onOpen={vi.fn()}
@@ -128,15 +128,14 @@ describe('ProductBadges components', () => {
     );
 
     const overlay = screen.getByTestId('product-badges-overlay');
-    expect(overlay).toHaveClass('top-2', '-right-1.5');
-    expect(within(overlay).getByText('EN REBAJA')).toBeInTheDocument();
-    expect(within(overlay).getByText('DESTACADO')).toBeInTheDocument();
+    expect(overlay).toHaveClass('-top-1.5', 'right-2');
+    expect(within(overlay).getByText('DESCUENTO')).toBeInTheDocument();
 
     const shareButton = screen.getByRole('button', { name: /Compartir Camisa de Lino/i });
     expect(shareButton).toHaveClass('bottom-1.5', 'right-1.5');
   });
 
-  it('permite activar/desactivar etiquetas, ver vista previa y guardar etiquetas sin modificar otros datos', async () => {
+  it('permite seleccionar una única etiqueta por producto, ver vista previa y guardar sin modificar otros datos', async () => {
     const user = userEvent.setup();
     const onSave = vi.fn().mockResolvedValue(true);
     const onSaveBadges = vi.fn().mockResolvedValue(true);
@@ -153,24 +152,25 @@ describe('ProductBadges components', () => {
 
     const badgesSection = screen.getByRole('region', { name: /Etiquetas del producto/i });
     expect(badgesSection).toBeInTheDocument();
+    expect(within(badgesSection).queryByRole('button', { name: /DESTACADO/i })).not.toBeInTheDocument();
 
     const previewCard = screen.getByTestId('product-badges-preview-card');
     expect(within(previewCard).getByText('EN OFERTA')).toBeInTheDocument();
 
     const newBadgeBtn = within(badgesSection).getByRole('button', { name: /NUEVO/i });
-    const featuredBadgeBtn = within(badgesSection).getByRole('button', { name: /DESTACADO/i });
-
     await user.click(newBadgeBtn);
-    await user.click(featuredBadgeBtn);
 
+    // Al elegir NUEVO debe reemplazar a EN OFERTA (solo 1 etiqueta por tarjeta)
     expect(within(previewCard).getByText('NUEVO')).toBeInTheDocument();
-    expect(within(previewCard).getByText('DESTACADO')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Quitar de destacados/i })).toBeInTheDocument();
+    expect(within(previewCard).queryByText('EN OFERTA')).not.toBeInTheDocument();
+
+    // Producto Destacado sigue siendo independiente para ordenar al inicio
+    expect(screen.getByRole('button', { name: /Marcar como destacado/i })).toBeInTheDocument();
 
     const saveBadgesBtn = within(badgesSection).getByRole('button', { name: /Guardar etiquetas/i });
     await user.click(saveBadgesBtn);
 
-    expect(onSaveBadges).toHaveBeenCalledWith(baseAdminProduct, ['on_sale', 'new', 'featured']);
+    expect(onSaveBadges).toHaveBeenCalledWith(baseAdminProduct, ['new']);
     expect(onSave).not.toHaveBeenCalled();
   });
 });

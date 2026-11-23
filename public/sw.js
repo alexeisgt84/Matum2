@@ -1,4 +1,4 @@
-const IMAGE_CACHE_NAME = 'matum-images-v1';
+const IMAGE_CACHE_NAME = 'matum-images-v2';
 const STATIC_CACHE_NAME = 'matum-static-v1';
 const VALID_CACHES = new Set([IMAGE_CACHE_NAME, STATIC_CACHE_NAME]);
 
@@ -60,21 +60,25 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith(
     caches.open(IMAGE_CACHE_NAME).then(async (cache) => {
+      const isCorsRequest = request.mode === 'cors';
       const cachedResponse = await cache.match(request, { ignoreVary: true });
-      if (cachedResponse) {
+      if (cachedResponse && (!isCorsRequest || cachedResponse.type !== 'opaque')) {
         return cachedResponse;
       }
 
       try {
         const networkResponse = await fetch(request);
-        if (networkResponse && (networkResponse.ok || networkResponse.type === 'opaque')) {
+        if (
+          networkResponse &&
+          (networkResponse.ok || (!isCorsRequest && networkResponse.type === 'opaque'))
+        ) {
           cache.put(request, networkResponse.clone()).catch(() => {});
         }
         return networkResponse;
       } catch (err) {
         // Intentar match sin query params como último recurso
         const fallback = await cache.match(request.url.split('?')[0], { ignoreSearch: true });
-        if (fallback) return fallback;
+        if (fallback && (!isCorsRequest || fallback.type !== 'opaque')) return fallback;
         throw err;
       }
     })

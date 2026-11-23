@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Coins, Minus, Plus, Share2, ShoppingBag, X, Truck, Clock } from 'lucide-react';
+import { Coins, Minus, Plus, Share2, ShoppingBag, X, Truck, Clock, ShieldCheck } from 'lucide-react';
 import type { PublicProduct } from '../../types/store';
 import type { PriceParts } from '../../lib/pricing';
 import { PriceTag } from './PriceTag';
 import { WhatsAppIcon } from './SocialIcons';
-import { ProductBadgesOverlay, ProductBadgesInline } from '../products/ProductBadges';
+import { ProductBadgesOverlay } from '../products/ProductBadges';
+import { ProductCollapsibleDetails } from '../products/ProductCollapsibleDetails';
 
 interface ProductQuickViewProps {
   product: PublicProduct | null;
@@ -181,20 +182,14 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
               </div>
               <ProductBadgesOverlay
                 badges={product.badges}
-                isFeatured={product.is_featured}
                 size="sm"
-                className="top-11 -right-1.5"
+                className="-top-1.5 left-4"
               />
             </div>
           </div>
 
           <div className="p-4 space-y-3.5">
             <div className="space-y-1">
-              <ProductBadgesInline
-                badges={product.badges}
-                isFeatured={product.is_featured}
-                className="mb-1"
-              />
               <h2 className="font-display text-lg sm:text-xl font-extrabold text-primary leading-snug">{product.name}</h2>
               <PriceTag
                 parts={price}
@@ -222,49 +217,54 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
               </div>
             )}
 
-            {((product.delivery_cost !== null && product.delivery_cost !== undefined) ||
-              (product.delivery_time_value !== null && product.delivery_time_value !== undefined)) && (
-              <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-500/20 grid grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center flex-shrink-0">
-                    <Truck size={14} />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[10px] text-secondary block font-medium">Domicilio</span>
-                    <span className="font-bold text-primary truncate block">
-                      {product.delivery_cost !== null && product.delivery_cost !== undefined
-                        ? Number(product.delivery_cost) === 0
-                          ? 'Envío Gratis'
-                          : `${product.delivery_cost} ${product.delivery_currency || 'CUP'}`
-                        : 'A coordinar'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center flex-shrink-0">
-                    <Clock size={14} />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-[10px] text-secondary block font-medium">Entrega estimada</span>
-                    <span className="font-bold text-primary truncate block">
-                      {product.delivery_time_value !== null && product.delivery_time_value !== undefined
-                        ? `${product.delivery_time_value} ${product.delivery_time_unit === 'days' ? (Number(product.delivery_time_value) === 1 ? 'día' : 'días') : (Number(product.delivery_time_value) === 1 ? 'hora' : 'horas')}`
-                        : 'Inmediata'}
-                    </span>
-                  </div>
+            {/* Costo de domicilio, tiempo de entrega y garantía separados por líneas */}
+            <div className="pt-1 border-t border-b border-border/70 divide-y divide-border/60">
+              <div className="py-2 flex items-center gap-2.5">
+                <Truck size={15} className="text-secondary/80 shrink-0" />
+                <div className="flex flex-wrap items-center gap-x-1.5 text-xs">
+                  <span className="text-secondary font-medium">Domicilio:</span>
+                  <span className="font-bold text-primary">
+                    {product.delivery_cost !== null && product.delivery_cost !== undefined
+                      ? Number(product.delivery_cost) === 0
+                        ? 'Envío Gratis'
+                        : `${product.delivery_cost} ${product.delivery_currency || 'CUP'}`
+                      : 'A coordinar'}
+                  </span>
                 </div>
               </div>
-            )}
 
-            {product.description && (
-              <div className="pt-0.5 space-y-1.5">
-                <h3 className="text-[11px] font-bold uppercase tracking-wider text-secondary">Descripción</h3>
-                <p className="text-xs text-primary/90 leading-relaxed whitespace-pre-line bg-surface/60 p-3.5 rounded-2xl border border-border/70">
-                  {product.description}
-                </p>
+              <div className="py-2 flex items-center gap-2.5">
+                <Clock size={15} className="text-secondary/80 shrink-0" />
+                <div className="flex flex-wrap items-center gap-x-1.5 text-xs">
+                  <span className="text-secondary font-medium">Tiempo de entrega:</span>
+                  <span className="font-bold text-primary">
+                    {product.delivery_time_value !== null && product.delivery_time_value !== undefined
+                      ? `${product.delivery_time_value} ${product.delivery_time_unit === 'days' ? (Number(product.delivery_time_value) === 1 ? 'día' : 'días') : (Number(product.delivery_time_value) === 1 ? 'hora' : 'horas')}`
+                      : 'Inmediata'}
+                  </span>
+                </div>
               </div>
-            )}
+
+              <div className="py-2 flex items-center gap-2.5">
+                <ShieldCheck size={15} className="text-secondary/80 shrink-0" />
+                <div className="flex flex-wrap items-center gap-x-1.5 text-xs">
+                  <span className="text-secondary font-medium">Garantía:</span>
+                  <span className="font-bold text-primary">
+                    Compra protegida y producto verificado
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Menú colapsable: Descripción, Detalles y dimensiones, Cuidado y mantenimiento */}
+            <div className="pt-0.5">
+              <ProductCollapsibleDetails
+                description={product.description}
+                detailsAndDimensions={product.details_and_dimensions}
+                careAndMaintenance={product.care_and_maintenance}
+                defaultOpen={{ description: true, details: false, care: false }}
+              />
+            </div>
           </div>
         </div>
 

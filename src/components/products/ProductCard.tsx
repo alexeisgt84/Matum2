@@ -309,7 +309,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
           <ProductBadgesOverlay
             badges={product.badges}
-            isFeatured={product.is_featured}
             size="xs"
             compact
           />
@@ -354,7 +353,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             ) : null}
             <ProductBadgesInline
               badges={product.badges}
-              isFeatured={product.is_featured}
             />
             {product.is_discontinued && (
               <span className="text-[8px] bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider animate-pulse">
