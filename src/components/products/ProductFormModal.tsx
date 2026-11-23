@@ -149,6 +149,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   };
 
   const isPremium = profile?.plan === 'premium';
+  const canSaveAndSend = !product && isPremium;
 
   const runAIAnalysis = async () => {
     let imageBlob: Blob | File | null = file || null;
@@ -368,7 +369,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent, shouldSend = false) => {
     e?.preventDefault();
-    const success = await onSave(form, product?.id, file, shouldSend);
+    const success = await onSave(form, product?.id, file, shouldSend && canSaveAndSend);
     if (success) onClose();
   };
 
@@ -396,7 +397,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           <div className="flex flex-col sm:flex-row gap-2.5 w-full">
             <Button 
               type="button"
-              variant={product ? "primary" : "secondary"}
+              variant={canSaveAndSend ? "secondary" : "primary"}
               className="flex-1 font-bold py-3 text-sm shadow-md" 
               loading={loading}
               icon={Save}
@@ -404,7 +405,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             >
               {product ? 'Guardar Cambios' : 'Aceptar'}
             </Button>
-            {!product && (
+            {canSaveAndSend && (
               <Button 
                 type="button"
                 className="flex-1 font-bold py-3 text-sm shadow-md" 

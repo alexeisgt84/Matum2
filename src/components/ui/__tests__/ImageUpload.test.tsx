@@ -1,5 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { Capacitor } from '@capacitor/core';
+import { Camera as CapCamera, CameraSource } from '@capacitor/camera';
 import { ImageUpload } from '../ImageUpload';
 
 // Mock Capacitor Core
@@ -15,7 +17,7 @@ vi.mock('@capacitor/camera', () => ({
     getPhoto: vi.fn(),
   },
   CameraResultType: { Uri: 'uri' },
-  CameraSource: { Prompt: 'prompt' },
+  CameraSource: { Prompt: 'prompt', Camera: 'camera' },
 }));
 
 // Mock heic2any
@@ -24,6 +26,11 @@ vi.mock('heic2any', () => ({
 }));
 
 describe('ImageUpload component', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(Capacitor.isNativePlatform).mockReturnValue(false);
+  });
+
   it('renderiza la etiqueta predeterminada cuando no hay imagen', () => {
     render(<ImageUpload onChange={vi.fn()} label="Añadir Foto" />);
     expect(screen.getByText('Añadir Foto')).toBeInTheDocument();
@@ -72,5 +79,55 @@ describe('ImageUpload component', () => {
 
     expect(screen.getByText('Acción IA')).toBeInTheDocument();
     expect(screen.getByText('Texto de ayuda')).toBeInTheDocument();
+  });
+
+  it('renderiza el botón de Tomar foto y abre la cámara web cuando getUserMedia está disponible', async () => {
+    const mockStop = vi.fn();
+    const mockGetUserMedia = vi.fn().mockResolvedValue({
+      getTracks: () => [{ stop: mockStop }],
+    });
+
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: mockGetUserMedia },
+    });
+
+    render(<ImageUpload onChange={vi.fn()} />);
+
+    const cameraBtn = screen.getByRole('button', { name: /Tomar foto/i });
+    expect(cameraBtn).toBeInTheDocument();
+
+    fireEvent.click(cameraBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: /Tomar foto con cámara/i })).toBeInTheDocument();
+    });
+    expect(mockGetUserMedia).toHaveBeenCalledWith({
+      video: { facingMode: { ideal: 'environment' } },
+      audio: false,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Cerrar cámara/i }));
+    expect(mockStop).toHaveBeenCalled();
+  });
+
+  it('usa Capacitor Camera con CameraSource.Camera en plataforma nativa al pulsar Tomar foto', async () => {
+    vi.mocked(Capacitor.isNativePlatform).mockReturnValue(true);
+    vi.mocked(CapCamera.getPhoto).mockResolvedValue({
+      format: 'jpeg',
+      saved: false,
+    });
+
+    render(<ImageUpload onChange={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Tomar foto/i }));
+
+    await waitFor(() => {
+      expect(CapCamera.getPhoto).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: CameraSource.Camera,
+        })
+      );
+    });
   });
 });

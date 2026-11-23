@@ -5,6 +5,7 @@ import { Camera, Sparkles, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { blobToFile, preScaleImage } from '../../lib/imageOptimizer';
 import { ImageCropperModal } from './ImageCropperModal';
+import { CameraCaptureModal } from './CameraCaptureModal';
 
 export interface ImageUploadProps {
   value?: string | null;
@@ -39,8 +40,10 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
 }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isCropperOpen, setIsCropperOpen] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isConverting, setIsConverting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Limpiar cualquier pwa-action-sheet residual si existiera en el DOM
@@ -142,11 +145,47 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
     fileInputRef.current?.click();
   };
 
+  const handleTakePhoto = async () => {
+    if (disabled || isConverting) return;
+
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const image = await CapCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.Uri,
+          source: CameraSource.Camera,
+        });
+
+        if (image.webPath) {
+          const response = await fetch(image.webPath);
+          const blob = await response.blob();
+          await processAndOpenCropper(blob);
+        }
+      } catch (err: any) {
+        const msg = String(err?.message || err || '').toLowerCase();
+        if (msg.includes('cancel') || msg.includes('dismiss')) {
+          return;
+        }
+        console.warn('Cámara nativa no disponible, recurriendo al selector con captura:', err);
+        cameraInputRef.current?.click();
+      }
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      setIsCameraOpen(true);
+    } else {
+      cameraInputRef.current?.click();
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       await processAndOpenCropper(selectedFile);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
   };
 
@@ -197,6 +236,15 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
             onChange={handleFileChange}
             disabled={disabled || isConverting}
           />
+          <input
+            type="file"
+            ref={cameraInputRef}
+            className="hidden"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileChange}
+            disabled={disabled || isConverting}
+          />
         </div>
 
         {value && onRemove && (
@@ -215,33 +263,48 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
         )}
       </div>
 
-      {/* Botones de acción / Studio / Extras */}
-      {value && (
-        <div className="mt-3 flex flex-wrap gap-2 items-center justify-center">
-          {!hideStudioButton && (
-            <button
-              type="button"
-              onClick={openStudio}
-              disabled={disabled}
-              className="flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-bold bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 active:scale-95 transition-all"
-              title="Editar, recortar y optimizar formato/megapíxeles"
-            >
-              <Sparkles size={13} className="text-emerald-400" />
-              <span>Studio de Imagen 🎨</span>
-            </button>
-          )}
+      {/* Botones de acción / Studio / Cámara / Extras */}
+      <div className="mt-3 flex flex-wrap gap-2 items-center justify-center">
+        <button
+          type="button"
+          onClick={handleTakePhoto}
+          disabled={disabled || isConverting}
+          className="flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-bold bg-surface-hover border border-border hover:border-[var(--accent)]/50 hover:text-[var(--accent)] text-primary active:scale-95 transition-all disabled:opacity-50"
+          title="Tomar foto con la cámara"
+        >
+          <Camera size={13} />
+          <span>Tomar foto</span>
+        </button>
 
-          {extraActions}
-        </div>
-      )}
+        {value && !hideStudioButton && (
+          <button
+            type="button"
+            onClick={openStudio}
+            disabled={disabled}
+            className="flex items-center gap-1.5 py-2 px-3.5 rounded-xl text-xs font-bold bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-400 active:scale-95 transition-all"
+            title="Editar, recortar y optimizar formato/megapíxeles"
+          >
+            <Sparkles size={13} className="text-emerald-400" />
+            <span>Studio de Imagen 🎨</span>
+          </button>
+        )}
 
-      {!value && extraActions && (
-        <div className="mt-3 flex flex-wrap gap-2 items-center justify-center">
-          {extraActions}
-        </div>
-      )}
+        {extraActions}
+      </div>
 
       {bottomContent}
+
+      {isCameraOpen && (
+        <CameraCaptureModal
+          isOpen={isCameraOpen}
+          onClose={() => setIsCameraOpen(false)}
+          onCapture={async (blob) => {
+            setIsCameraOpen(false);
+            await processAndOpenCropper(blob);
+          }}
+          onFallbackToFile={() => fileInputRef.current?.click()}
+        />
+      )}
 
       {isCropperOpen && (
         <ImageCropperModal
