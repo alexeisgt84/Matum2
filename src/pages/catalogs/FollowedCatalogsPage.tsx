@@ -854,7 +854,7 @@ export const FollowedCatalogsPage = () => {
                               />
                               
                               <div className="flex items-center gap-2 mt-2">
-                                <span className="text-accent text-xs font-bold font-mono tabular-nums">
+                                <span className="text-accent text-base sm:text-lg font-extrabold font-mono tabular-nums">
                                   {product.price} {product.currency}
                                 </span>
                                 
@@ -1242,7 +1242,7 @@ export const FollowedCatalogsPage = () => {
                           badges={product.badges}
                           className="mt-1.5"
                         />
-                        <span className="text-accent text-xs font-bold font-mono block mt-2 tabular-nums">
+                        <span className="text-accent text-base sm:text-lg font-extrabold font-mono block mt-2 tabular-nums">
                           {product.price} {product.currency}
                         </span>
                       </div>

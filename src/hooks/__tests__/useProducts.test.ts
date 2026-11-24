@@ -7,6 +7,8 @@ import * as offlineCache from '../../lib/offlineCache';
 vi.mock('../../lib/supabase', () => {
   const queryBuilder: any = {
     select: vi.fn().mockReturnThis(),
+    update: vi.fn().mockReturnThis(),
+    in: vi.fn().mockResolvedValue({ data: [], error: null }),
     eq: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
     or: vi.fn().mockReturnThis(),
@@ -104,5 +106,46 @@ describe('useProducts hook', () => {
     const ids = result.current.products.map(p => p.id);
     const uniqueIds = Array.from(new Set(ids));
     expect(ids).toEqual(uniqueIds);
+  });
+
+  it('asigna una categoría de forma masiva a los productos seleccionados y sincroniza la caché', async () => {
+    const initialProducts = [
+      { id: 'prod-1', name: 'Producto 1', price: 10, position: 0, category_id: null },
+      { id: 'prod-2', name: 'Producto 2', price: 20, position: 1, category_id: 2 },
+      { id: 'prod-3', name: 'Producto 3', price: 30, position: 2, category_id: 2 },
+    ];
+
+    const qb = (supabase as any)._queryBuilder;
+    qb.range.mockResolvedValueOnce({ data: initialProducts, error: null });
+    qb.in.mockResolvedValueOnce({ data: [], error: null });
+    vi.spyOn(offlineCache, 'getCatalogProductsFromCache')
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(initialProducts as any);
+
+    const { result } = renderHook(() => useProducts('catalog-123'));
+
+    await act(async () => {
+      await result.current.getProducts(true);
+    });
+
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.updateProductsCategory(['prod-1', 'prod-2'], 5);
+    });
+
+    expect(ok).toBe(true);
+    expect(qb.update).toHaveBeenCalledWith({ category_id: 5 });
+    expect(qb.in).toHaveBeenCalledWith('id', ['prod-1', 'prod-2']);
+    expect(result.current.products.find(p => p.id === 'prod-1')?.category_id).toBe(5);
+    expect(result.current.products.find(p => p.id === 'prod-2')?.category_id).toBe(5);
+    expect(result.current.products.find(p => p.id === 'prod-3')?.category_id).toBe(2);
+    expect(offlineCache.saveCatalogProductsToCache).toHaveBeenCalledWith(
+      'catalog-123',
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'prod-1', category_id: 5 }),
+        expect.objectContaining({ id: 'prod-2', category_id: 5 }),
+        expect.objectContaining({ id: 'prod-3', category_id: 2 }),
+      ])
+    );
   });
 });

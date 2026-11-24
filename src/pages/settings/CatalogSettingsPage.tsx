@@ -16,6 +16,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { ExchangeRatesModal } from '../../components/catalogs/ExchangeRatesModal';
 import { NemuImportModal } from '../../components/catalogs/NemuImportModal';
 import { useCatalogs } from '../../hooks/useCatalogs';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { CatalogInactivityFields } from '../../components/catalogs/CatalogInactivityFields';
 import { Select } from '../../components/ui/Select';
 import { ImageUpload } from '../../components/ui/ImageUpload';
@@ -287,6 +288,7 @@ export const CatalogSettingsPage = () => {
   const navigate = useNavigate();
   
   const { profile } = useProfile();
+  const { getAppUrl } = useSystemSettings();
   const isAdmin = profile?.role === 'admin';
   const hasDualityAccess = (profile?.plan && profile.plan !== 'free') || isAdmin;
   const [catalogOwnerPlan, setCatalogOwnerPlan] = useState<string | null>(null);
@@ -361,7 +363,7 @@ export const CatalogSettingsPage = () => {
   const [isExchangeRatesOpen, setIsExchangeRatesOpen] = useState(false);
   const [isNemuImportOpen, setIsNemuImportOpen] = useState(false);
 
-  const reservedRoutes = ['login', 'register', 'forgot-password', 'catalogs', 'history', 'profile', 'admin'];
+  const reservedRoutes = ['s', 'login', 'register', 'forgot-password', 'catalogs', 'history', 'profile', 'admin'];
 
   // Estados de Afiliados y Comisiones
   const [affiliatesForm, setAffiliatesForm] = useState({
@@ -1660,7 +1662,7 @@ export const CatalogSettingsPage = () => {
                       storeForm.slug && (
                         <p className="text-[11px] text-green-500 font-medium bg-green-500/10 p-2.5 rounded-xl border border-green-500/20">
                           Tu tienda estará disponible en: <br />
-                          <span className="underline font-bold select-all">{window.location.origin}/{storeForm.slug}</span>
+                          <span className="underline font-bold select-all">{getAppUrl()}/{storeForm.slug}</span>
                         </p>
                       )
                     )}
@@ -2091,7 +2093,7 @@ export const CatalogSettingsPage = () => {
                 }}
                 value={templatesForm.share_template}
                 onChange={(val) => setTemplatesForm({ ...templatesForm, share_template: val })}
-                info="Esta plantilla se usará al compartir un producto individual. La etiqueta {product_url} inserta el enlace del producto con el código de referido."
+                info="Esta plantilla se usará al compartir un producto individual. El enlace solo se incluye si agregas las etiquetas {product_url} o {store_url}."
                 helperText="Plantilla personalizada para compartir productos individualmente."
                 tagPrefix="_s"
                 sectionRef={shareRef}

@@ -24,6 +24,7 @@ import {
   Send,
   RotateCcw,
   AlertCircle,
+  Check,
   CheckCircle,
   ArrowUpDown,
   SortAsc,
@@ -157,7 +158,7 @@ export const CatalogDetailPage = () => {
   const { categories, getCategories } = useCategories(catalogId);
 
   // Hooks de Producto
-  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, deleteProducts, updateProductsOrder, toggleProductFeatured, updateProductBadges } = useProducts(catalogId, debouncedSearch, sortField, sortOrder, selectedCategoryId);
+  const { products, loading: prodLoading, hasMore, loadMore, getProducts, saveProduct, deleteProduct, deleteProducts, updateProductsOrder, toggleProductFeatured, updateProductBadges, updateProductsCategory } = useProducts(catalogId, debouncedSearch, sortField, sortOrder, selectedCategoryId);
   
   // Hooks de Mensaje
   const { messages, loading: msgLoading, getMessages, saveMessage, deleteMessage, deleteMessages, updateMessagesOrder, toggleMessageSequence } = useMessages(catalogId);
@@ -348,7 +349,7 @@ export const CatalogDetailPage = () => {
       }
       webLinkTimeoutRef.current = null;
     }, 800);
-  }, [catalog?.slug]);
+  }, [catalog?.slug, getAppUrl]);
 
   const handleWebLinkPointerUp = useCallback((e: React.PointerEvent) => {
     if (webLinkTimeoutRef.current) {
@@ -385,6 +386,9 @@ export const CatalogDetailPage = () => {
   const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkCategoryModalOpen, setIsBulkCategoryModalOpen] = useState(false);
+  const [bulkCategorySelection, setBulkCategorySelection] = useState<number | 'none' | null>(null);
+  const [isBulkAssigningCategory, setIsBulkAssigningCategory] = useState(false);
   
   const sentinelRef = useRef<HTMLDivElement>(null);
 
@@ -1108,6 +1112,58 @@ export const CatalogDetailPage = () => {
     }
   };
 
+  const handleOpenBulkCategoryModal = () => {
+    if (selectedProductIds.length === 0) return;
+    const selectedProds = products.filter(p => selectedProductIds.includes(p.id));
+    if (selectedProds.length > 0) {
+      const firstCat = selectedProds[0].category_id ?? null;
+      const allSame = selectedProds.every(p => (p.category_id ?? null) === firstCat);
+      if (allSame && firstCat !== null) {
+        setBulkCategorySelection(firstCat);
+      } else {
+        setBulkCategorySelection(null);
+      }
+    } else {
+      setBulkCategorySelection(null);
+    }
+    setIsBulkCategoryModalOpen(true);
+  };
+
+  const handleBulkAssignCategory = async () => {
+    if (selectedProductIds.length === 0 || bulkCategorySelection === null) return;
+    const targetCatId = bulkCategorySelection === 'none' ? null : bulkCategorySelection;
+    const catName =
+      targetCatId === null
+        ? 'Sin categoría'
+        : categories.find(c => c.id === targetCatId)?.name || 'la categoría seleccionada';
+    const count = selectedProductIds.length;
+
+    setIsBulkAssigningCategory(true);
+    const toastId = toast.loading(
+      targetCatId === null
+        ? `Quitando categoría a ${count} producto${count > 1 ? 's' : ''}…`
+        : `Asignando "${catName}" a ${count} producto${count > 1 ? 's' : ''}…`
+    );
+
+    try {
+      await updateProductsCategory(selectedProductIds, targetCatId);
+      toast.success(
+        targetCatId === null
+          ? `Se quitó la categoría de ${count} producto${count > 1 ? 's' : ''}`
+          : `${count} producto${count > 1 ? 's asignados' : ' asignado'} a "${catName}"`,
+        { id: toastId }
+      );
+      setIsBulkCategoryModalOpen(false);
+      setBulkCategorySelection(null);
+      clearSelection();
+      getProducts(true);
+    } catch (err: any) {
+      toast.error(`Error al asignar categoría: ${err.message || 'Error desconocido'}`, { id: toastId });
+    } finally {
+      setIsBulkAssigningCategory(false);
+    }
+  };
+
   const handleBulkUnlink = async () => {
     if (selectedProductIds.length === 0) return;
     
@@ -1455,6 +1511,15 @@ export const CatalogDetailPage = () => {
               {selectedProductIds.length > 0 && (
                 <>
                   <button 
+                    onClick={handleOpenBulkCategoryModal}
+                    className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-purple-500/10 text-secondary hover:text-purple-400 border border-border hover:border-purple-500/20 transition-all group"
+                    title="Asignar categoría a los productos seleccionados"
+                  >
+                    <FolderHeart size={16} className="group-hover:scale-110 transition-transform" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest">Categoría</span>
+                  </button>
+
+                  <button 
                     onClick={() => handleBulkStockStatus('out_of_stock')}
                     className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-2xl bg-surface-hover hover:bg-orange-500/10 text-secondary hover:text-orange-500 border border-border hover:border-orange-500/20 transition-all group"
                   >
@@ -1758,6 +1823,7 @@ export const CatalogDetailPage = () => {
                                     onSelect={toggleSelectProduct}
                                     dragHandleProps={sortField === 'position' ? provided.dragHandleProps : undefined}
                                     shareTemplate={catalog?.share_template}
+                                    catalogId={catalog?.id}
                                     catalogName={catalog?.name}
                                     catalogSlug={catalog?.slug}
                                     contactNumber={user?.phone}
@@ -2163,12 +2229,151 @@ export const CatalogDetailPage = () => {
           isOpen={isCategoriesModalOpen}
           onClose={() => setIsCategoriesModalOpen(false)}
           catalogId={catalogId}
+          zIndex="z-[60]"
+          onCategoryCreated={(newCat) => {
+            getCategories();
+            if (isBulkCategoryModalOpen && newCat?.id) {
+              setBulkCategorySelection(newCat.id);
+            }
+          }}
           onCategoriesChange={() => {
             getCategories();
             getProducts(true);
           }}
         />
       )}
+
+      {/* Modal de Asignación Masiva de Categoría */}
+      <Modal
+        isOpen={isBulkCategoryModalOpen}
+        onClose={() => {
+          if (!isBulkAssigningCategory) {
+            setIsBulkCategoryModalOpen(false);
+          }
+        }}
+        title="Asignar Categoría"
+        footer={
+          <div className="flex items-center justify-between w-full gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsBulkCategoryModalOpen(false)}
+              disabled={isBulkAssigningCategory}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleBulkAssignCategory}
+              disabled={bulkCategorySelection === null || isBulkAssigningCategory}
+              loading={isBulkAssigningCategory}
+              icon={Check}
+            >
+              Asignar ({selectedProductIds.length})
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <p className="text-xs text-secondary">
+              Elige la categoría para{' '}
+              <span className="font-bold text-primary">
+                {selectedProductIds.length} producto{selectedProductIds.length > 1 ? 's' : ''} seleccionado{selectedProductIds.length > 1 ? 's' : ''}
+              </span>:
+            </p>
+            {catalogId && (
+              <button
+                type="button"
+                onClick={() => setIsCategoriesModalOpen(true)}
+                className="flex items-center gap-1 text-[11px] font-bold text-accent hover:underline shrink-0 cursor-pointer"
+              >
+                <Plus size={13} />
+                <span>Nueva / Gestionar</span>
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-1.5 max-h-[55vh] overflow-y-auto pr-0.5">
+            {categories.length === 0 && (
+              <div className="p-4 rounded-2xl border border-dashed border-border bg-surface-hover/30 text-center space-y-2 mb-2">
+                <p className="text-xs font-bold text-secondary">
+                  Aún no hay categorías creadas en este catálogo
+                </p>
+                {catalogId && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    icon={Plus}
+                    onClick={() => setIsCategoriesModalOpen(true)}
+                  >
+                    Crear primera categoría
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {categories.map((cat) => {
+              const isSelected = bulkCategorySelection === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setBulkCategorySelection(cat.id)}
+                  disabled={isBulkAssigningCategory}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border flex items-center justify-between transition-all text-left cursor-pointer ${
+                    isSelected
+                      ? 'bg-accent/15 border-accent text-accent font-bold shadow-sm'
+                      : 'bg-surface-hover/40 border-border hover:bg-surface-hover text-primary'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                    <div
+                      className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${
+                        isSelected
+                          ? 'bg-accent/20 border-accent/40 text-accent'
+                          : 'bg-surface border-border text-accent'
+                      }`}
+                    >
+                      <CategoryIcon name={cat.icon} size={16} />
+                    </div>
+                    <span className="text-sm truncate">{cat.name}</span>
+                  </div>
+                  {isSelected && <Check size={16} className="text-accent shrink-0" />}
+                </button>
+              );
+            })}
+
+            {/* Opción para quitar categoría */}
+            <button
+              type="button"
+              onClick={() => setBulkCategorySelection('none')}
+              disabled={isBulkAssigningCategory}
+              className={`w-full px-3.5 py-2.5 rounded-xl border flex items-center justify-between transition-all text-left cursor-pointer ${
+                bulkCategorySelection === 'none'
+                  ? 'bg-accent/15 border-accent text-accent font-bold shadow-sm'
+                  : 'bg-surface-hover/40 border-border hover:bg-surface-hover text-secondary hover:text-primary'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                <div
+                  className={`w-8 h-8 rounded-lg border flex items-center justify-center shrink-0 ${
+                    bulkCategorySelection === 'none'
+                      ? 'bg-accent/20 border-accent/40 text-accent'
+                      : 'bg-surface border-border text-secondary/70'
+                  }`}
+                >
+                  <Tag size={15} />
+                </div>
+                <span className="text-sm truncate">Sin categoría (quitar categoría)</span>
+              </div>
+              {bulkCategorySelection === 'none' && <Check size={16} className="text-accent shrink-0" />}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <ConfirmDialog
         isOpen={!!productToDelete}

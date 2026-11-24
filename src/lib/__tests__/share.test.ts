@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 import { applyLogoWatermark, shareContent } from '../share';
 
 vi.mock('../offlineCache', () => ({
@@ -24,6 +26,7 @@ describe('share.ts - marca de agua y shareContent', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(Capacitor.isNativePlatform).mockReturnValue(false);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: {
@@ -34,6 +37,7 @@ describe('share.ts - marca de agua y shareContent', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(Capacitor.isNativePlatform).mockReturnValue(false);
     URL.createObjectURL = originalCreateObjectURL;
     URL.revokeObjectURL = originalRevokeObjectURL;
     globalThis.Image = originalImage;
@@ -402,5 +406,36 @@ describe('share.ts - marca de agua y shareContent', () => {
     expect(retryPayload.files).toHaveLength(1);
     expect(retryPayload.url).toBeUndefined();
     expect(retryPayload.text).toContain('https://nazaar.shop/tienda/p/1');
+  });
+
+  it('en modo nativo no agrega ningún enlace cuando no se pasa url y no lo duplica si text ya lo incluye', async () => {
+    vi.mocked(Capacitor.isNativePlatform).mockReturnValue(true);
+
+    // Caso 1: sin url -> Share.share solo recibe el texto del usuario sin inyectar enlace
+    await shareContent({
+      title: 'Zapatilla Pro',
+      text: '*Zapatilla Pro*\n\nPrecio: 2500 CUP',
+    });
+
+    expect(Share.share).toHaveBeenCalledTimes(1);
+    const firstCall = vi.mocked(Share.share).mock.calls[0][0];
+    expect(firstCall.text).toBe('*Zapatilla Pro*\n\nPrecio: 2500 CUP');
+    expect(firstCall.text).not.toContain('http');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('*Zapatilla Pro*\n\nPrecio: 2500 CUP');
+
+    // Caso 2: text ya contiene url -> no debe duplicarse en Share.share ni en el portapapeles
+    await shareContent({
+      title: 'Mi Tienda',
+      text: 'Lo mejor\n\nhttps://nazaar.shop/mi-tienda',
+      url: 'https://nazaar.shop/mi-tienda',
+    });
+
+    expect(Share.share).toHaveBeenCalledTimes(2);
+    const secondCall = vi.mocked(Share.share).mock.calls[1][0];
+    expect(secondCall.text).toBe('Lo mejor\n\nhttps://nazaar.shop/mi-tienda');
+    expect(secondCall.text?.match(/https:\/\/nazaar\.shop\/mi-tienda/g)).toHaveLength(1);
+    expect(navigator.clipboard.writeText).toHaveBeenLastCalledWith(
+      'Lo mejor\n\nhttps://nazaar.shop/mi-tienda'
+    );
   });
 });

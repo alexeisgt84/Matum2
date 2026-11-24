@@ -173,7 +173,7 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       return;
     }
 
-    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+    if (typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getUserMedia === 'function') {
       setIsCameraOpen(true);
     } else {
       cameraInputRef.current?.click();

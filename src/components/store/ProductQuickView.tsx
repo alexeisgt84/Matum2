@@ -193,8 +193,8 @@ export const ProductQuickView: React.FC<ProductQuickViewProps> = ({
               <h2 className="font-display text-lg sm:text-xl font-extrabold text-primary leading-snug">{product.name}</h2>
               <PriceTag
                 parts={price}
-                className="font-display text-lg sm:text-xl font-black text-[var(--accent)] tracking-tight"
-                secondaryClassName="text-xs font-semibold text-secondary"
+                className="font-display text-4xl sm:text-[1.75rem] leading-tight font-black text-[var(--accent)] tracking-tight"
+                secondaryClassName="text-sm font-semibold text-secondary"
               />
             </div>
 

@@ -3,6 +3,27 @@ import { supabase } from '../lib/supabase';
 import { useEvolution } from './useEvolution';
 import { toast } from 'react-hot-toast';
 import { getAppBaseUrl } from '../lib/urlHelper';
+import { shareTemplateUsesProductUrl } from '../lib/shareTemplate';
+import { getOrCreateShortLink } from '../lib/shortLinks';
+
+const resolveTemplateProductUrl = async (
+  template: string | null | undefined,
+  baseUrl: string,
+  targetCatalogId: string,
+  catalogSlug: string | null | undefined,
+  productId: string
+): Promise<string> => {
+  if (!catalogSlug || !shareTemplateUsesProductUrl(template)) {
+    return '';
+  }
+  const fallbackUrl = `${baseUrl}/${catalogSlug}/p/${productId}`;
+  return getOrCreateShortLink({
+    baseUrl,
+    catalogId: targetCatalogId,
+    productId,
+    fallbackUrl,
+  });
+};
 
 const EVOLUTION_URL = import.meta.env.VITE_EVOLUTION_DEFAULT_URL;
 const EVOLUTION_KEY = import.meta.env.VITE_EVOLUTION_API_KEY;
@@ -193,11 +214,29 @@ export const useSendingEngine = (catalogId?: string) => {
         ? products.map(p => `- ${p.name.trim()} (${p.price ? `${p.price} ${p.currency || '$'}` : 'Consultar'})`).join('\n')
         : 'Sin productos';
 
+      const productUrlCache = new Map<string, string>();
+      const getSequenceProductUrl = async (productId: string) => {
+        if (!productUrlCache.has(productId)) {
+          productUrlCache.set(
+            productId,
+            await resolveTemplateProductUrl(
+              catalog.template,
+              baseUrl,
+              catalogId!,
+              catalog.slug,
+              productId
+            )
+          );
+        }
+        return productUrlCache.get(productId) || '';
+      };
+
       for (const group of groups) {
         for (const item of messages) {
           if (item.type === 'catalog_products') {
             if (products && products.length > 0) {
               for (const product of products) {
+                const productUrl = await getSequenceProductUrl(product.id);
                 const productCaption = (catalog.template || '')
                   .replace(/\\n/g, '\n')
                   .replace(/{product_name}/g, (product.name || '').trim())
@@ -209,7 +248,9 @@ export const useSendingEngine = (catalogId?: string) => {
                   .replace(/{products_list}/g, productsListText)
                   .replace(/{product_list}/g, productsListText)
                   .replace(/{contact_number}/g, contactNumber)
-                  .replace(/{store_url}/g, storeUrl);
+                  .replace(/{store_url}/g, storeUrl)
+                  .replace(/{product_url}/g, productUrl)
+                  .replace(/{product_referral_url}/g, productUrl);
 
                 const scheduledDate = new Date(now.getTime() + totalToWait);
                 queueItems.push({
@@ -359,10 +400,28 @@ export const useSendingEngine = (catalogId?: string) => {
         ? products.map(p => `- ${p.name.trim()} (${p.price ? `${p.price} ${p.currency || '$'}` : 'Consultar'})`).join('\n')
         : 'Sin productos';
 
+      const singleMsgProductUrlCache = new Map<string, string>();
+      const getSingleMsgProductUrl = async (productId: string) => {
+        if (!singleMsgProductUrlCache.has(productId)) {
+          singleMsgProductUrlCache.set(
+            productId,
+            await resolveTemplateProductUrl(
+              catalog.template,
+              baseUrl,
+              catalogId!,
+              catalog.slug,
+              productId
+            )
+          );
+        }
+        return singleMsgProductUrlCache.get(productId) || '';
+      };
+
       for (const group of groups) {
         if (message.type === 'catalog_products') {
           if (products && products.length > 0) {
             for (const product of products) {
+              const productUrl = await getSingleMsgProductUrl(product.id);
               const productCaption = (catalog.template || '')
                 .replace(/\\n/g, '\n')
                 .replace(/{product_name}/g, (product.name || '').trim())
@@ -374,7 +433,9 @@ export const useSendingEngine = (catalogId?: string) => {
                 .replace(/{products_list}/g, productsListText)
                 .replace(/{product_list}/g, productsListText)
                 .replace(/{contact_number}/g, contactNumber)
-                .replace(/{store_url}/g, storeUrl);
+                .replace(/{store_url}/g, storeUrl)
+                .replace(/{product_url}/g, productUrl)
+                .replace(/{product_referral_url}/g, productUrl);
 
               const scheduledDate = new Date(now.getTime() + totalToWait);
               queueItems.push({
@@ -509,6 +570,13 @@ export const useSendingEngine = (catalogId?: string) => {
       const queueItems: any[] = [];
       let totalToWait = 0;
       const now = new Date();
+      const productUrl = await resolveTemplateProductUrl(
+        catalog.template,
+        baseUrl,
+        catalogId!,
+        catalog.slug,
+        product.id
+      );
 
       for (const group of groups) {
         const productCaption = (catalog.template || '')
@@ -522,7 +590,9 @@ export const useSendingEngine = (catalogId?: string) => {
           .replace(/{products_list}/g, productsListText)
           .replace(/{product_list}/g, productsListText)
           .replace(/{contact_number}/g, contactNumber)
-          .replace(/{store_url}/g, storeUrl);
+          .replace(/{store_url}/g, storeUrl)
+          .replace(/{product_url}/g, productUrl)
+          .replace(/{product_referral_url}/g, productUrl);
 
         const scheduledDate = new Date(now.getTime() + totalToWait);
         queueItems.push({
@@ -611,9 +681,16 @@ export const useSendingEngine = (catalogId?: string) => {
       const queueItems: any[] = [];
       let totalToWait = 0;
       const now = new Date();
+      const template = catalog.out_of_stock_template || '*AGOTADO*\n{product_name}';
+      const productUrl = await resolveTemplateProductUrl(
+        template,
+        baseUrl,
+        catalogId!,
+        catalog.slug,
+        product.id
+      );
 
       for (const group of groups) {
-        const template = catalog.out_of_stock_template || '*AGOTADO*\n{product_name}';
         const productCaption = template
           .replace(/\\n/g, '\n')
           .replace(/{product_name}/g, (product.name || '').trim())
@@ -623,7 +700,9 @@ export const useSendingEngine = (catalogId?: string) => {
           .replace(/{catalog_name}/g, (catalog.name || '').trim())
           .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
           .replace(/{contact_number}/g, contactNumber)
-          .replace(/{store_url}/g, storeUrl);
+          .replace(/{store_url}/g, storeUrl)
+          .replace(/{product_url}/g, productUrl)
+          .replace(/{product_referral_url}/g, productUrl);
 
         const scheduledDate = new Date(now.getTime() + totalToWait);
         queueItems.push({
@@ -712,9 +791,16 @@ export const useSendingEngine = (catalogId?: string) => {
       const queueItems: any[] = [];
       let totalToWait = 0;
       const now = new Date();
+      const template = catalog.available_template || catalog.new_product_template || '*PRODUCTO DISPONIBLE*\n{product_name}\nPrecio: {product_price}';
+      const productUrl = await resolveTemplateProductUrl(
+        template,
+        baseUrl,
+        catalogId!,
+        catalog.slug,
+        product.id
+      );
 
       for (const group of groups) {
-        const template = catalog.available_template || catalog.new_product_template || '*PRODUCTO DISPONIBLE*\n{product_name}\nPrecio: {product_price}';
         const productCaption = template
           .replace(/\\n/g, '\n')
           .replace(/{product_name}/g, (product.name || '').trim())
@@ -724,7 +810,9 @@ export const useSendingEngine = (catalogId?: string) => {
           .replace(/{catalog_name}/g, (catalog.name || '').trim())
           .replace(/{{nombre_catalogo}}/g, (catalog.name || '').trim())
           .replace(/{contact_number}/g, contactNumber)
-          .replace(/{store_url}/g, storeUrl);
+          .replace(/{store_url}/g, storeUrl)
+          .replace(/{product_url}/g, productUrl)
+          .replace(/{product_referral_url}/g, productUrl);
 
         const scheduledDate = new Date(now.getTime() + totalToWait);
         queueItems.push({

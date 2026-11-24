@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { getAppBaseUrl } from '../lib/urlHelper';
+import { getAppBaseUrl, getAppHost as resolveAppHost } from '../lib/urlHelper';
 import { useAuthStore } from '../store/authStore';
 
 export interface SystemSetting {
@@ -85,9 +85,12 @@ export function useSystemSettings() {
   const fetchSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('system_settings')
-        .select('key, value');
+      const tableQuery = supabase.from('system_settings');
+      if (!tableQuery || typeof tableQuery.select !== 'function') {
+        return;
+      }
+
+      const { data, error } = await tableQuery.select('key, value');
 
       if (error) {
         // En caso de que la tabla no exista o haya algún error de RLS, usamos fallback por defecto
@@ -130,6 +133,10 @@ export function useSystemSettings() {
 
   const getAppUrl = useCallback(() => {
     return getAppBaseUrl(settings.app_url);
+  }, [settings.app_url]);
+
+  const getAppHost = useCallback(() => {
+    return resolveAppHost(settings.app_url);
   }, [settings.app_url]);
 
   const updateSetting = useCallback(async (key: string, value: string, description?: string) => {
@@ -244,6 +251,7 @@ export function useSystemSettings() {
     settings,
     loading,
     getAppUrl,
+    getAppHost,
     updateSetting,
     refresh: fetchSettings,
     isGlobalCatalogCreationEnabled,

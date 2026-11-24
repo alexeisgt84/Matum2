@@ -105,7 +105,7 @@ export const CatalogFormPage = () => {
   const [coverFile, setCoverFile] = useState<File | undefined>();
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
-  const reservedRoutes = ['login', 'register', 'forgot-password', 'catalogs', 'history', 'profile', 'admin'];
+  const reservedRoutes = ['s', 'login', 'register', 'forgot-password', 'catalogs', 'history', 'profile', 'admin'];
 
   useEffect(() => {
     if (catalogId) {

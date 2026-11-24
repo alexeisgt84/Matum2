@@ -44,6 +44,7 @@ export const AdminCatalogsPage: React.FC = () => {
   const {
     isGlobalCatalogCreationEnabled,
     setGlobalCatalogCreation,
+    getAppUrl,
     loading: settingsLoading,
   } = useSystemSettings();
   const [updatingGlobalCreation, setUpdatingGlobalCreation] = useState(false);
@@ -405,7 +406,7 @@ export const AdminCatalogsPage: React.FC = () => {
         <div className="space-y-3">
           {filteredCatalogs.map((catalog) => {
             const isBlocked = Boolean(catalog.is_blocked);
-            const storeUrl = `/${catalog.slug || catalog.id}`;
+            const storeUrl = `${getAppUrl()}/${catalog.slug || catalog.id}`;
             const ownerPhone = catalog.owner?.phone || catalog.footer_phone || '';
             const ownerName = catalog.owner?.full_name || 'Sin nombre registrado';
 

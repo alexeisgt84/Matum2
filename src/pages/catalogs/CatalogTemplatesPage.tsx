@@ -204,7 +204,7 @@ export const CatalogTemplatesPage = () => {
             }}
             value={form.share_template}
             onChange={(val) => setForm({ ...form, share_template: val })}
-            info="Esta plantilla se usará al compartir un producto individual. La etiqueta {product_url} inserta el enlace del producto con el código de referido."
+            info="Esta plantilla se usará al compartir un producto individual. El enlace solo se incluye si agregas las etiquetas {product_url} o {store_url}."
             helperText="Plantilla personalizada para compartir productos individualmente."
             tagPrefix="_s"
             sectionRef={shareRef}

@@ -7,7 +7,14 @@ import { matchesSearchTerms } from '../../lib/searchTerms';
 import { useCommissions } from '../../hooks/useCommissions';
 import { useAuthStore } from '../../store/authStore';
 import { useStoreTheme } from '../../hooks/useStoreTheme';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { shareContent } from '../../lib/share';
+import {
+  formatProductShareText,
+  shareTemplateUsesProductUrl,
+} from '../../lib/shareTemplate';
+import { getCachedShortUrl, getOrCreateShortLink } from '../../lib/shortLinks';
+import { getCurrentPublicUrl } from '../../lib/urlHelper';
 import {
   buildPricingContext,
   formatAmount,
@@ -73,6 +80,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   const { slug: routeSlug } = useParams<{ slug: string }>();
   const slug = propSlug || routeSlug;
   const { user } = useAuthStore();
+  const { settings, getAppUrl, getAppHost } = useSystemSettings();
   const {
     registerPendingCommission,
     checkAffiliateStatus,
@@ -224,7 +232,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         catalog.description ||
         `Explora los productos de ${catalog.name} y haz tu pedido por WhatsApp.`,
       image: catalog.logo_url || catalog.cover_url,
-      url: typeof window !== 'undefined' ? window.location.href : undefined,
+      url: getCurrentPublicUrl(settings.app_url) || undefined,
       jsonLd: {
         '@type': 'Store',
         name: catalog.name,
@@ -234,7 +242,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
         address: catalog.footer_address || undefined,
       },
     });
-  }, [catalog, embedded, vendorPhone]);
+  }, [catalog, embedded, vendorPhone, settings.app_url]);
 
   useEffect(() => {
     if (slug) loadPublicCatalog();
@@ -373,6 +381,39 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
   const isCatalogOwner = !!user && catalog?.user_id === user?.id;
   const canSeeCommissions = isApprovedAffiliate || isCatalogOwner;
   const hasCatalogRole = !!user && (user.id === catalog?.user_id || user.role === 'admin');
+
+  useEffect(() => {
+    if (!selectedProduct || !catalog?.id || !slug) return;
+    const baseUrl = getAppUrl();
+    const affiliateCode =
+      (isApprovedAffiliate && user?.referral_code) || user?.referral_code || null;
+    const longUrl = `${baseUrl}/${slug}/p/${selectedProduct.id}${affiliateCode ? `?ref=${affiliateCode}` : ''}`;
+
+    void getOrCreateShortLink({
+      baseUrl,
+      catalogId: catalog.id,
+      productId: selectedProduct.id,
+      referralCode: affiliateCode,
+      fallbackUrl: longUrl,
+    });
+
+    try {
+      const activeRef =
+        localStorage.getItem(`matum_ref_${slug}`) ||
+        localStorage.getItem('matum_active_ref');
+      if (activeRef && activeRef !== (affiliateCode || '')) {
+        void getOrCreateShortLink({
+          baseUrl,
+          catalogId: catalog.id,
+          productId: selectedProduct.id,
+          referralCode: activeRef,
+          fallbackUrl: `${baseUrl}/${slug}/p/${selectedProduct.id}?ref=${activeRef}`,
+        });
+      }
+    } catch {
+      // Ignorar errores de almacenamiento
+    }
+  }, [selectedProduct, catalog?.id, slug, isApprovedAffiliate, user?.referral_code, getAppUrl]);
 
   const applyCachedPublicCatalog = async (cachedCat: any) => {
     setCatalog(cachedCat);
@@ -798,7 +839,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
     messageText += `*Tienda:* ${catalog.name}\n`;
     if (slug) {
-      const currentHost = typeof window !== 'undefined' ? window.location.host : 'nazaar.shop';
+      const currentHost = getAppHost();
       messageText += `*Enlace:* ${currentHost}/${slug}\n`;
     }
     messageText += `━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -909,7 +950,7 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
 
   const handleShareCatalog = async () => {
     const affiliateParam = user?.referral_code ? `?ref=${user.referral_code}` : '';
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const baseUrl = getAppUrl();
     const shareUrl = slug ? `${baseUrl}/${slug}${affiliateParam}` : '';
     const shareText = catalog?.slogan
       ? `${catalog.slogan}\n\n${shareUrl}`
@@ -929,27 +970,35 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
     const affiliateCode =
       (isApprovedAffiliate && user?.referral_code) || user?.referral_code;
     const affiliateParam = affiliateCode ? `?ref=${affiliateCode}` : '';
-    const baseUrl =
-      typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
-    const productUrl = slug ? `${baseUrl}/${slug}/p/${product.id}${affiliateParam}` : '';
+    const baseUrl = getAppUrl();
+    const longProductUrl = slug ? `${baseUrl}/${slug}/p/${product.id}${affiliateParam}` : '';
+    const storeUrl = slug ? `${baseUrl}/${slug}${affiliateParam}` : '';
+    const productUrl =
+      catalog?.id && slug && shareTemplateUsesProductUrl(catalog.share_template)
+        ? await getOrCreateShortLink({
+            baseUrl,
+            catalogId: catalog.id,
+            productId: product.id,
+            referralCode: affiliateCode,
+            fallbackUrl: longProductUrl,
+          })
+        : longProductUrl;
 
-    const text = catalog?.share_template
-      ? catalog.share_template
-          .replace(/{product_name}/g, (product.name || '').trim())
-          .replace(/{product_description}/g, (product.description || '').trim())
-          .replace(/{product_price}/g, priceText.trim())
-          .replace(/{product_currency}/g, '')
-          .replace(/{catalog_name}/g, (catalog.name || '').trim())
-          .replace(/{contact_number}/g, vendorPhone || '')
-          .replace(/{store_url}/g, productUrl)
-          .replace(/{product_url}/g, productUrl)
-          .replace(/{product_referral_url}/g, productUrl)
-      : `*${product.name}*\n\nPrecio: ${priceText}\n\n${product.description || ''}\n\nVer producto: ${productUrl}`.trim();
+    const text = formatProductShareText({
+      shareTemplate: catalog?.share_template,
+      productName: product.name,
+      productDescription: product.description,
+      priceText,
+      currencyText: '',
+      catalogName: catalog?.name,
+      contactNumber: vendorPhone,
+      productUrl,
+      storeUrl,
+    });
 
     await shareContent({
       title: product.name,
       text,
-      url: productUrl,
       imageUrl: product.imagen_url || undefined,
     });
   };
@@ -965,12 +1014,18 @@ export const PublicCatalogPage: React.FC<PublicCatalogPageProps> = ({
       messageText += `💵 *Precio:* ${getPriceText(product, pricingCtx)}\n`;
     }
     if (slug) {
-      const baseUrl =
-        typeof window !== 'undefined'
-          ? `${window.location.protocol}//${window.location.host}`
-          : 'https://nazaar.shop';
+      const baseUrl = getAppUrl();
       const refParam = activeRef ? `?ref=${activeRef}` : '';
-      messageText += `🔗 *Enlace del producto:* ${baseUrl}/${slug}/p/${product.id}${refParam}\n`;
+      const longUrl = `${baseUrl}/${slug}/p/${product.id}${refParam}`;
+      const productUrl = catalog?.id
+        ? getCachedShortUrl({
+            baseUrl,
+            catalogId: catalog.id,
+            productId: product.id,
+            referralCode: activeRef,
+          }) || longUrl
+        : longUrl;
+      messageText += `🔗 *Enlace del producto:* ${productUrl}\n`;
     }
     if (activeRef) {
       messageText += `\n🤝 *Referido por:* @${activeRef}\n`;

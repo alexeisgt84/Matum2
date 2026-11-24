@@ -515,6 +515,49 @@ export const useProducts = (
     }
   };
 
+  const updateProductsCategory = async (ids: string[], nextCategoryId: number | null): Promise<boolean> => {
+    if (!ids || ids.length === 0) return false;
+    try {
+      await ensureActiveSession();
+      const { error } = await supabase
+        .from('products')
+        .update({ category_id: nextCategoryId })
+        .in('id', ids);
+
+      if (error) throw error;
+
+      const idSet = new Set(ids);
+      setProducts((prev) => {
+        const updatedList = prev.map((p) =>
+          idSet.has(p.id) ? { ...p, category_id: nextCategoryId } : p
+        );
+        if (categoryId !== undefined && categoryId !== null) {
+          if (categoryId === 'none') {
+            return updatedList.filter((p) => p.category_id === null || p.category_id === undefined);
+          }
+          return updatedList.filter((p) => Number(p.category_id) === Number(categoryId));
+        }
+        return updatedList;
+      });
+
+      if (catalogId) {
+        const cached = await getCatalogProductsFromCache(catalogId);
+        if (cached && cached.length > 0) {
+          await saveCatalogProductsToCache(
+            catalogId,
+            cached.map((p) => (idSet.has(p.id) ? { ...p, category_id: nextCategoryId } : p))
+          );
+        }
+        await syncCatalogForOffline(catalogId, true);
+      }
+
+      return true;
+    } catch (err: any) {
+      console.error('Error updating products category:', err);
+      throw err;
+    }
+  };
+
   return {
     products,
     loading,
@@ -527,5 +570,6 @@ export const useProducts = (
     updateProductsOrder,
     toggleProductFeatured,
     updateProductBadges,
+    updateProductsCategory,
   };
 };

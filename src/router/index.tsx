@@ -65,6 +65,9 @@ const PublicCatalogPage = lazyWithRetry(() =>
 const PublicProductPage = lazyWithRetry(() =>
   import('../pages/catalogs/PublicProductPage').then((m) => ({ default: m.PublicProductPage }))
 );
+const ShortLinkRedirectPage = lazyWithRetry(() =>
+  import('../pages/catalogs/ShortLinkRedirectPage').then((m) => ({ default: m.ShortLinkRedirectPage }))
+);
 
 const LazyRoute = ({ children }: { children: React.ReactNode }) => (
   <Suspense fallback={<LoadingScreen />}>{children}</Suspense>
@@ -190,6 +193,10 @@ export const router = createBrowserRouter([
       {
         path: 'admin/catalogs',
         element: <AdminRoute><AdminCatalogsPage /></AdminRoute>,
+      },
+      {
+        path: 's/:code',
+        element: <LazyRoute><ShortLinkRedirectPage /></LazyRoute>,
       },
       {
         path: ':slug/p/:productId',

@@ -167,7 +167,7 @@ export const ThemePreviewCard: React.FC<ThemePreviewCardProps> = ({
                   <div style={{ color: text }} className="text-[11px] font-medium truncate">
                     {item.name}
                   </div>
-                  <div style={{ color: text }} className="text-xs font-bold">
+                  <div style={{ color: text }} className="text-base font-extrabold">
                     {item.price}
                   </div>
                 </div>

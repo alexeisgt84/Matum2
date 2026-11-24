@@ -3,6 +3,11 @@ import type { Product } from '../../types/product';
 import { Edit3, Trash2, Tag, Coins, Send, PackageX, PackageCheck, GripVertical, Share2, Link2Off, Eye, EyeOff, Truck, Clock, Star } from 'lucide-react';
 
 import { shareContent } from '../../lib/share';
+import {
+  formatProductShareText,
+  shareTemplateUsesProductUrl,
+} from '../../lib/shareTemplate';
+import { getOrCreateShortLink } from '../../lib/shortLinks';
 import { getAppBaseUrl } from '../../lib/urlHelper';
 import { ProductBadgesOverlay, ProductBadgesInline } from './ProductBadges';
 
@@ -21,6 +26,7 @@ interface ProductCardProps {
   isSelected?: boolean;
   onSelect?: (id: string) => void;
   shareTemplate?: string | null;
+  catalogId?: string | null;
   catalogName?: string | null;
   contactNumber?: string | null;
   catalogSlug?: string | null;
@@ -47,6 +53,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isSelected,
   onSelect,
   shareTemplate,
+  catalogId,
   catalogName,
   contactNumber,
   catalogSlug,
@@ -91,14 +98,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const renderAdminProductPrice = () => {
     const price = product.price;
     const currency = product.currency;
+    const mainPriceClass = "text-accent font-extrabold text-base sm:text-lg tabular-nums mr-1";
     if (price === null) {
-      return <span className="text-accent font-bold text-[11px] tabular-nums mr-1">Consultar</span>;
+      return <span className={mainPriceClass}>Consultar</span>;
     }
 
     const hasDuality = ownerPlan && ownerPlan !== 'free';
     if (!hasDuality || !displayCurrency || displayCurrency === 'original') {
       return (
-        <span className="text-accent font-bold text-[11px] tabular-nums mr-1">
+        <span className={mainPriceClass}>
           {price.toLocaleString()} {currency}
         </span>
       );
@@ -115,17 +123,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
     switch (displayCurrency) {
       case 'usd':
-        return <span className="text-accent font-bold text-[11px] tabular-nums mr-1">{formattedUsd}</span>;
+        return <span className={mainPriceClass}>{formattedUsd}</span>;
       case 'cup':
-        return <span className="text-accent font-bold text-[11px] tabular-nums mr-1">{formattedCup}</span>;
+        return <span className={mainPriceClass}>{formattedCup}</span>;
       case 'both': {
         const isPrincipalUsd = currency === 'USD';
         const principal = isPrincipalUsd ? formattedUsd : formattedCup;
         const exchange = isPrincipalUsd ? formattedCup : formattedUsd;
         return (
-          <span className="text-accent font-bold text-[11px] tabular-nums mr-1">
+          <span className={mainPriceClass}>
             {principal}
-            <span className="text-[9px] font-normal opacity-60 text-secondary ml-1">
+            <span className="text-xs font-medium opacity-70 text-secondary ml-1">
               / {exchange}
             </span>
           </span>
@@ -133,7 +141,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       }
       default:
         return (
-          <span className="text-accent font-bold text-[11px] tabular-nums mr-1">
+          <span className={mainPriceClass}>
             {price.toLocaleString()} {currency}
           </span>
         );
@@ -144,30 +152,35 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     const { priceText, currencyText } = getDisplayPriceInfo();
     const baseUrl = appUrl || getAppBaseUrl();
     const affiliateParam = referralCode ? `?ref=${referralCode}` : '';
-    const productUrl = catalogSlug ? `${baseUrl}/${catalogSlug}/p/${product.id}${affiliateParam}` : '';
+    const longProductUrl = catalogSlug ? `${baseUrl}/${catalogSlug}/p/${product.id}${affiliateParam}` : '';
     const storeUrl = catalogSlug ? `${baseUrl}/${catalogSlug}${affiliateParam}` : '';
-    let text = '';
-    if (shareTemplate) {
-      const contactPhone = contactNumber || '';
-      text = shareTemplate
-        .replace(/{product_name}/g, (product.name || '').trim())
-        .replace(/{product_description}/g, (product.description || '').trim())
-        .replace(/{product_price}/g, priceText.trim())
-        .replace(/{product_currency}/g, currencyText.trim())
-        .replace(/{catalog_name}/g, (catalogName || '').trim())
-        .replace(/{contact_number}/g, contactPhone)
-        .replace(/{store_url}/g, productUrl || storeUrl)
-        .replace(/{product_url}/g, productUrl || storeUrl)
-        .replace(/{product_referral_url}/g, productUrl || storeUrl);
-    } else {
-      text = `*${product.name}*\n\nPrecio: ${priceText} ${currencyText}\n\n${product.description || ''}${productUrl ? `\n\nVer producto: ${productUrl}` : ''}`.trim();
-    }
+    const targetCatalogId = catalogId || product.catalog_id;
+    const productUrl =
+      catalogSlug && targetCatalogId && shareTemplateUsesProductUrl(shareTemplate)
+        ? await getOrCreateShortLink({
+            baseUrl,
+            catalogId: targetCatalogId,
+            productId: product.id,
+            referralCode,
+            fallbackUrl: longProductUrl,
+          })
+        : longProductUrl;
+    const text = formatProductShareText({
+      shareTemplate,
+      productName: product.name,
+      productDescription: product.description,
+      priceText,
+      currencyText,
+      catalogName,
+      contactNumber,
+      productUrl,
+      storeUrl,
+    });
 
     await shareContent({
       title: product.name,
-      text: text,
-      url: productUrl || storeUrl,
-      imageUrl: product.imagen_url || undefined
+      text,
+      imageUrl: product.imagen_url || undefined,
     });
   };
 

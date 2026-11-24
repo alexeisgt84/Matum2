@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { useAuthStore } from '../../store/authStore';
 import { useCommissions } from '../../hooks/useCommissions';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { supabase } from '../../lib/supabase';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -25,6 +26,7 @@ export const AffiliatesPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, loadUser } = useAuthStore();
   const { commissions, loading, getMyCommissions } = useCommissions();
+  const { getAppUrl } = useSystemSettings();
 
   const [copied, setCopied] = useState(false);
   const [editingPayout, setEditingPayout] = useState(false);
@@ -47,7 +49,7 @@ export const AffiliatesPage: React.FC = () => {
   }, [getMyCommissions, user]);
 
   const referralCode = user?.referral_code || 'ref_' + (user?.id ? user.id.substring(0, 6) : '');
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://nazaar.shop';
+  const baseUrl = getAppUrl();
   const referralDemoLink = `${baseUrl}/?ref=${referralCode}`;
 
   const handleCopyCode = async () => {

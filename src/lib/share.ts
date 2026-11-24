@@ -229,10 +229,7 @@ export const shareContent = async (options: ShareOptions) => {
   const allImageUrls = [...(imageUrl ? [imageUrl] : []), ...imageUrls];
 
   // Prepare full text for clipboard and sharing
-  const fullTextParts = [];
-  if (text) fullTextParts.push(text);
-  if (url) fullTextParts.push(url);
-  const fullText = fullTextParts.join('\n\n');
+  const fullText = buildTextWithUrl(text, url);
 
   // Copy to clipboard automatically as fallback (useful for Facebook/Instagram which ignore text in share intents)
   if (fullText) {
@@ -292,16 +289,8 @@ export const shareContent = async (options: ShareOptions) => {
 
       const nativeShareOptions: any = {
         title: title || 'Nazaar',
-        text: text || '',
+        text: buildTextWithUrl(text, url),
       };
-
-      if (url) {
-        if (nativeShareOptions.text) {
-          nativeShareOptions.text += `\n\n${url}`;
-        } else {
-          nativeShareOptions.text = url;
-        }
-      }
 
       if (fileUris.length > 0) {
         nativeShareOptions.files = fileUris;
@@ -401,8 +390,8 @@ export const shareContent = async (options: ShareOptions) => {
       } else {
         const parts = [];
         if (title) parts.push(`*${title}*`);
-        if (text) parts.push(text);
-        if (url) parts.push(url);
+        const bodyWithUrl = buildTextWithUrl(text, url);
+        if (bodyWithUrl) parts.push(bodyWithUrl);
 
         const contentToCopy = parts.join('\n\n');
         try {

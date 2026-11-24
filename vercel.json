@@ -1,7 +1,22 @@
 {
   "rewrites": [
     {
-      "source": "/:slug((?!api|login|register|forgot-password|catalogs|followed-catalogs|profile|admin|assets).*)/p/:productId",
+      "source": "/s/:code([A-Za-z0-9]{4,16})",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(WhatsApp|facebookexternalhit|Facebot|TelegramBot|Twitterbot|Discordbot|Slackbot|LinkedInBot|Applebot|Pinterest|SkypeUriPreview|Viber).*"
+        }
+      ],
+      "destination": "/api/short?code=:code&og=1"
+    },
+    {
+      "source": "/s/:code([A-Za-z0-9]{4,16})",
+      "destination": "/api/short?code=:code"
+    },
+    {
+      "source": "/:slug((?!api|s|login|register|forgot-password|catalogs|followed-catalogs|profile|admin|assets).*)/p/:productId",
       "has": [
         {
           "type": "header",
@@ -12,7 +27,7 @@
       "destination": "/api/og?slug=:slug&productId=:productId"
     },
     {
-      "source": "/:slug((?!api|login|register|forgot-password|catalogs|followed-catalogs|profile|admin|assets|icon\\.png|favicon-32x32\\.png|favicon-192x192\\.png|apple-touch-icon\\.png|manifest\\.webmanifest|sw\\.js|vite\\.svg)[^/]+)",
+      "source": "/:slug((?!api|s|login|register|forgot-password|catalogs|followed-catalogs|profile|admin|assets|icon\\.png|favicon-32x32\\.png|favicon-192x192\\.png|apple-touch-icon\\.png|manifest\\.webmanifest|sw\\.js|vite\\.svg)[^/]+)",
       "has": [
         {
           "type": "header",

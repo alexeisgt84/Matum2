@@ -128,8 +128,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <PriceTag
               parts={price}
               stacked
-              className="text-sm sm:text-base font-bold text-primary tracking-tight"
-              secondaryClassName="text-[10px] font-medium text-secondary"
+              className="font-display text-2xl sm:text-3xl font-extrabold text-primary tracking-tight leading-tight"
+              secondaryClassName="text-xs font-medium text-secondary"
             />
           </div>
 
@@ -239,7 +239,7 @@ export const ProductGridSkeleton: React.FC<{ count?: number }> = ({ count = 8 })
           <div className="h-3 w-4/5 rounded-md bg-surface animate-pulse" />
         </div>
         <div className="flex items-end justify-between pt-1">
-          <div className="h-3.5 w-2/5 rounded-md bg-surface animate-pulse" />
+          <div className="h-5 w-2/5 rounded-md bg-surface animate-pulse" />
           <div className="w-7 h-7 rounded-full bg-surface animate-pulse" />
         </div>
       </div>

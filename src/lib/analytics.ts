@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getCurrentPublicUrl } from './urlHelper';
 import {
   eachDayOfInterval,
   eachMonthOfInterval,
@@ -358,7 +359,7 @@ export const recordStoreView = async ({
   }
 
   const visitorId = getOrCreateVisitorId();
-  const referrerUrl = typeof document !== 'undefined' ? document.referrer || window.location.href : null;
+  const referrerUrl = typeof document !== 'undefined' ? document.referrer || getCurrentPublicUrl() : null;
   const cleanRef = referralCode?.trim() || null;
   const timezone = getVisitorTimezone();
   const countryCode = inferCountryFromTimezone(timezone);

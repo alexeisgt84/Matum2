@@ -21,6 +21,7 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { TrafficChart } from '../../components/admin/TrafficChart';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { 
   fetchViewsAnalytics, 
   type AnalyticsData, 
@@ -37,6 +38,7 @@ type DateRangeType = 'all' | 'today' | '7d' | '30d';
 
 export const ViewsAnalyticsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { getAppUrl } = useSystemSettings();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -431,7 +433,7 @@ export const ViewsAnalyticsPage: React.FC = () => {
                                 </h4>
                                 {store.slug && (
                                   <a
-                                    href={`/${store.slug}`}
+                                    href={`${getAppUrl()}/${store.slug}`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="text-secondary hover:text-accent transition-colors"
@@ -918,7 +920,7 @@ export const ViewsAnalyticsPage: React.FC = () => {
                             Tienda: <span className="font-medium text-primary">{prod.catalogName}</span>
                             {prod.catalogSlug && (
                               <a
-                                href={`/${prod.catalogSlug}/p/${prod.id}`}
+                                href={`${getAppUrl()}/${prod.catalogSlug}/p/${prod.id}`}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="inline-block ml-1 text-secondary hover:text-accent align-middle"

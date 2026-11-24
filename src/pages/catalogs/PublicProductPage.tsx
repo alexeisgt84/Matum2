@@ -18,7 +18,14 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { useCommissions } from '../../hooks/useCommissions';
 import { useStoreTheme } from '../../hooks/useStoreTheme';
+import { useSystemSettings } from '../../hooks/useSystemSettings';
 import { shareContent } from '../../lib/share';
+import {
+  formatProductShareText,
+  shareTemplateUsesProductUrl,
+} from '../../lib/shareTemplate';
+import { getCachedShortUrl, getOrCreateShortLink } from '../../lib/shortLinks';
+import { getCurrentPublicUrl } from '../../lib/urlHelper';
 import {
   buildPricingContext,
   getPriceParts,
@@ -59,6 +66,7 @@ export const PublicProductPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { settings, getAppUrl } = useSystemSettings();
   const { myAffiliation, checkAffiliateStatus, registerPendingCommission } = useCommissions();
 
   const [catalog, setCatalog] = useState<PublicCatalog | null>(null);
@@ -71,6 +79,7 @@ export const PublicProductPage: React.FC = () => {
 
   const [quantity, setQuantity] = useState(1);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [shortProductUrl, setShortProductUrl] = useState('');
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [showOrderSuccess, setShowOrderSuccess] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -390,7 +399,7 @@ export const PublicProductPage: React.FC = () => {
       description:
         product.description || `Disponible en ${catalog.name}. Haz tu pedido por WhatsApp.`,
       image: product.imagen_url || catalog.logo_url || catalog.cover_url,
-      url: typeof window !== 'undefined' ? window.location.href : undefined,
+      url: getCurrentPublicUrl(settings.app_url) || undefined,
       type: 'product',
       jsonLd: {
         '@type': 'Product',
@@ -410,7 +419,7 @@ export const PublicProductPage: React.FC = () => {
             : undefined,
       },
     });
-  }, [product, catalog]);
+  }, [product, catalog, settings.app_url]);
 
   const pricingCtx = useMemo(() => buildPricingContext(catalog, vendorPlan), [catalog, vendorPlan]);
   const unitPriceParts = useMemo(
@@ -422,36 +431,109 @@ export const PublicProductPage: React.FC = () => {
     [product, pricingCtx, quantity]
   );
 
+  const shareAffiliateCode =
+    (isApprovedAffiliate && user?.referral_code) || user?.referral_code || null;
+
   const productShareUrl = useMemo(() => {
-    if (typeof window === 'undefined' || !slug || !product) return '';
-    const baseUrl = `${window.location.protocol}//${window.location.host}`;
-    const affiliateCode =
-      (isApprovedAffiliate && user?.referral_code) || user?.referral_code;
-    const affiliateParam = affiliateCode ? `?ref=${affiliateCode}` : '';
+    if (!slug || !product) return '';
+    const baseUrl = getAppUrl();
+    const affiliateParam = shareAffiliateCode ? `?ref=${shareAffiliateCode}` : '';
     return `${baseUrl}/${slug}/p/${product.id}${affiliateParam}`;
-  }, [slug, product, isApprovedAffiliate, user?.referral_code]);
+  }, [slug, product, shareAffiliateCode, getAppUrl]);
+
+  const storeShareUrl = useMemo(() => {
+    if (!slug) return '';
+    const baseUrl = getAppUrl();
+    const affiliateParam = shareAffiliateCode ? `?ref=${shareAffiliateCode}` : '';
+    return `${baseUrl}/${slug}${affiliateParam}`;
+  }, [slug, shareAffiliateCode, getAppUrl]);
+
+  useEffect(() => {
+    if (!catalog?.id || !product?.id || !slug) {
+      setShortProductUrl('');
+      return;
+    }
+
+    let cancelled = false;
+    const baseUrl = getAppUrl();
+    const cached = getCachedShortUrl({
+      baseUrl,
+      catalogId: catalog.id,
+      productId: product.id,
+      referralCode: shareAffiliateCode,
+    });
+
+    if (cached) {
+      setShortProductUrl(cached);
+    } else {
+      setShortProductUrl('');
+      void getOrCreateShortLink({
+        baseUrl,
+        catalogId: catalog.id,
+        productId: product.id,
+        referralCode: shareAffiliateCode,
+        fallbackUrl: productShareUrl,
+      }).then((resolved) => {
+        if (!cancelled && resolved && resolved !== productShareUrl) {
+          setShortProductUrl(resolved);
+        }
+      });
+    }
+
+    try {
+      const activeRef =
+        localStorage.getItem(`matum_ref_${slug}`) ||
+        localStorage.getItem('matum_active_ref');
+      if (activeRef && activeRef !== (shareAffiliateCode || '')) {
+        const activeFallback = `${baseUrl}/${slug}/p/${product.id}?ref=${activeRef}`;
+        void getOrCreateShortLink({
+          baseUrl,
+          catalogId: catalog.id,
+          productId: product.id,
+          referralCode: activeRef,
+          fallbackUrl: activeFallback,
+        });
+      }
+    } catch {
+      // Ignorar errores de almacenamiento
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [catalog?.id, product?.id, slug, shareAffiliateCode, productShareUrl, getAppUrl]);
 
   const handleShareProduct = async () => {
     if (!product || !catalog) return;
 
+    const baseUrl = getAppUrl();
+    const resolvedProductUrl = shareTemplateUsesProductUrl(catalog.share_template)
+      ? shortProductUrl ||
+        (await getOrCreateShortLink({
+          baseUrl,
+          catalogId: catalog.id,
+          productId: product.id,
+          referralCode: shareAffiliateCode,
+          fallbackUrl: productShareUrl,
+        }))
+      : productShareUrl;
+
     const priceText = getPriceText(product, pricingCtx);
-    const text = catalog.share_template
-      ? catalog.share_template
-          .replace(/{product_name}/g, (product.name || '').trim())
-          .replace(/{product_description}/g, (product.description || '').trim())
-          .replace(/{product_price}/g, priceText.trim())
-          .replace(/{product_currency}/g, '')
-          .replace(/{catalog_name}/g, (catalog.name || '').trim())
-          .replace(/{contact_number}/g, vendorPhone || '')
-          .replace(/{store_url}/g, productShareUrl)
-          .replace(/{product_url}/g, productShareUrl)
-          .replace(/{product_referral_url}/g, productShareUrl)
-      : `*${product.name}*\n\nPrecio: ${priceText}\n\n${product.description || ''}\n\nVer producto: ${productShareUrl}`.trim();
+    const text = formatProductShareText({
+      shareTemplate: catalog.share_template,
+      productName: product.name,
+      productDescription: product.description,
+      priceText,
+      currencyText: '',
+      catalogName: catalog.name,
+      contactNumber: vendorPhone,
+      productUrl: resolvedProductUrl,
+      storeUrl: storeShareUrl,
+    });
 
     await shareContent({
       title: product.name,
       text,
-      url: productShareUrl,
       imageUrl: product.imagen_url || undefined,
     });
   };
@@ -459,7 +541,18 @@ export const PublicProductPage: React.FC = () => {
   const handleCopyLink = async () => {
     if (!productShareUrl) return;
     try {
-      await navigator.clipboard.writeText(productShareUrl);
+      const urlToCopy =
+        shortProductUrl ||
+        (catalog?.id && product?.id
+          ? await getOrCreateShortLink({
+              baseUrl: getAppUrl(),
+              catalogId: catalog.id,
+              productId: product.id,
+              referralCode: shareAffiliateCode,
+              fallbackUrl: productShareUrl,
+            })
+          : productShareUrl);
+      await navigator.clipboard.writeText(urlToCopy);
       setCopiedLink(true);
       toast.success(
         isApprovedAffiliate ? 'Enlace de afiliado copiado' : 'Enlace del producto copiado'
@@ -514,12 +607,17 @@ export const PublicProductPage: React.FC = () => {
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
     messageText += `*Tienda:* ${catalog.name}\n`;
     if (slug) {
-      const baseUrl =
-        typeof window !== 'undefined'
-          ? `${window.location.protocol}//${window.location.host}`
-          : 'https://nazaar.shop';
+      const baseUrl = getAppUrl();
       const refParam = activeRef ? `?ref=${activeRef}` : '';
-      messageText += `*Enlace del producto:* ${baseUrl}/${slug}/p/${product.id}${refParam}\n`;
+      const longFallbackUrl = `${baseUrl}/${slug}/p/${product.id}${refParam}`;
+      const orderProductUrl =
+        getCachedShortUrl({
+          baseUrl,
+          catalogId: catalog.id,
+          productId: product.id,
+          referralCode: activeRef,
+        }) || longFallbackUrl;
+      messageText += `*Enlace del producto:* ${orderProductUrl}\n`;
     }
     messageText += `━━━━━━━━━━━━━━━━━━━━\n`;
     messageText += `👤 *Datos de la persona que recibe:*\n`;
@@ -754,8 +852,8 @@ export const PublicProductPage: React.FC = () => {
               <PriceTag
                 parts={unitPriceParts}
                 stacked
-                className="font-display text-3xl sm:text-4xl font-semibold text-primary tracking-tight"
-                secondaryClassName="text-sm text-secondary mt-0.5"
+                className="font-display text-[1.75rem] sm:text-[2.25rem] leading-[1.15] font-extrabold text-primary tracking-tight"
+                secondaryClassName="text-base sm:text-lg font-medium text-secondary mt-1"
               />
             </div>
 
@@ -792,11 +890,11 @@ export const PublicProductPage: React.FC = () => {
                   <span className="text-sm text-secondary">Cantidad</span>
                   <div className="flex items-center gap-3">
                     {quantity > 1 && subtotalParts && (
-                      <span className="text-xs text-secondary">
+                      <span className="text-sm sm:text-base text-secondary">
                         Total{' '}
                         <PriceTag
                           parts={subtotalParts}
-                          className="font-semibold text-primary"
+                          className="text-base sm:text-lg font-bold text-primary"
                           secondaryClassName="hidden"
                         />
                       </span>
@@ -953,18 +1051,40 @@ export const PublicProductPage: React.FC = () => {
                         );
                       })
                     }
-                    onShare={e => {
+                    onShare={async e => {
                       e.stopPropagation();
-                      const affiliateCode =
-                        (isApprovedAffiliate && user?.referral_code) || user?.referral_code;
-                      const refParam = affiliateCode
-                        ? `?ref=${affiliateCode}`
+                      const baseUrl = getAppUrl();
+                      const urlRef = new URLSearchParams(location.search).get('ref');
+                      const effectiveRef = shareAffiliateCode || urlRef;
+                      const refParam = effectiveRef
+                        ? `?ref=${effectiveRef}`
                         : (location.search || '');
-                      const relUrl = `${window.location.origin}/${slug}/p/${rel.id}${refParam}`;
-                      shareContent({
+                      const longRelProductUrl = slug ? `${baseUrl}/${slug}/p/${rel.id}${refParam}` : '';
+                      const relStoreUrl = slug ? `${baseUrl}/${slug}${refParam}` : '';
+                      const relProductUrl =
+                        slug && catalog.id && shareTemplateUsesProductUrl(catalog.share_template)
+                          ? await getOrCreateShortLink({
+                              baseUrl,
+                              catalogId: catalog.id,
+                              productId: rel.id,
+                              referralCode: effectiveRef,
+                              fallbackUrl: longRelProductUrl,
+                            })
+                          : longRelProductUrl;
+                      const text = formatProductShareText({
+                        shareTemplate: catalog.share_template,
+                        productName: rel.name,
+                        productDescription: rel.description,
+                        priceText: getPriceText(rel, pricingCtx),
+                        currencyText: '',
+                        catalogName: catalog.name,
+                        contactNumber: vendorPhone,
+                        productUrl: relProductUrl,
+                        storeUrl: relStoreUrl,
+                      });
+                      await shareContent({
                         title: rel.name,
-                        text: `${rel.name} · ${getPriceText(rel, pricingCtx)}\n${relUrl}`,
-                        url: relUrl,
+                        text,
                         imageUrl: rel.imagen_url || undefined,
                       });
                     }}
