@@ -23,7 +23,26 @@ const DEFAULT_SETTINGS: Record<string, string> = {
 };
 
 const SETTINGS_UPDATED_EVENT = 'matum:system-settings-updated';
+const SETTINGS_TTL_MS = 5 * 60 * 1000;
 let memorySettingsCache: Record<string, string> = { ...DEFAULT_SETTINGS };
+let settingsFetchedAt = 0;
+let inFlightSettingsPromise: Promise<Record<string, string> | null> | null = null;
+
+function areSettingsEqual(a: Record<string, string>, b: Record<string, string>): boolean {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const key of keysA) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
+export function resetSystemSettingsCache(): void {
+  memorySettingsCache = { ...DEFAULT_SETTINGS };
+  settingsFetchedAt = 0;
+  inFlightSettingsPromise = null;
+}
 
 export function parseDisabledCatalogUsers(raw?: string | null): string[] {
   if (!raw) return [];
@@ -80,33 +99,64 @@ export function useSystemSettings() {
   const [settings, setSettings] = useState<Record<string, string>>(() => ({
     ...memorySettingsCache,
   }));
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => settingsFetchedAt === 0);
 
-  const fetchSettings = useCallback(async () => {
-    setLoading(true);
+  const fetchSettings = useCallback(async (force = false) => {
+    if (!force && settingsFetchedAt > 0 && Date.now() - settingsFetchedAt < SETTINGS_TTL_MS) {
+      setSettings((prev) =>
+        areSettingsEqual(prev, memorySettingsCache) ? prev : { ...memorySettingsCache }
+      );
+      setLoading(false);
+      return;
+    }
+
+    setLoading((prev) => (settingsFetchedAt === 0 ? true : prev));
     try {
       const tableQuery = supabase.from('system_settings');
       if (!tableQuery || typeof tableQuery.select !== 'function') {
         return;
       }
 
-      const { data, error } = await tableQuery.select('key, value');
+      if (!inFlightSettingsPromise || force) {
+        inFlightSettingsPromise = (async () => {
+          try {
+            const { data, error } = await tableQuery.select('key, value');
 
-      if (error) {
-        // En caso de que la tabla no exista o haya algún error de RLS, usamos fallback por defecto
-        console.warn('Advertencia al cargar system_settings (usando fallback):', error.message);
-        const fallback = { ...DEFAULT_SETTINGS };
-        setSettings(fallback);
-        broadcastSettingsUpdate(fallback);
-      } else if (data) {
-        const settingsMap: Record<string, string> = {
-          ...DEFAULT_SETTINGS,
-        };
-        data.forEach((item) => {
-          settingsMap[item.key] = item.value;
-        });
-        setSettings(settingsMap);
-        broadcastSettingsUpdate(settingsMap);
+            if (error) {
+              // En caso de que la tabla no exista o haya algún error de RLS, usamos fallback por defecto
+              console.warn('Advertencia al cargar system_settings (usando fallback):', error.message);
+              const fallback = { ...DEFAULT_SETTINGS };
+              settingsFetchedAt = Date.now();
+              if (!areSettingsEqual(memorySettingsCache, fallback)) {
+                broadcastSettingsUpdate(fallback);
+              }
+              return fallback;
+            }
+
+            if (Array.isArray(data)) {
+              const settingsMap: Record<string, string> = {
+                ...DEFAULT_SETTINGS,
+              };
+              data.forEach((item) => {
+                settingsMap[item.key] = item.value;
+              });
+              settingsFetchedAt = Date.now();
+              if (!areSettingsEqual(memorySettingsCache, settingsMap)) {
+                broadcastSettingsUpdate(settingsMap);
+              }
+              return settingsMap;
+            }
+
+            return null;
+          } finally {
+            inFlightSettingsPromise = null;
+          }
+        })();
+      }
+
+      const resolved = await inFlightSettingsPromise;
+      if (resolved) {
+        setSettings((prev) => (areSettingsEqual(prev, resolved) ? prev : resolved));
       }
     } catch (err) {
       console.error('Error al consultar system_settings:', err);
@@ -124,7 +174,9 @@ export function useSystemSettings() {
     const handleSync = (event: Event) => {
       const customEvent = event as CustomEvent<Record<string, string>>;
       if (customEvent.detail) {
-        setSettings(customEvent.detail);
+        setSettings((prev) =>
+          areSettingsEqual(prev, customEvent.detail) ? prev : customEvent.detail
+        );
       }
     };
     window.addEventListener(SETTINGS_UPDATED_EVENT, handleSync);
@@ -145,6 +197,7 @@ export function useSystemSettings() {
         ...memorySettingsCache,
         [key]: value,
       };
+      settingsFetchedAt = Date.now();
       setSettings(nextSettings);
       broadcastSettingsUpdate(nextSettings);
     };
@@ -247,13 +300,15 @@ export function useSystemSettings() {
     [settings]
   );
 
+  const refresh = useCallback(() => fetchSettings(true), [fetchSettings]);
+
   return {
     settings,
     loading,
     getAppUrl,
     getAppHost,
     updateSetting,
-    refresh: fetchSettings,
+    refresh,
     isGlobalCatalogCreationEnabled,
     disabledCatalogUserIds,
     setGlobalCatalogCreation,

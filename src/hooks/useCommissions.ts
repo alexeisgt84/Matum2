@@ -3,6 +3,13 @@ import { supabase } from '../lib/supabase';
 import type { Commission, CommissionStatus, CatalogAffiliate, AffiliateApplicationStatus } from '../types/commission';
 import { toast } from 'react-hot-toast';
 
+const AFFILIATE_CACHE_TTL_MS = 60 * 1000;
+const affiliateStatusCache = new Map<string, { data: CatalogAffiliate | null; fetchedAt: number }>();
+
+export function clearAffiliateStatusCache(): void {
+  affiliateStatusCache.clear();
+}
+
 export const useCommissions = () => {
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [catalogAffiliates, setCatalogAffiliates] = useState<CatalogAffiliate[]>([]);
@@ -204,37 +211,52 @@ export const useCommissions = () => {
   };
 
   // Consultar estado de afiliación de un usuario en un catálogo (para la vista tienda)
-  const checkAffiliateStatus = useCallback(async (catalogId: string, userId?: string) => {
-    if (!catalogId || !userId) {
-      setMyAffiliation(null);
-      return null;
-    }
-    try {
-      const { data, error } = await supabase
-        .from('catalog_affiliates')
-        .select(`
-          id,
-          catalog_id,
-          user_id,
-          status,
-          created_at,
-          updated_at
-        `)
-        .eq('catalog_id', catalogId)
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error checking affiliate status:', error);
+  const checkAffiliateStatus = useCallback(
+    async (catalogId: string, userId?: string, force = false) => {
+      if (!catalogId || !userId) {
+        setMyAffiliation(null);
+        return null;
       }
-      setMyAffiliation(data || null);
-      return data || null;
-    } catch (err) {
-      console.error('Error checking affiliate status:', err);
-      setMyAffiliation(null);
-      return null;
-    }
-  }, []);
+
+      const cacheKey = `${catalogId}::${userId}`;
+      if (!force) {
+        const cached = affiliateStatusCache.get(cacheKey);
+        if (cached && Date.now() - cached.fetchedAt < AFFILIATE_CACHE_TTL_MS) {
+          setMyAffiliation(cached.data);
+          return cached.data;
+        }
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('catalog_affiliates')
+          .select(`
+            id,
+            catalog_id,
+            user_id,
+            status,
+            created_at,
+            updated_at
+          `)
+          .eq('catalog_id', catalogId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error checking affiliate status:', error);
+        }
+        const resolved = data || null;
+        affiliateStatusCache.set(cacheKey, { data: resolved, fetchedAt: Date.now() });
+        setMyAffiliation(resolved);
+        return resolved;
+      } catch (err) {
+        console.error('Error checking affiliate status:', err);
+        setMyAffiliation(null);
+        return null;
+      }
+    },
+    []
+  );
 
   // Postularse para ser afiliado desde la tienda
   const applyForAffiliation = async (catalogId: string, fallbackUserId?: string) => {
@@ -269,6 +291,10 @@ export const useCommissions = () => {
 
         if (!rpcError && rpcData) {
           const formatted = (typeof rpcData === 'object' ? rpcData : JSON.parse(rpcData)) as CatalogAffiliate;
+          affiliateStatusCache.set(`${catalogId}::${activeUserId}`, {
+            data: formatted,
+            fetchedAt: Date.now(),
+          });
           setMyAffiliation(formatted);
           toast.success('¡Solicitud de afiliado enviada con éxito! Espera la aprobación del dueño de la tienda.');
           return formatted;
@@ -306,6 +332,10 @@ export const useCommissions = () => {
         return null;
       }
 
+      affiliateStatusCache.set(`${catalogId}::${activeUserId}`, {
+        data,
+        fetchedAt: Date.now(),
+      });
       setMyAffiliation(data);
       toast.success('¡Solicitud de afiliado enviada con éxito! Espera la aprobación del dueño de la tienda.');
       return data;

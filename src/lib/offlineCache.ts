@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 
 const DB_NAME = 'matum_offline_db';
 const DB_VERSION = 1;
-export const IMAGE_CACHE_NAME = 'matum-images-v1';
+export const IMAGE_CACHE_NAME = 'matum-images-v2';
 
 // Estado reactivo de conectividad real (por si Android reporta navigator.onLine = true sin acceso real a internet)
 let networkUnreachableUntil = 0;
@@ -176,6 +176,9 @@ export async function cacheImageUrls(urls: (string | null | undefined)[]): Promi
 
     for (let i = 0; i < validUrls.length; i += BATCH_SIZE) {
       if (isOffline()) break;
+      if (i > 0) {
+        await new Promise((r) => setTimeout(r, 120));
+      }
       const batch = validUrls.slice(i, i + BATCH_SIZE);
       await Promise.all(
         batch.map(async (url) => {
@@ -368,7 +371,8 @@ export async function getCatalogFromCache(idOrSlug: string): Promise<any | null>
 // ==========================================
 export async function saveCatalogProductsToCache(
   catalogId: string,
-  products: any[]
+  products: any[],
+  options?: { prefetchImages?: boolean }
 ): Promise<void> {
   if (!catalogId || !Array.isArray(products)) return;
   memoryFallback.products.set(catalogId, products);
@@ -391,24 +395,27 @@ export async function saveCatalogProductsToCache(
     });
   }
 
-  cacheImageUrls(products.map((p) => p?.imagen_url));
+  if (options?.prefetchImages !== false) {
+    cacheImageUrls(products.map((p) => p?.imagen_url));
+  }
 }
 
 export async function upsertCatalogProductsInCache(
   catalogId: string,
-  partialProducts: any[]
+  partialProducts: any[],
+  options?: { prefetchImages?: boolean }
 ): Promise<void> {
   if (!catalogId || !Array.isArray(partialProducts) || partialProducts.length === 0) return;
   const existing = await getCatalogProductsFromCache(catalogId);
   if (!existing || existing.length === 0) {
-    await saveCatalogProductsToCache(catalogId, partialProducts);
+    await saveCatalogProductsToCache(catalogId, partialProducts, options);
     return;
   }
 
   const map = new Map<string, any>();
   existing.forEach((p) => map.set(p.id, p));
   partialProducts.forEach((p) => map.set(p.id, { ...(map.get(p.id) || {}), ...p }));
-  await saveCatalogProductsToCache(catalogId, Array.from(map.values()));
+  await saveCatalogProductsToCache(catalogId, Array.from(map.values()), options);
 }
 
 export async function getCatalogProductsFromCache(catalogId: string): Promise<any[] | null> {

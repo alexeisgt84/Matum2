@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ShoppingBag,
@@ -44,6 +44,14 @@ import {
   getCatalogProductsFromCache,
   upsertCatalogProductsInCache,
 } from '../../lib/offlineCache';
+import {
+  PRODUCTS_FRESH_TTL_MS,
+  computeRelatedProductsFromList,
+  getVerifiedStoreSession,
+  markProductPageVisited,
+  saveVerifiedStoreSession,
+  updateProductInStoreSession,
+} from '../../lib/publicStoreSessionCache';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Modal } from '../../components/ui/Modal';
@@ -57,9 +65,21 @@ import { CatalogInactiveView } from '../../components/store/CatalogInactiveView'
 import type { CartItem, PublicCatalog, PublicProduct } from '../../types/store';
 
 const CATALOG_SELECT =
-  'id, slug, name, slogan, description, user_id, is_active, is_public, inactive_reason, reopen_at, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, catalog_type, is_blocked, blocked_reason';
+  'id, slug, name, slogan, description, user_id, is_active, is_public, inactive_reason, reopen_at, logo_url, cover_url, primary_color, background_color, surface_color, text_color, title_color, follow_code, footer_address, footer_phone, footer_email, footer_schedule, footer_instagram, footer_facebook, min_order_amount, min_order_currency, usd_to_cup_rate, cup_to_usd_rate, display_currency, share_template, enable_affiliates, commission_type, commission_value, min_payout_amount, catalog_type, is_blocked, blocked_reason';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+interface ProductRouteState {
+  fromStore?: boolean;
+  fromRelated?: boolean;
+  catalog?: PublicCatalog;
+  product?: PublicProduct;
+  vendorPhone?: string;
+  vendorPlan?: string;
+}
+
+const isUsableCatalog = (cat?: PublicCatalog | null): cat is PublicCatalog =>
+  Boolean(cat && cat.is_active !== false && cat.is_public !== false && !cat.is_blocked);
 
 export const PublicProductPage: React.FC = () => {
   const { slug, productId } = useParams<{ slug: string; productId: string }>();
@@ -69,12 +89,45 @@ export const PublicProductPage: React.FC = () => {
   const { settings, getAppUrl } = useSystemSettings();
   const { myAffiliation, checkAffiliateStatus, registerPendingCommission } = useCommissions();
 
-  const [catalog, setCatalog] = useState<PublicCatalog | null>(null);
-  const [product, setProduct] = useState<PublicProduct | null>(null);
-  const [relatedProducts, setRelatedProducts] = useState<PublicProduct[]>([]);
-  const [vendorPhone, setVendorPhone] = useState<string>('');
-  const [vendorPlan, setVendorPlan] = useState<string>('free');
-  const [loading, setLoading] = useState(true);
+  const navState = (location.state as ProductRouteState | null) ?? null;
+  const initialSessionEntry = slug ? getVerifiedStoreSession(slug) : null;
+  const canHydrateFromNavOrStore = Boolean(
+    initialSessionEntry?.productsComplete ||
+      navState?.fromStore ||
+      (productId && navState?.product?.id === productId)
+  );
+  const initialCatalog = canHydrateFromNavOrStore
+    ? isUsableCatalog(initialSessionEntry?.catalog)
+      ? initialSessionEntry!.catalog
+      : isUsableCatalog(navState?.catalog) &&
+          (!slug ||
+            !navState?.catalog?.slug ||
+            navState.catalog.slug === slug ||
+            navState.catalog.id === slug)
+        ? navState!.catalog!
+        : null
+    : null;
+  const initialProduct =
+    initialCatalog && productId
+      ? navState?.product?.id === productId
+        ? navState.product
+        : initialSessionEntry?.products.find((p) => p.id === productId) ?? null
+      : null;
+  const initialRelated =
+    initialProduct && initialSessionEntry?.products.length
+      ? computeRelatedProductsFromList(initialSessionEntry.products, initialProduct)
+      : [];
+
+  const [catalog, setCatalog] = useState<PublicCatalog | null>(() => initialCatalog);
+  const [product, setProduct] = useState<PublicProduct | null>(() => initialProduct);
+  const [relatedProducts, setRelatedProducts] = useState<PublicProduct[]>(() => initialRelated);
+  const [vendorPhone, setVendorPhone] = useState<string>(
+    () => initialSessionEntry?.vendorPhone || navState?.vendorPhone || initialCatalog?.footer_phone || ''
+  );
+  const [vendorPlan, setVendorPlan] = useState<string>(
+    () => initialSessionEntry?.vendorPlan || navState?.vendorPlan || 'free'
+  );
+  const [loading, setLoading] = useState(() => !(initialCatalog && initialProduct));
   const [error, setError] = useState<string | null>(null);
 
   const [quantity, setQuantity] = useState(1);
@@ -98,11 +151,18 @@ export const PublicProductPage: React.FC = () => {
     const nextStatus = !product.is_out_of_stock;
     const success = await toggleMarketplaceStock(product.id, nextStatus);
     if (success) {
+      const nextStockStatus = nextStatus ? 'out_of_stock' : 'available';
       setProduct(prev => prev ? {
         ...prev,
         is_out_of_stock: nextStatus,
-        stock_status: nextStatus ? 'out_of_stock' : 'available'
+        stock_status: nextStockStatus
       } : null);
+      if (slug || catalog?.id) {
+        updateProductInStoreSession(slug || catalog!.id, product.id, {
+          is_out_of_stock: nextStatus,
+          stock_status: nextStockStatus,
+        });
+      }
       toast.success(nextStatus ? 'Producto marcado como agotado' : 'Producto disponible');
     } else {
       toast.error('No se pudo cambiar el estado');
@@ -111,6 +171,9 @@ export const PublicProductPage: React.FC = () => {
 
   const handleProductUpdated = (updated: Partial<PublicProduct>) => {
     setProduct(prev => prev ? { ...prev, ...updated } : null);
+    if (product?.id && (slug || catalog?.id)) {
+      updateProductInStoreSession(slug || catalog!.id, product.id, updated);
+    }
     toast.success('Publicación actualizada');
   };
 
@@ -154,14 +217,48 @@ export const PublicProductPage: React.FC = () => {
     styleId: 'theme-dynamic-styles-product',
   });
 
-  useEffect(() => {
+  const persistCartNow = (nextCart: CartItem[]) => {
     if (!slug) return;
     try {
-      localStorage.setItem(`matum_cart_${slug}`, JSON.stringify(cart));
+      localStorage.setItem(`matum_cart_${slug}`, JSON.stringify(nextCart));
     } catch (e) {
       console.warn('Error saving cart to localStorage', e);
     }
+  };
+
+  useEffect(() => {
+    persistCartNow(cart);
   }, [cart, slug]);
+
+  // Subir al inicio al abrir o cambiar de producto sin parpadeo
+  useLayoutEffect(() => {
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.scrollTo === 'function' &&
+      !/jsdom/i.test(typeof navigator !== 'undefined' ? navigator.userAgent : '')
+    ) {
+      try {
+        window.scrollTo(0, 0);
+      } catch {
+        // Ignorar en entornos sin scrollTo
+      }
+    }
+  }, [productId]);
+
+  // Marcar visita a ficha de producto para habilitar retorno instantáneo a la tienda
+  useEffect(() => {
+    if (slug && catalog && !catalog.is_blocked && catalog.is_public !== false) {
+      markProductPageVisited(slug);
+    }
+  }, [slug, catalog]);
+
+  // Precargar chunk de la tienda si el usuario entró directo por enlace al producto
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void import('./PublicCatalogPage').catch(() => {});
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Capturar código de afiliado desde ?ref=...
   useEffect(() => {
@@ -188,7 +285,65 @@ export const PublicProductPage: React.FC = () => {
       if (!slug || !productId) return;
       setError(null);
 
-      const cachedCat = await getCatalogFromCache(slug);
+      const currentSession = getVerifiedStoreSession(slug);
+      const currentNavState = (location.state as ProductRouteState | null) ?? null;
+      const canHydrateEffect = Boolean(
+        currentSession?.productsComplete ||
+          currentNavState?.fromStore ||
+          currentNavState?.product?.id === productId
+      );
+
+      const hydratedCatalog = canHydrateEffect
+        ? isUsableCatalog(currentSession?.catalog)
+          ? currentSession!.catalog
+          : isUsableCatalog(currentNavState?.catalog) &&
+              (!currentNavState?.catalog?.slug ||
+                currentNavState.catalog.slug === slug ||
+                currentNavState.catalog.id === slug)
+            ? currentNavState!.catalog!
+            : null
+        : null;
+
+      const hydratedProduct = hydratedCatalog
+        ? currentNavState?.product?.id === productId
+          ? currentNavState.product
+          : currentSession?.products.find((p) => p.id === productId) ?? null
+        : null;
+
+      const hydratedRelated =
+        hydratedProduct && currentSession?.products.length
+          ? computeRelatedProductsFromList(currentSession.products, hydratedProduct)
+          : [];
+
+      const hasHydratedView = Boolean(hydratedCatalog && hydratedProduct);
+
+      if (hasHydratedView) {
+        setCatalog(hydratedCatalog);
+        setProduct(hydratedProduct);
+        setRelatedProducts(hydratedRelated);
+        setVendorPhone(
+          currentSession?.vendorPhone ||
+            currentNavState?.vendorPhone ||
+            hydratedCatalog?.footer_phone ||
+            ''
+        );
+        setVendorPlan(
+          currentSession?.vendorPlan || currentNavState?.vendorPlan || 'free'
+        );
+        setQuantity(1);
+        setLoading(false);
+        markProductPageVisited(slug);
+
+        if (
+          currentSession?.productsComplete &&
+          Date.now() - currentSession.productsFetchedAt < PRODUCTS_FRESH_TTL_MS &&
+          !isOffline()
+        ) {
+          return;
+        }
+      }
+
+      const cachedCat = hasHydratedView ? null : await getCatalogFromCache(slug);
       let cachedProd: any = null;
       if (cachedCat) {
         const cachedProds = await getCatalogProductsFromCache(cachedCat.id);
@@ -196,6 +351,7 @@ export const PublicProductPage: React.FC = () => {
       }
 
       if (isOffline()) {
+        if (hasHydratedView) return;
         if (!cachedCat || !cachedProd) {
           setError('Sin conexión. Este producto aún no está guardado en el dispositivo.');
         } else if (cachedCat.is_blocked) {
@@ -216,7 +372,9 @@ export const PublicProductPage: React.FC = () => {
         return;
       }
 
-      setLoading(true);
+      if (!hasHydratedView) {
+        setLoading(true);
+      }
 
       try {
         let { data: catData, error: catError } = await supabase
@@ -237,6 +395,7 @@ export const PublicProductPage: React.FC = () => {
         if (catError) throw catError;
 
         if (catData?.is_blocked) {
+          saveVerifiedStoreSession(slug, { catalog: catData });
           await saveCatalogToCache({ ...catData, slug: (catData as any).slug || slug });
           setCatalog(null);
           setProduct(null);
@@ -247,6 +406,7 @@ export const PublicProductPage: React.FC = () => {
 
         if (!catData || !catData.is_public) {
           if (catData) {
+            saveVerifiedStoreSession(slug, { catalog: catData });
             await saveCatalogToCache({ ...catData, slug: (catData as any).slug || slug });
           }
           setCatalog(null);
@@ -257,6 +417,7 @@ export const PublicProductPage: React.FC = () => {
         }
 
         if (!catData.is_active) {
+          saveVerifiedStoreSession(slug, { catalog: catData });
           await saveCatalogToCache({ ...catData, slug: (catData as any).slug || slug });
           setCatalog(catData);
           setProduct(null);
@@ -266,7 +427,7 @@ export const PublicProductPage: React.FC = () => {
         }
 
         setCatalog(catData);
-        if (cachedProd && cachedCat?.id === catData.id) {
+        if (!hasHydratedView && cachedProd && cachedCat?.id === catData.id) {
           setProduct(cachedProd);
           setVendorPhone(cachedCat._vendorInfo?.vendorPhone || catData.footer_phone || '');
           setVendorPlan(cachedCat._vendorInfo?.vendorPlan || 'free');
@@ -299,7 +460,9 @@ export const PublicProductPage: React.FC = () => {
         if (prodResult.error) throw prodResult.error;
 
         if (!prodResult.data || !prodResult.data.is_active) {
-          if (!cachedProd) setError('El producto no está disponible o no existe.');
+          if (!cachedProd && !hasHydratedView) {
+            setError('El producto no está disponible o no existe.');
+          }
           setLoading(false);
           return;
         }
@@ -322,13 +485,27 @@ export const PublicProductPage: React.FC = () => {
         setVendorPhone(vPhone);
         setVendorPlan(vPlan);
 
-        await saveCatalogToCache(
+        saveVerifiedStoreSession(slug, {
+          catalog: catData,
+          products: [currentProd, ...availableRelated],
+          productsComplete: currentSession?.productsComplete ?? false,
+          vendorPhone: vPhone,
+          vendorPlan: vPlan,
+        });
+        markProductPageVisited(slug);
+
+        void saveCatalogToCache(
           { ...catData, slug: (catData as any).slug || slug },
           { vendorPhone: vPhone, vendorPlan: vPlan }
         );
-        await upsertCatalogProductsInCache(catData.id, [prodResult.data]);
+        void upsertCatalogProductsInCache(catData.id, [prodResult.data], {
+          prefetchImages: false,
+        });
       } catch (err: any) {
         console.error('Error fetching product data:', err);
+        if (hasHydratedView) {
+          return;
+        }
         if (cachedCat && cachedProd && isNetworkError(err)) {
           if (cachedCat.is_blocked) {
             setCatalog(null);
@@ -358,7 +535,7 @@ export const PublicProductPage: React.FC = () => {
       }
     };
 
-    fetchData();
+    void fetchData();
   }, [slug, productId]);
 
   useEffect(() => {
@@ -449,8 +626,10 @@ export const PublicProductPage: React.FC = () => {
   }, [slug, shareAffiliateCode, getAppUrl]);
 
   useEffect(() => {
-    if (!catalog?.id || !product?.id || !slug) {
-      setShortProductUrl('');
+    if (loading || !catalog?.id || !product?.id || !slug) {
+      if (!catalog?.id || !product?.id || !slug) {
+        setShortProductUrl('');
+      }
       return;
     }
 
@@ -467,41 +646,49 @@ export const PublicProductPage: React.FC = () => {
       setShortProductUrl(cached);
     } else {
       setShortProductUrl('');
-      void getOrCreateShortLink({
-        baseUrl,
-        catalogId: catalog.id,
-        productId: product.id,
-        referralCode: shareAffiliateCode,
-        fallbackUrl: productShareUrl,
-      }).then((resolved) => {
-        if (!cancelled && resolved && resolved !== productShareUrl) {
-          setShortProductUrl(resolved);
-        }
-      });
     }
 
-    try {
-      const activeRef =
-        localStorage.getItem(`matum_ref_${slug}`) ||
-        localStorage.getItem('matum_active_ref');
-      if (activeRef && activeRef !== (shareAffiliateCode || '')) {
-        const activeFallback = `${baseUrl}/${slug}/p/${product.id}?ref=${activeRef}`;
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+
+      if (!cached) {
         void getOrCreateShortLink({
           baseUrl,
           catalogId: catalog.id,
           productId: product.id,
-          referralCode: activeRef,
-          fallbackUrl: activeFallback,
+          referralCode: shareAffiliateCode,
+          fallbackUrl: productShareUrl,
+        }).then((resolved) => {
+          if (!cancelled && resolved && resolved !== productShareUrl) {
+            setShortProductUrl(resolved);
+          }
         });
       }
-    } catch {
-      // Ignorar errores de almacenamiento
-    }
+
+      try {
+        const activeRef =
+          localStorage.getItem(`matum_ref_${slug}`) ||
+          localStorage.getItem('matum_active_ref');
+        if (activeRef && activeRef !== (shareAffiliateCode || '')) {
+          const activeFallback = `${baseUrl}/${slug}/p/${product.id}?ref=${activeRef}`;
+          void getOrCreateShortLink({
+            baseUrl,
+            catalogId: catalog.id,
+            productId: product.id,
+            referralCode: activeRef,
+            fallbackUrl: activeFallback,
+          });
+        }
+      } catch {
+        // Ignorar errores de almacenamiento
+      }
+    }, 50);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [catalog?.id, product?.id, slug, shareAffiliateCode, productShareUrl, getAppUrl]);
+  }, [loading, catalog?.id, product?.id, slug, shareAffiliateCode, productShareUrl, getAppUrl]);
 
   const handleShareProduct = async () => {
     if (!product || !catalog) return;
@@ -567,14 +754,15 @@ export const PublicProductPage: React.FC = () => {
     if (!product) return;
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
-      if (existing) {
-        return prev.map(item =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + quantity }
-            : item
-        );
-      }
-      return [...prev, { product, quantity }];
+      const nextCart = existing
+        ? prev.map(item =>
+            item.product.id === product.id
+              ? { ...item, quantity: item.quantity + quantity }
+              : item
+          )
+        : [...prev, { product, quantity }];
+      persistCartNow(nextCart);
+      return nextCart;
     });
     toast.success(
       `${quantity} ${quantity === 1 ? 'unidad agregada' : 'unidades agregadas'} al pedido`
@@ -757,6 +945,12 @@ export const PublicProductPage: React.FC = () => {
         <div className="max-w-5xl mx-auto px-3 sm:px-5 h-14 flex items-center justify-between gap-3">
           <Link
             to={storeUrl}
+            onClick={(e) => {
+              if (navState?.fromStore && !navState?.fromRelated) {
+                e.preventDefault();
+                navigate(-1);
+              }
+            }}
             className="inline-flex items-center gap-2 min-w-0 -ml-1 pl-1 pr-2 py-1 rounded-full hover:bg-surface transition-colors"
             aria-label="Volver a la tienda"
           >
@@ -1027,28 +1221,42 @@ export const PublicProductPage: React.FC = () => {
                     price={getPriceParts(rel, pricingCtx)}
                     showCommission={canSeeCommissions}
                     isMarketplace={isMarketplace}
-                    onOpen={() => navigate(`/${slug}/p/${rel.id}${location.search}`)}
+                    onOpen={() =>
+                      navigate(`/${slug}/p/${rel.id}${location.search}`, {
+                        state: {
+                          fromStore: navState?.fromStore,
+                          fromRelated: true,
+                          catalog,
+                          product: rel,
+                          vendorPhone,
+                          vendorPlan,
+                        },
+                      })
+                    }
                     onAdd={() =>
                       setCart(prev => {
                         const existing = prev.find(i => i.product.id === rel.id);
-                        if (existing) {
-                          return prev.map(i =>
-                            i.product.id === rel.id ? { ...i, quantity: i.quantity + 1 } : i
-                          );
-                        }
-                        return [...prev, { product: rel, quantity: 1 }];
+                        const nextCart = existing
+                          ? prev.map(i =>
+                              i.product.id === rel.id ? { ...i, quantity: i.quantity + 1 } : i
+                            )
+                          : [...prev, { product: rel, quantity: 1 }];
+                        persistCartNow(nextCart);
+                        return nextCart;
                       })
                     }
                     onRemove={() =>
                       setCart(prev => {
                         const existing = prev.find(i => i.product.id === rel.id);
                         if (!existing) return prev;
-                        if (existing.quantity === 1) {
-                          return prev.filter(i => i.product.id !== rel.id);
-                        }
-                        return prev.map(i =>
-                          i.product.id === rel.id ? { ...i, quantity: i.quantity - 1 } : i
-                        );
+                        const nextCart =
+                          existing.quantity === 1
+                            ? prev.filter(i => i.product.id !== rel.id)
+                            : prev.map(i =>
+                                i.product.id === rel.id ? { ...i, quantity: i.quantity - 1 } : i
+                              );
+                        persistCartNow(nextCart);
+                        return nextCart;
                       })
                     }
                     onShare={async e => {
